@@ -118,13 +118,13 @@ class App {
     const styleRadios = document.querySelectorAll('input[name="card-style"]');
     const suggestBtn = document.getElementById('suggest-wish-btn');
 
-    // Default mock values for instant great experience
-    if (senderName) senderName.value = "Lê Quỳnh Quyên";
-    if (senderEmail) senderEmail.value = "quyenlq@fpt.net";
-    if (recipientName) recipientName.value = "Nguyễn Văn Hùng";
+    // Start with clean empty inputs (User requested no pre-filled text)
+    if (senderName) senderName.value = "";
+    if (senderEmail) senderEmail.value = "";
+    if (recipientName) recipientName.value = "";
     if (messageInput) {
-      messageInput.value = SAMPLE_WISHES[0];
-      charCounter.textContent = `${messageInput.value.length}/500 ký tự`;
+      messageInput.value = "";
+      if (charCounter) charCounter.textContent = "0/500 ký tự";
     }
 
     // Input change events to update card preview immediately
@@ -189,17 +189,41 @@ class App {
     }
   }
 
-  getCurrentFormData() {
+  getCurrentFormData(isForPreview = true) {
+    const sName = document.getElementById('sender-name')?.value?.trim() || '';
+    const sEmail = document.getElementById('sender-email')?.value?.trim() || '';
+    const sDept = document.getElementById('sender-dept')?.value || '';
+    const sCode = document.getElementById('sender-code')?.value?.trim() || '';
+    const rName = document.getElementById('recipient-name')?.value?.trim() || '';
+    const rEmail = document.getElementById('recipient-email')?.value?.trim() || '';
+    const rRole = document.getElementById('recipient-role')?.value || '';
+    const msg = document.getElementById('tribute-message')?.value?.trim() || '';
+
+    if (!isForPreview) {
+      return {
+        senderName: sName,
+        senderEmail: sEmail,
+        senderDept: sDept,
+        senderCode: sCode,
+        recipientName: rName,
+        recipientEmail: rEmail,
+        recipientRole: rRole,
+        tag: this.selectedTag,
+        message: msg,
+        cardStyle: this.selectedCardStyle
+      };
+    }
+
     return {
-      senderName: document.getElementById('sender-name')?.value || 'Đồng nghiệp FTEL',
-      senderEmail: document.getElementById('sender-email')?.value || 'dongnghiep@fpt.net',
-      senderDept: document.getElementById('sender-dept')?.value || 'FPT Telecom',
-      senderCode: document.getElementById('sender-code')?.value || '',
-      recipientName: document.getElementById('recipient-name')?.value || 'Người Thầy / Mentor FTEL',
-      recipientEmail: document.getElementById('recipient-email')?.value || 'mentor@fpt.net',
-      recipientRole: document.getElementById('recipient-role')?.value || 'Mentor chia sẻ tri thức',
+      senderName: sName || 'Đồng nghiệp FTEL',
+      senderEmail: sEmail || 'dongnghiep@fpt.net',
+      senderDept: sDept || 'FPT Telecom',
+      senderCode: sCode,
+      recipientName: rName || 'Người Thầy / Mentor FTEL',
+      recipientEmail: rEmail || 'mentor@fpt.net',
+      recipientRole: rRole || 'Mentor chia sẻ tri thức',
       tag: this.selectedTag,
-      message: document.getElementById('tribute-message')?.value || 'Cảm ơn Anh/Chị đã luôn tận tâm truyền lửa và thắp sáng tri thức!',
+      message: msg || 'Cảm ơn Anh/Chị đã luôn tận tâm truyền lửa và thắp sáng tri thức!',
       cardStyle: this.selectedCardStyle
     };
   }
@@ -208,7 +232,7 @@ class App {
     const canvas = document.getElementById('card-preview-canvas');
     if (!canvas) return;
 
-    const data = this.getCurrentFormData();
+    const data = this.getCurrentFormData(true);
     this.lastCardData = data;
 
     // Render on preview canvas (chuẩn tỷ lệ 1080x1440 sắc nét)
@@ -250,7 +274,7 @@ class App {
     const submitBtn = document.getElementById('submit-tribute-btn');
     if (submitBtn.disabled) return;
 
-    const data = this.getCurrentFormData();
+    const data = this.getCurrentFormData(false);
 
     try {
       // 1. Loading state on button
@@ -359,7 +383,7 @@ class App {
     const openZoom = (e) => {
       // Ngăn chặn nếu click vào phần tử con không mong muốn
       if (!zoomModal || !zoomCanvas) return;
-      const data = this.getCurrentFormData();
+      const data = this.getCurrentFormData(true);
       CardGenerator.renderToCanvas(zoomCanvas, data);
       zoomModal.classList.remove('hidden');
     };
@@ -377,7 +401,7 @@ class App {
     });
 
     zoomDownloadBtn?.addEventListener('click', () => {
-      const data = this.getCurrentFormData();
+      const data = this.getCurrentFormData(true);
       CardGenerator.downloadCard(data);
     });
 
