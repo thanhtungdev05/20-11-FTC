@@ -66,9 +66,39 @@ function doPost(e) {
       return createJsonResponse(result);
     }
     
-    // Action 2: Xác thực email / Gửi OTP (nếu chọn chế độ OTP)
+    // Action 2: Gửi OTP qua email Outlook FTEL
     if (action === "request_otp") {
       const result = handleRequestOtp(payload);
+      return createJsonResponse(result);
+    }
+
+    // Action 3: Xác thực mã OTP
+    if (action === "verify_otp") {
+      const result = handleVerifyOtp(payload);
+      return createJsonResponse(result);
+    }
+
+    // Action 4: Đăng nhập quản trị viên (Admin Login)
+    if (action === "admin_login") {
+      const result = handleAdminLogin(payload);
+      return createJsonResponse(result);
+    }
+
+    // Action 5: Lấy danh sách tài khoản Admin
+    if (action === "admin_get_admins") {
+      const result = handleAdminGetAdmins(payload);
+      return createJsonResponse(result);
+    }
+
+    // Action 6: Thêm / Xóa quyền Admin
+    if (action === "admin_set_admin") {
+      const result = handleAdminSetAdmin(payload);
+      return createJsonResponse(result);
+    }
+
+    // Action 7: Lấy toàn bộ danh sách lời chúc (Chỉ Admin)
+    if (action === "admin_get_all_submissions") {
+      const result = handleAdminGetAllSubmissions(payload);
       return createJsonResponse(result);
     }
 
@@ -524,4 +554,420 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+/**
+ * ==============================================================================
+ * HỆ THỐNG XÁC THỰC OTP QUA OUTLOOK FTEL & PHÂN QUYỀN ADMIN
+ * ==============================================================================
+ */
+
+/**
+ * Xử lý gửi OTP qua email Outlook FTEL
+ */
+function handleRequestOtp(data) {
+  const email = (data.email || "").trim().toLowerCase();
+  
+  if (!isFTELDomain(email)) {
+    return {
+      success: false,
+      message: "Email phải thuộc miền FPT (@fpt.net hoặc @fpt.com)!"
+    };
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const now = Date.now();
+
+  // Chống spam yêu cầu OTP (tối thiểu 30s giữa 2 lần)
+  const lastReqKey = "REQ_" + email;
+  const lastTime = parseInt(props.getProperty(lastReqKey) || "0", 10);
+  if (now - lastTime < 30000) {
+    const wait = Math.ceil((30000 - (now - lastTime)) / 1000);
+    return {
+      success: false,
+      message: "Vui lòng đợi " + wait + " giây trước khi yêu cầu mã OTP mới!"
+    };
+  }
+
+  // Sinh mã 6 số
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expireAt = now + (5 * 60 * 1000); // 5 phút
+
+  props.setProperty("OTP_" + email, code + "_" + expireAt);
+  props.setProperty(lastReqKey, now.toString());
+
+  // Gửi email HTML tới hộp thư Outlook của CBNV
+  try {
+    const subject = "[FTC 20/11] Mã xác thực OTP thắp lửa tri ân: " + code;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f37021; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 25px 20px; text-align: center;">
+          <img src="https://ftc-gialapthietbi.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="38" style="display:block; margin: 0 auto 10px auto;" />
+          <h3 style="color: #ffd700; margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Trung tâm Đào tạo FTEL (FTC)</h3>
+          <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: bold;">XÁC THỰC TÀI KHOẢN FTEL</h2>
+        </div>
+        <div style="padding: 30px 25px; line-height: 1.6; color: #e2e8f0; text-align: center;">
+          <p style="font-size: 16px; color: #ffffff; margin: 0 0 15px 0;">
+            Xin chào thành viên <strong>FPT Telecom</strong>,
+          </p>
+          <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 25px;">
+            Bạn đang đăng nhập vào cổng <strong>"Thắp Lửa Tri Ân 20/11"</strong>. Dưới đây là mã xác thực OTP dùng một lần của bạn:
+          </p>
+          <div style="background: rgba(243, 112, 33, 0.15); border: 2px dashed #f37021; padding: 18px 24px; border-radius: 12px; display: inline-block; margin: 0 auto 25px auto;">
+            <span style="font-family: monospace; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #ffd700;">${code}</span>
+          </div>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0 0 10px 0;">
+            ⏳ Mã xác thực có hiệu lực trong vòng <strong>5 phút</strong>.
+          </p>
+          <p style="font-size: 12px; color: #64748b; margin: 0;">
+            Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email. Tuyệt đối không chia sẻ mã này cho người khác.
+          </p>
+        </div>
+        <div style="background: #080d1a; padding: 15px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
+          <p style="margin: 0;">FTEL 20/11 - Trung tâm Đào tạo FPT Telecom (FTC)</p>
+        </div>
+      </div>
+    `;
+
+    MailApp.sendEmail({
+      to: email,
+      subject: subject,
+      htmlBody: htmlBody,
+      name: "FTC - Trung tâm Đào tạo FPT Telecom"
+    });
+
+    return {
+      success: true,
+      message: "Mã OTP đã được gửi đến hộp thư Outlook của bạn!"
+    };
+  } catch (err) {
+    Logger.log("sendOtp Error: " + err.toString());
+    return {
+      success: false,
+      message: "Lỗi gửi email OTP: " + err.message
+    };
+  }
+}
+
+/**
+ * Xử lý kiểm tra mã OTP
+ */
+function handleVerifyOtp(data) {
+  const email = (data.email || "").trim().toLowerCase();
+  const inputOtp = (data.otp || "").trim();
+
+  if (!email || !inputOtp) {
+    return {
+      success: false,
+      message: "Vui lòng nhập đầy đủ email và mã OTP!"
+    };
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const stored = props.getProperty("OTP_" + email);
+
+  if (!stored) {
+    return {
+      success: false,
+      message: "Mã OTP không tồn tại hoặc đã hết hạn. Vui lòng lấy mã mới!"
+    };
+  }
+
+  const parts = stored.split("_");
+  const validCode = parts[0];
+  const expireAt = parseInt(parts[1], 10);
+
+  if (Date.now() > expireAt) {
+    props.deleteProperty("OTP_" + email);
+    return {
+      success: false,
+      message: "Mã OTP đã hết hạn (quá 5 phút). Vui lòng yêu cầu mã mới!"
+    };
+  }
+
+  if (inputOtp !== validCode) {
+    return {
+      success: false,
+      message: "Mã OTP không chính xác. Vui lòng kiểm tra lại!"
+    };
+  }
+
+  // OTP chính xác -> Xóa mã
+  props.deleteProperty("OTP_" + email);
+
+  // Kiểm tra quyền Admin
+  const isAdmin = checkIsAdminEmail(email);
+
+  return {
+    success: true,
+    message: "Xác thực thành công!",
+    data: {
+      email: email,
+      isAdmin: isAdmin
+    }
+  };
+}
+
+/**
+ * Kiểm tra xem email có thuộc danh sách Admin hay không
+ */
+function checkIsAdminEmail(email) {
+  if (!email) return false;
+  email = email.trim().toLowerCase();
+
+  // 1. Kiểm tra tài khoản deployer mặc định
+  try {
+    const activeUser = Session.getActiveUser().getEmail().toLowerCase();
+    if (activeUser && activeUser === email) return true;
+  } catch (e) {}
+
+  // 2. Mở Sheet AdminConfig
+  const adminSheet = getOrCreateAdminSheet();
+  const lastRow = adminSheet.getLastRow();
+  if (lastRow <= 1) return false;
+
+  const data = adminSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === email) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Tạo hoặc lấy Sheet AdminConfig
+ */
+function getOrCreateAdminSheet() {
+  let ss = null;
+  if (CONFIG.SPREADSHEET_ID && CONFIG.SPREADSHEET_ID.trim() !== "") {
+    try {
+      ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID.trim());
+    } catch (err) {}
+  }
+  if (!ss) {
+    try {
+      ss = SpreadsheetApp.getActiveSpreadsheet();
+    } catch (err) {}
+  }
+  if (!ss) {
+    throw new Error("Không thể mở Google Spreadsheet!");
+  }
+
+  let sheet = ss.getSheetByName(CONFIG.ADMIN_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.ADMIN_SHEET);
+    const headers = ["Email Quản Trị", "Vai Trò", "Ngày Thêm", "Người Cấp Quyền"];
+    sheet.appendRow(headers);
+
+    const headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground("#B8860B");
+    headerRange.setFontColor("#FFFFFF");
+    headerRange.setFontWeight("bold");
+    headerRange.setHorizontalAlignment("center");
+    sheet.setFrozenRows(1);
+
+    sheet.setColumnWidth(1, 250);
+    sheet.setColumnWidth(2, 160);
+    sheet.setColumnWidth(3, 180);
+    sheet.setColumnWidth(4, 200);
+
+    // Thêm Admin mặc định
+    sheet.appendRow([
+      "dtung2788@gmail.com",
+      "Super Admin",
+      Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss"),
+      "System Master"
+    ]);
+  }
+
+  return sheet;
+}
+
+/**
+ * Đăng nhập Admin bằng Secret Key
+ */
+function handleAdminLogin(data) {
+  const secretKey = (data.secretKey || "").trim();
+  const email = (data.email || "").trim().toLowerCase();
+
+  const isKeyValid = (secretKey === CONFIG.ADMIN_SECRET_KEY);
+  const isEmailAdmin = email ? checkIsAdminEmail(email) : false;
+
+  if (isKeyValid || isEmailAdmin) {
+    return {
+      success: true,
+      message: "Đăng nhập quyền Quản trị thành công!",
+      data: {
+        isAdmin: true,
+        secretKey: CONFIG.ADMIN_SECRET_KEY
+      }
+    };
+  }
+
+  return {
+    success: false,
+    message: "Khóa bảo mật quản trị (Secret Key) hoặc tài khoản không hợp lệ!"
+  };
+}
+
+/**
+ * Lấy danh sách tài khoản Admin
+ */
+function handleAdminGetAdmins(data) {
+  const secretKey = (data.secretKey || "").trim();
+  const callerEmail = (data.callerEmail || "").trim().toLowerCase();
+
+  if (secretKey !== CONFIG.ADMIN_SECRET_KEY && !checkIsAdminEmail(callerEmail)) {
+    return {
+      success: false,
+      message: "Từ chối truy cập: Bạn không có quyền xem cấu hình Admin!"
+    };
+  }
+
+  const sheet = getOrCreateAdminSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return {
+      success: true,
+      data: []
+    };
+  }
+
+  const dataRows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  const list = dataRows.map(row => ({
+    email: String(row[0]).trim(),
+    role: String(row[1]).trim(),
+    addedDate: String(row[2]).trim(),
+    grantedBy: String(row[3]).trim()
+  })).filter(item => item.email !== "");
+
+  return {
+    success: true,
+    data: list
+  };
+}
+
+/**
+ * Thêm hoặc xóa tài khoản Admin
+ */
+function handleAdminSetAdmin(data) {
+  const secretKey = (data.secretKey || "").trim();
+  const callerEmail = (data.callerEmail || "").trim().toLowerCase();
+  const targetEmail = (data.targetEmail || "").trim().toLowerCase();
+  const op = data.operation || "add"; // "add" | "remove"
+  const role = (data.role || "Admin Quản Lý").trim();
+
+  if (secretKey !== CONFIG.ADMIN_SECRET_KEY && !checkIsAdminEmail(callerEmail)) {
+    return {
+      success: false,
+      message: "Từ chối truy cập: Bạn không có quyền phân quyền Quản trị viên!"
+    };
+  }
+
+  if (!isFTELDomain(targetEmail) && !targetEmail.endsWith("@gmail.com")) {
+    return {
+      success: false,
+      message: "Email phân quyền phải là email FTEL (@fpt.net / @fpt.com)!"
+    };
+  }
+
+  const sheet = getOrCreateAdminSheet();
+  const lastRow = sheet.getLastRow();
+  const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
+
+  if (op === "add") {
+    // Kiểm tra trùng
+    if (lastRow > 1) {
+      const existing = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < existing.length; i++) {
+        if (String(existing[i][0]).trim().toLowerCase() === targetEmail) {
+          return {
+            success: false,
+            message: "Tài khoản này đã có quyền Quản trị viên trước đó!"
+          };
+        }
+      }
+    }
+
+    sheet.appendRow([targetEmail, role, nowStr, callerEmail || "Super Admin"]);
+    return {
+      success: true,
+      message: "Đã cấp quyền Quản trị viên thành công cho " + targetEmail + "!"
+    };
+  }
+
+  if (op === "remove") {
+    if (lastRow <= 1) {
+      return { success: false, message: "Danh sách Admin trống." };
+    }
+
+    const existing = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < existing.length; i++) {
+      if (String(existing[i][0]).trim().toLowerCase() === targetEmail) {
+        sheet.deleteRow(i + 2);
+        return {
+          success: true,
+          message: "Đã hủy quyền Quản trị của " + targetEmail + "!"
+        };
+      }
+    }
+
+    return {
+      success: false,
+      message: "Không tìm thấy tài khoản trong danh sách Admin."
+    };
+  }
+
+  return {
+    success: false,
+    message: "Hành động phân quyền không hợp lệ."
+  };
+}
+
+/**
+ * Lấy toàn bộ danh sách gửi tri ân (Chỉ Admin)
+ */
+function handleAdminGetAllSubmissions(data) {
+  const secretKey = (data.secretKey || "").trim();
+  const callerEmail = (data.callerEmail || "").trim().toLowerCase();
+
+  if (secretKey !== CONFIG.ADMIN_SECRET_KEY && !checkIsAdminEmail(callerEmail)) {
+    return {
+      success: false,
+      message: "Từ chối truy cập: Dữ liệu này được bảo vệ ở chế độ Restricted!"
+    };
+  }
+
+  const sheet = getOrCreateSheet(CONFIG.SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return {
+      success: true,
+      data: []
+    };
+  }
+
+  const rawValues = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  const list = rawValues.map(r => ({
+    submissionId: r[0],
+    timestamp: r[1],
+    senderName: r[2],
+    senderEmail: r[3],
+    senderDept: r[4],
+    recipientName: r[5],
+    recipientEmail: r[6],
+    recipientRole: r[7],
+    tag: r[8],
+    message: r[9],
+    cardStyle: r[10],
+    emailSentStatus: r[11],
+    emailSentTime: r[12]
+  }));
+
+  return {
+    success: true,
+    data: list
+  };
 }

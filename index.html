@@ -73,11 +73,27 @@
               <span>🏆 Bảng Vinh Danh Top 30</span>
             </button>
 
-            <!-- Config / Settings Button -->
+            <!-- User Session Badge (Shown when logged in) -->
+            <div id="user-header-badge" class="hidden items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300 backdrop-blur-md">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span id="user-display-email" class="font-medium max-w-[120px] sm:max-w-[160px] truncate">user@fpt.net</span>
+              <button id="user-logout-btn" title="Đăng xuất" class="text-slate-400 hover:text-rose-400 text-xs ml-1 cursor-pointer">✕</button>
+            </div>
+
+            <!-- Admin Badge & Panel Button (Shown only for Admin) -->
+            <button 
+              id="open-admin-panel-btn" 
+              title="Mở Bảng Quản Trị FTC" 
+              class="hidden px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold items-center gap-1.5 cursor-pointer backdrop-blur-md"
+            >
+              <span>👑 Quản Trị</span>
+            </button>
+
+            <!-- Config / Settings Button (Hidden by default for regular users) -->
             <button 
               id="open-config-btn" 
               title="Cấu hình Google Sheet Backend" 
-              class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all text-sm cursor-pointer backdrop-blur-md"
+              class="hidden w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all text-sm cursor-pointer backdrop-blur-md"
             >
               ⚙️
             </button>
@@ -151,6 +167,10 @@
                       placeholder="VD: namnh@fpt.net" 
                       class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
                     />
+                    <div id="sender-email-verified-badge" class="hidden mt-1 text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <span>✓</span>
+                      <span>Email Outlook FTEL đã xác thực bảo mật</span>
+                    </div>
                   </div>
                 </div>
 
@@ -353,7 +373,10 @@
             <img src="/assets/logoFPT.png" alt="FTC Logo" class="h-5 w-auto object-contain opacity-80" />
             <p>© 2026 Trung tâm Đào tạo FTEL (FTC) - FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11</p>
           </div>
-          <p>Hệ thống tự động hóa E-Card & Tổng hợp số liệu giải "30 Tiếp Lửa Bền Bỉ"</p>
+          <div class="flex items-center gap-2">
+            <p>Hệ thống tự động hóa E-Card & Tổng hợp số liệu giải "30 Tiếp Lửa Bền Bỉ"</p>
+            <button id="footer-admin-link" class="text-slate-500 hover:text-amber-400 transition-colors text-xs cursor-pointer ml-2">🔒 Quản trị</button>
+          </div>
         </div>
       </footer>
     </div>
@@ -461,6 +484,209 @@
           <button id="save-config-btn" class="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-colors">
             Lưu cấu hình
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: ĐĂNG NHẬP XÁC THỰC OTP OUTLOOK FTEL -->
+    <div id="otp-login-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+      <div class="relative w-full max-w-md glass-card-glow rounded-3xl p-6 sm:p-8 text-center shadow-2xl text-white border border-amber-500/30">
+        <!-- Logo FTC -->
+        <div class="flex items-center justify-center gap-2 mb-3">
+          <img src="/assets/logoFPT.png" alt="FPT Logo" class="h-8 object-contain" />
+          <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">FTC • 20/11</span>
+        </div>
+
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-3xl mx-auto mb-3 shadow-lg shadow-orange-500/30 animate-pulse">
+          🔥
+        </div>
+
+        <h3 class="text-xl sm:text-2xl font-black text-amber-400 mb-1">CỔNG THẮP LỬA TRI ÂN</h3>
+        <p class="text-xs text-slate-300 mb-6 leading-relaxed">
+          Vui lòng xác thực email công ty (<strong>@fpt.net / @fpt.com</strong>) để tham gia gửi lời tri ân Thầy Cô.
+        </p>
+
+        <!-- STEP 1: Nhập email -->
+        <div id="otp-step-1" class="space-y-4">
+          <div class="text-left">
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Email Outlook FTEL của bạn</label>
+            <input 
+              type="email" 
+              id="otp-email-input" 
+              placeholder="VD: namnh@fpt.net" 
+              class="custom-input w-full rounded-xl px-4 py-3 text-sm placeholder-slate-500"
+            />
+            <p class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
+              <span>📧</span>
+              <span>Mã OTP sẽ gửi trực tiếp đến hộp thư Microsoft Outlook công ty.</span>
+            </p>
+          </div>
+
+          <button 
+            type="button" 
+            id="request-otp-btn" 
+            class="btn-flame w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>Nhận Mã OTP Qua Email</span>
+            <span>➜</span>
+          </button>
+        </div>
+
+        <!-- STEP 2: Nhập mã 6 số OTP -->
+        <div id="otp-step-2" class="hidden space-y-4">
+          <div class="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 text-left">
+            <span>Mã OTP 6 số đã được gửi đến:</span>
+            <strong id="otp-sent-to-email" class="block text-white font-mono mt-0.5">...</strong>
+          </div>
+
+          <div class="text-left">
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">Nhập mã xác thực OTP (6 chữ số)</label>
+            <input 
+              type="text" 
+              id="otp-code-input" 
+              maxlength="6"
+              placeholder="Ví dụ: 123456" 
+              class="custom-input w-full rounded-xl px-4 py-3 text-center text-2xl font-black tracking-widest font-mono text-amber-300 placeholder-slate-500"
+            />
+            <div class="flex items-center justify-between text-[11px] text-slate-400 mt-2">
+              <span id="otp-timer-display" class="text-amber-400 font-semibold">Hiệu lực: 05:00</span>
+              <button type="button" id="resend-otp-btn" class="text-slate-400 hover:text-white underline cursor-pointer disabled:opacity-50">
+                Gửi lại mã
+              </button>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button 
+              type="button" 
+              id="back-to-step1-btn" 
+              class="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 font-semibold text-xs transition-colors cursor-pointer"
+            >
+              ← Đổi Email
+            </button>
+            <button 
+              type="button" 
+              id="verify-otp-btn" 
+              class="btn-flame flex-1 py-3 px-6 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Xác Nhận & Vào Thắp Lửa</span>
+              <span>🔥</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Footnote -->
+        <div class="mt-6 pt-4 border-t border-white/10 text-[11px] text-slate-500">
+          Trung tâm Đào tạo FTEL (FTC) • Bảo mật thông tin nội bộ
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN (ADMIN PORTAL) -->
+    <div id="admin-panel-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+      <div class="relative w-full max-w-2xl bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-7 shadow-2xl text-white max-h-[90vh] flex flex-col overflow-hidden">
+        <!-- Header -->
+        <div class="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">👑</span>
+            <div>
+              <h3 class="text-base font-bold text-amber-400">Trung Tâm Quản Trị Hệ Thống FTC</h3>
+              <p class="text-xs text-slate-400">Dành riêng cho cán bộ quản trị chiến dịch 20/11</p>
+            </div>
+          </div>
+          <button id="close-admin-panel-btn" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer">✕</button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex gap-2 border-b border-white/10 pb-3 mb-4 text-xs font-semibold overflow-x-auto">
+          <button id="admin-tab-config" class="px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer">
+            ⚙️ Cấu Hình Backend
+          </button>
+          <button id="admin-tab-users" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">
+            👥 Phân Quyền Quản Trị
+          </button>
+          <button id="admin-tab-export" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">
+            📥 Xuất Toàn Bộ Dữ Liệu
+          </button>
+        </div>
+
+        <!-- TAB CONTENT 1: Cấu hình Script -->
+        <div id="admin-view-config" class="space-y-4 overflow-y-auto flex-1 p-1">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Google Apps Script Web App URL</label>
+            <input 
+              type="url" 
+              id="admin-script-url-input" 
+              class="custom-input w-full rounded-xl px-3.5 py-2.5 text-xs font-mono placeholder-slate-500" 
+            />
+            <p class="text-[11px] text-slate-400 mt-1">Chỉ Admin mới có quyền xem và cập nhật đường dẫn này.</p>
+          </div>
+          <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+            <strong>Trạng thái kết nối Google Sheet:</strong>
+            <span class="text-emerald-400 font-bold ml-1">Đang hoạt động trực tiếp (Restricted Mode)</span>
+          </div>
+          <button id="admin-save-url-btn" class="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-colors cursor-pointer">
+            Lưu Cấu Hình Mới
+          </button>
+        </div>
+
+        <!-- TAB CONTENT 2: Phân Quyền Admin -->
+        <div id="admin-view-users" class="hidden space-y-4 overflow-y-auto flex-1 p-1">
+          <div class="p-3.5 rounded-2xl bg-black/40 border border-white/10">
+            <h4 class="text-xs font-bold text-amber-300 uppercase mb-2">Thêm Quản Trị Viên Mới</h4>
+            <div class="flex gap-2">
+              <input 
+                type="email" 
+                id="new-admin-email-input" 
+                placeholder="VD: admin_ftc@fpt.net" 
+                class="custom-input flex-1 rounded-xl px-3 py-2 text-xs placeholder-slate-500"
+              />
+              <button id="add-admin-btn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-bold text-xs hover:brightness-110 cursor-pointer">
+                + Cấp Quyền
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1.5">Tài khoản được cấp quyền sẽ xem được dữ liệu tổng và cấu hình hệ thống.</p>
+          </div>
+
+          <div>
+            <h4 class="text-xs font-bold text-slate-300 uppercase mb-2">Danh Sách Quản Trị Viên Hiện Tại</h4>
+            <div id="admin-list-container" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+              <div class="text-xs text-slate-500">Đang tải danh sách Admin...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT 3: Xuất Dữ Liệu -->
+        <div id="admin-view-export" class="hidden space-y-4 overflow-y-auto flex-1 text-center py-6">
+          <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto mb-3">
+            📊
+          </div>
+          <h4 class="text-base font-bold text-white mb-1">Tải Toàn Bộ Danh Sách Lời Tri Ân</h4>
+          <p class="text-xs text-slate-400 max-w-md mx-auto mb-5">
+            Dữ liệu được tải trực tiếp từ Google Sheet bảo mật (chế độ Restricted), định dạng CSV chuẩn tiếng Việt UTF-8 tương thích 100% với Excel.
+          </p>
+          <button id="admin-export-csv-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 hover:brightness-110 cursor-pointer">
+            📥 Tải File CSV / Excel Ngay
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: ĐĂNG NHẬP ADMIN BẰNG SECRET KEY -->
+    <div id="admin-secret-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+      <div class="relative w-full max-w-sm bg-slate-900 border border-white/20 rounded-2xl p-6 shadow-2xl text-white text-center">
+        <div class="text-2xl mb-2">🔒</div>
+        <h3 class="text-sm font-bold text-white mb-1">Xác Thực Quản Trị FTC</h3>
+        <p class="text-xs text-slate-400 mb-4">Nhập mã bí mật quản trị (Secret Key) để truy cập.</p>
+        <input 
+          type="password" 
+          id="admin-secret-key-input" 
+          placeholder="Nhập Secret Key..." 
+          class="custom-input w-full rounded-xl px-3 py-2 text-xs mb-3 text-center"
+        />
+        <div class="flex gap-2">
+          <button id="close-secret-modal-btn" class="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold">Hủy</button>
+          <button id="submit-secret-key-btn" class="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs">Vào Quản Trị</button>
         </div>
       </div>
     </div>

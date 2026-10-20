@@ -245,4 +245,161 @@ export class ApiService {
 
     return JSON.parse(localStorage.getItem("ftel_mock_board") || JSON.stringify(MOCK_LEADERBOARD));
   }
+
+  /**
+   * Yêu cầu gửi mã OTP tới email Outlook FTEL
+   */
+  static async requestOtp(email) {
+    email = (email || '').trim().toLowerCase();
+    if (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com')) {
+      throw new Error('Email phải có đuôi @fpt.net hoặc @fpt.com!');
+    }
+
+    const scriptUrl = getEffectiveScriptUrl();
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'request_otp', email: email })
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Không thể gửi mã OTP.');
+    }
+    return result;
+  }
+
+  /**
+   * Xác thực mã OTP
+   */
+  static async verifyOtp(email, otp) {
+    email = (email || '').trim().toLowerCase();
+    otp = (otp || '').trim();
+
+    if (!email || !otp) {
+      throw new Error('Vui lòng nhập đầy đủ email và mã OTP!');
+    }
+
+    const scriptUrl = getEffectiveScriptUrl();
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'verify_otp', email: email, otp: otp })
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
+    }
+
+    // Lưu session đăng nhập
+    sessionStorage.setItem('ftel_user_session', JSON.stringify(result.data));
+    return result.data;
+  }
+
+  /**
+   * Lấy phiên đăng nhập hiện tại
+   */
+  static getUserSession() {
+    try {
+      const saved = sessionStorage.getItem('ftel_user_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Đăng xuất
+   */
+  static logout() {
+    sessionStorage.removeItem('ftel_user_session');
+    sessionStorage.removeItem('ftel_admin_session');
+  }
+
+  /**
+   * Đăng nhập Admin
+   */
+  static async adminLogin(secretKey, email = '') {
+    const scriptUrl = getEffectiveScriptUrl();
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'admin_login', secretKey, email })
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Sai khóa bảo mật quản trị!');
+    }
+
+    sessionStorage.setItem('ftel_admin_session', JSON.stringify({ isAdmin: true, secretKey }));
+    return result.data;
+  }
+
+  static getAdminSession() {
+    try {
+      const saved = sessionStorage.getItem('ftel_admin_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Lấy danh sách tài khoản Admin
+   */
+  static async adminGetAdmins() {
+    const adminSess = this.getAdminSession();
+    const scriptUrl = getEffectiveScriptUrl();
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'admin_get_admins',
+        secretKey: adminSess?.secretKey || 'FTEL_TRI_AN_2026',
+        callerEmail: this.getUserSession()?.email || ''
+      })
+    });
+    return response.json();
+  }
+
+  /**
+   * Thêm/Xóa tài khoản Admin
+   */
+  static async adminSetAdmin(targetEmail, operation = 'add', role = 'Admin Quản Lý') {
+    const adminSess = this.getAdminSession();
+    const scriptUrl = getEffectiveScriptUrl();
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'admin_set_admin',
+        targetEmail,
+        operation,
+        role,
+        secretKey: adminSess?.secretKey || 'FTEL_TRI_AN_2026',
+        callerEmail: this.getUserSession()?.email || ''
+      })
+    });
+    return response.json();
+  }
+
+  /**
+   * Lấy toàn bộ danh sách gửi tri ân (Chỉ Admin)
+   */
+  static async adminGetAllSubmissions() {
+    const adminSess = this.getAdminSession();
+    const scriptUrl = getEffectiveScriptUrl();
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'admin_get_all_submissions',
+        secretKey: adminSess?.secretKey || 'FTEL_TRI_AN_2026',
+        callerEmail: this.getUserSession()?.email || ''
+      })
+    });
+    return response.json();
+  }
 }

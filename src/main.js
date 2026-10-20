@@ -49,7 +49,11 @@ class App {
     // 5. Setup Action Modals & Buttons
     this.setupModals();
 
-    // 6. Update Counter in Header
+    // 6. Setup Auth OTP & Admin Portal
+    this.setupAuthAndOtp();
+    this.setupAdminPortal();
+
+    // 7. Update Counter in Header
     this.updateHeaderCounter();
   }
 
@@ -460,6 +464,415 @@ class App {
       }
     }
   }
+
+  setupAuthAndOtp() {
+    const modal = document.getElementById('otp-login-modal');
+    const step1 = document.getElementById('otp-step-1');
+    const step2 = document.getElementById('otp-step-2');
+    const emailInput = document.getElementById('otp-email-input');
+    const codeInput = document.getElementById('otp-code-input');
+    const requestBtn = document.getElementById('request-otp-btn');
+    const verifyBtn = document.getElementById('verify-otp-btn');
+    const backBtn = document.getElementById('back-to-step1-btn');
+    const resendBtn = document.getElementById('resend-otp-btn');
+    const sentToEl = document.getElementById('otp-sent-to-email');
+    const timerDisplay = document.getElementById('otp-timer-display');
+    const logoutBtn = document.getElementById('user-logout-btn');
+
+    let currentEmail = '';
+    let countdownInterval = null;
+
+    const startTimer = () => {
+      let timeLeft = 300; // 5 phút
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          if (timerDisplay) timerDisplay.textContent = 'Mã OTP đã hết hạn';
+          if (resendBtn) resendBtn.disabled = false;
+        } else {
+          const m = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+          const s = String(timeLeft % 60).padStart(2, '0');
+          if (timerDisplay) timerDisplay.textContent = 'Hiệu lực: ' + m + ':' + s;
+        }
+      }, 1000);
+    };
+
+    // 1. Kiểm tra session hiện tại
+    const session = ApiService.getUserSession();
+    if (session && session.email) {
+      this.applyUserSession(session);
+    } else {
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    // 2. Nút xin mã OTP
+    if (requestBtn) {
+      requestBtn.addEventListener('click', async () => {
+        const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+        if (!email) {
+          alert('Vui lòng nhập email Outlook FTEL của bạn!');
+          return;
+        }
+        if (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com')) {
+          alert('Email phải có đuôi @fpt.net hoặc @fpt.com!');
+          return;
+        }
+
+        try {
+          requestBtn.disabled = true;
+          requestBtn.innerHTML = '<span>Đang gửi mã vào Outlook...</span>';
+
+          await ApiService.requestOtp(email);
+          currentEmail = email;
+
+          if (sentToEl) sentToEl.textContent = email;
+          if (step1) step1.classList.add('hidden');
+          if (step2) step2.classList.remove('hidden');
+          if (codeInput) {
+            codeInput.value = '';
+            codeInput.focus();
+          }
+          startTimer();
+
+        } catch (err) {
+          alert('⚠️ ' + (err.message || 'Không thể gửi mã OTP.'));
+        } finally {
+          requestBtn.disabled = false;
+          requestBtn.innerHTML = '<span>Nhận Mã OTP Qua Email</span><span>➜</span>';
+        }
+      });
+    }
+
+    // 3. Quay lại bước 1
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        if (countdownInterval) clearInterval(countdownInterval);
+        if (step2) step2.classList.add('hidden');
+        if (step1) step1.classList.remove('hidden');
+      });
+    }
+
+    // 4. Gửi lại mã OTP
+    if (resendBtn) {
+      resendBtn.addEventListener('click', async () => {
+        if (!currentEmail) return;
+        try {
+          resendBtn.disabled = true;
+          resendBtn.textContent = 'Đang gửi lại...';
+          await ApiService.requestOtp(currentEmail);
+          alert('Đã gửi mã OTP mới vào hộp thư Outlook của bạn!');
+          startTimer();
+        } catch (err) {
+          alert('⚠️ ' + (err.message || 'Chưa thể gửi lại mã lúc này.'));
+        } finally {
+          resendBtn.disabled = false;
+          resendBtn.textContent = 'Gửi lại mã';
+        }
+      });
+    }
+
+    // 5. Nút Xác thực OTP
+    if (verifyBtn) {
+      verifyBtn.addEventListener('click', async () => {
+        const otp = codeInput ? codeInput.value.trim() : '';
+        if (!otp || otp.length < 6) {
+          alert('Vui lòng nhập đúng mã OTP 6 chữ số!');
+          return;
+        }
+
+        try {
+          verifyBtn.disabled = true;
+          verifyBtn.innerHTML = '<span>Đang xác thực...</span>';
+
+          const sessionData = await ApiService.verifyOtp(currentEmail, otp);
+          if (countdownInterval) clearInterval(countdownInterval);
+
+          if (modal) modal.classList.add('hidden');
+          this.applyUserSession(sessionData);
+
+          confetti({
+            particleCount: 90,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+
+        } catch (err) {
+          alert('⚠️ ' + (err.message || 'Mã OTP không chính xác.'));
+        } finally {
+          verifyBtn.disabled = false;
+          verifyBtn.innerHTML = '<span>Xác Nhận & Vào Thắp Lửa</span><span>🔥</span>';
+        }
+      });
+    }
+
+    // 6. Đăng xuất
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        if (confirm('Bạn có chắc muốn đăng xuất khỏi phiên làm việc này?')) {
+          ApiService.logout();
+          window.location.reload();
+        }
+      });
+    }
+  }
+
+  applyUserSession(session) {
+    const senderEmailInput = document.getElementById('sender-email');
+    const verifiedBadge = document.getElementById('sender-email-verified-badge');
+    const userBadge = document.getElementById('user-header-badge');
+    const displayEmail = document.getElementById('user-display-email');
+    const adminHeaderBtn = document.getElementById('open-admin-panel-btn');
+    const openConfigBtn = document.getElementById('open-config-btn');
+
+    if (session && session.email) {
+      if (senderEmailInput) {
+        senderEmailInput.value = session.email;
+        senderEmailInput.readOnly = true;
+        senderEmailInput.classList.add('bg-black/50', 'border-emerald-500/40', 'text-emerald-300', 'cursor-not-allowed');
+      }
+      if (verifiedBadge) verifiedBadge.classList.remove('hidden');
+
+      if (userBadge) {
+        userBadge.classList.remove('hidden');
+        userBadge.classList.add('flex');
+      }
+      if (displayEmail) displayEmail.textContent = session.email;
+
+      if (session.isAdmin) {
+        if (adminHeaderBtn) {
+          adminHeaderBtn.classList.remove('hidden');
+          adminHeaderBtn.classList.add('flex');
+        }
+        if (openConfigBtn) openConfigBtn.classList.remove('hidden');
+      }
+
+      this.updateCardPreview();
+    }
+  }
+
+  setupAdminPortal() {
+    const footerAdminLink = document.getElementById('footer-admin-link');
+    const adminPanelModal = document.getElementById('admin-panel-modal');
+    const closeAdminPanelBtn = document.getElementById('close-admin-panel-btn');
+    const openAdminBtn = document.getElementById('open-admin-panel-btn');
+    const secretModal = document.getElementById('admin-secret-modal');
+    const closeSecretBtn = document.getElementById('close-secret-modal-btn');
+    const submitSecretBtn = document.getElementById('submit-secret-key-btn');
+    const secretInput = document.getElementById('admin-secret-key-input');
+
+    const tabConfig = document.getElementById('admin-tab-config');
+    const tabUsers = document.getElementById('admin-tab-users');
+    const tabExport = document.getElementById('admin-tab-export');
+    const viewConfig = document.getElementById('admin-view-config');
+    const viewUsers = document.getElementById('admin-view-users');
+    const viewExport = document.getElementById('admin-view-export');
+
+    const adminUrlInput = document.getElementById('admin-script-url-input');
+    const adminSaveUrlBtn = document.getElementById('admin-save-url-btn');
+    const addAdminBtn = document.getElementById('add-admin-btn');
+    const newAdminInput = document.getElementById('new-admin-email-input');
+    const exportCsvBtn = document.getElementById('admin-export-csv-btn');
+
+    const openAdminDashboard = () => {
+      if (adminUrlInput) adminUrlInput.value = localStorage.getItem('ftel_custom_script_url') || APPS_SCRIPT_URL;
+      if (adminPanelModal) adminPanelModal.classList.remove('hidden');
+      this.loadAdminList();
+    };
+
+    const handleAdminTrigger = () => {
+      const adminSess = ApiService.getAdminSession();
+      const userSess = ApiService.getUserSession();
+      if (adminSess && adminSess.isAdmin || userSess && userSess.isAdmin) {
+        openAdminDashboard();
+      } else {
+        if (secretModal) secretModal.classList.remove('hidden');
+        if (secretInput) {
+          secretInput.value = '';
+          secretInput.focus();
+        }
+      }
+    };
+
+    if (footerAdminLink) footerAdminLink.addEventListener('click', handleAdminTrigger);
+    if (openAdminBtn) openAdminBtn.addEventListener('click', handleAdminTrigger);
+    if (closeAdminPanelBtn) closeAdminPanelBtn.addEventListener('click', () => adminPanelModal && adminPanelModal.classList.add('hidden'));
+    if (closeSecretBtn) closeSecretBtn.addEventListener('click', () => secretModal && secretModal.classList.add('hidden'));
+
+    if (submitSecretBtn) {
+      submitSecretBtn.addEventListener('click', async () => {
+        const key = secretInput ? secretInput.value.trim() : '';
+        if (!key) return;
+        try {
+          submitSecretBtn.disabled = true;
+          submitSecretBtn.textContent = 'Đang kiểm tra...';
+          await ApiService.adminLogin(key);
+          if (secretModal) secretModal.classList.add('hidden');
+          
+          const cfgBtn = document.getElementById('open-config-btn');
+          if (cfgBtn) cfgBtn.classList.remove('hidden');
+
+          const admBtn = document.getElementById('open-admin-panel-btn');
+          if (admBtn) {
+            admBtn.classList.remove('hidden');
+            admBtn.classList.add('flex');
+          }
+
+          openAdminDashboard();
+        } catch (err) {
+          alert('⚠️ ' + (err.message || 'Khóa bí mật không đúng!'));
+        } finally {
+          submitSecretBtn.disabled = false;
+          submitSecretBtn.textContent = 'Vào Quản Trị';
+        }
+      });
+    }
+
+    const selectTab = (activeTab, activeView) => {
+      [tabConfig, tabUsers, tabExport].forEach(t => {
+        if (t) t.className = 'px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer';
+      });
+      [viewConfig, viewUsers, viewExport].forEach(v => v && v.classList.add('hidden'));
+      if (activeTab) activeTab.className = 'px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer';
+      if (activeView) activeView.classList.remove('hidden');
+    };
+
+    if (tabConfig) tabConfig.addEventListener('click', () => selectTab(tabConfig, viewConfig));
+    if (tabUsers) tabUsers.addEventListener('click', () => {
+      selectTab(tabUsers, viewUsers);
+      this.loadAdminList();
+    });
+    if (tabExport) tabExport.addEventListener('click', () => selectTab(tabExport, viewExport));
+
+    if (adminSaveUrlBtn) {
+      adminSaveUrlBtn.addEventListener('click', () => {
+        const val = adminUrlInput ? adminUrlInput.value.trim() : '';
+        if (val) {
+          localStorage.setItem('ftel_custom_script_url', val);
+          alert('Đã cập nhật URL Google Apps Script thành công!');
+          window.location.reload();
+        }
+      });
+    }
+
+    if (addAdminBtn) {
+      addAdminBtn.addEventListener('click', async () => {
+        const targetEmail = newAdminInput ? newAdminInput.value.trim().toLowerCase() : '';
+        if (!targetEmail) {
+          alert('Vui lòng nhập email FTEL cần cấp quyền Admin!');
+          return;
+        }
+        try {
+          addAdminBtn.disabled = true;
+          addAdminBtn.textContent = 'Đang thêm...';
+          const res = await ApiService.adminSetAdmin(targetEmail, 'add');
+          if (res.success) {
+            alert('✅ ' + res.message);
+            if (newAdminInput) newAdminInput.value = '';
+            this.loadAdminList();
+          } else {
+            alert('⚠️ ' + res.message);
+          }
+        } catch (e) {
+          alert('Lỗi: ' + e.message);
+        } finally {
+          addAdminBtn.disabled = false;
+          addAdminBtn.textContent = '+ Cấp Quyền';
+        }
+      });
+    }
+
+    if (exportCsvBtn) {
+      exportCsvBtn.addEventListener('click', async () => {
+        try {
+          exportCsvBtn.disabled = true;
+          exportCsvBtn.textContent = 'Đang trích xuất dữ liệu...';
+          const res = await ApiService.adminGetAllSubmissions();
+          if (res.success && Array.isArray(res.data)) {
+            this.downloadSubmissionsCsv(res.data);
+          } else {
+            alert('⚠️ ' + (res.message || 'Không thể tải dữ liệu.'));
+          }
+        } catch (e) {
+          alert('Lỗi xuất dữ liệu: ' + e.message);
+        } finally {
+          exportCsvBtn.disabled = false;
+          exportCsvBtn.textContent = '📥 Tải File CSV / Excel Ngay';
+        }
+      });
+    }
+  }
+
+  async loadAdminList() {
+    const container = document.getElementById('admin-list-container');
+    if (!container) return;
+    try {
+      container.innerHTML = '<div class="text-xs text-slate-400 py-2">Đang tải danh sách Admin...</div>';
+      const res = await ApiService.adminGetAdmins();
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        container.innerHTML = res.data.map(admin => {
+          const isSuper = admin.role === 'Super Admin';
+          return '<div class="flex items-center justify-between p-2.5 rounded-xl bg-black/40 border border-white/5 text-xs">' +
+            '<div>' +
+              '<div class="font-bold text-amber-300 font-mono">' + admin.email + '</div>' +
+              '<div class="text-[10px] text-slate-400">Vai trò: ' + admin.role + ' • Cấp ngày: ' + admin.addedDate + '</div>' +
+            '</div>' +
+            (!isSuper ? 
+              '<button data-remove-admin="' + admin.email + '" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-[10px] font-semibold cursor-pointer">Hủy quyền</button>' : 
+              '<span class="text-[10px] text-amber-400/80 px-2 py-0.5 rounded bg-amber-500/10">Toàn quyền</span>') +
+          '</div>';
+        }).join('');
+
+        container.querySelectorAll('[data-remove-admin]').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const target = e.currentTarget.getAttribute('data-remove-admin');
+            if (confirm('Bạn có chắc muốn hủy quyền Quản trị của ' + target + '?')) {
+              await ApiService.adminSetAdmin(target, 'remove');
+              this.loadAdminList();
+            }
+          });
+        });
+
+      } else {
+        container.innerHTML = '<div class="text-xs text-slate-500 py-2">Chưa có Admin bổ sung nào.</div>';
+      }
+    } catch (e) {
+      container.innerHTML = '<div class="text-xs text-rose-400 py-2">Không thể tải danh sách Admin: ' + e.message + '</div>';
+    }
+  }
+
+  downloadSubmissionsCsv(rows) {
+    if (!rows || rows.length === 0) {
+      alert('Chưa có lời tri ân nào được gửi!');
+      return;
+    }
+    const headers = [
+      'Mã Lượt Gửi', 'Thời Gian Gửi', 'Người Gửi', 'Email Người Gửi', 'Đơn Vị Người Gửi',
+      'Người Nhận', 'Email Người Nhận', 'Vai Trò Người Nhận', 'Danh Hiệu', 'Lời Cảm Ơn',
+      'Phong Cách Thiệp', 'Trạng Thái Mail', 'Thời Gian Mail'
+    ];
+    let csvContent = '\uFEFF' + headers.join(',') + '\n';
+    rows.forEach(r => {
+      const line = [
+        r.submissionId, r.timestamp, '"' + (r.senderName || '').replace(/"/g, '""') + '"',
+        r.senderEmail, '"' + (r.senderDept || '').replace(/"/g, '""') + '"',
+        '"' + (r.recipientName || '').replace(/"/g, '""') + '"', r.recipientEmail,
+        '"' + (r.recipientRole || '').replace(/"/g, '""') + '"', '"' + (r.tag || '').replace(/"/g, '""') + '"',
+        '"' + (r.message || '').replace(/"/g, '""') + '"', r.cardStyle, r.emailSentStatus, r.emailSentTime
+      ];
+      csvContent += line.join(',') + '\n';
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'FTEL_20_11_DanhSachTriAn_' + new Date().toISOString().slice(0, 10) + '.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
 }
 
 // Start application when DOM is ready

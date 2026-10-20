@@ -43,7 +43,10 @@ export const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb.../exe
 ---
 
 ## 3. Các tính năng tự động hóa được tích hợp sẵn
-1. **Kiểm tra tính hợp lệ của Domain**: Chỉ chấp nhận `@fpt.net` và `@fpt.com`.
-2. **Chống spam & Gửi trùng lặp (Anti-duplicate)**: Tự động phát hiện và chặn nếu một nhân viên gửi cùng nội dung cho cùng một người nhận trong thời gian ngắn.
-3. **Tự động gửi email kèm E-Card**: Ngay khi dữ liệu được ghi vào Sheet, hệ thống tự động kích hoạt `GmailApp` gửi email HTML nhận diện thương hiệu FTEL sang trọng kèm ảnh ECard đính kèm tới hòm thư người nhận.
-4. **API Tổng hợp phục vụ giải "30 Tiếp lửa bền bỉ"**: Tự động tính toán số lượt cảm ơn cho từng Mentor/Coach để hiển thị bảng vinh danh thời gian thực.
+1. **Xác thực OTP qua hòm thư Outlook FTEL**: Tự động sinh mã 6 số ngẫu nhiên, giới hạn 5 phút và gửi email HTML sang trọng vào hộp thư Microsoft Outlook của nhân viên.
+2. **Khóa cố định Email Người Gửi**: Chống mạo danh 100%, bảo đảm tính minh bạch khi thắp lửa tri ân.
+3. **Phân quyền Quản trị viên (RBAC)**: Tự động tạo và quản lý sheet `AdminConfig`. Cấp quyền xem cấu hình backend và xuất dữ liệu chỉ cho các tài khoản được duyệt.
+4. **Kiểm tra tính hợp lệ của Domain**: Chỉ chấp nhận `@fpt.net` và `@fpt.com`.
+5. **Chống spam & Gửi trùng lặp (Anti-duplicate)**: Tự động phát hiện và chặn nếu một nhân viên gửi cùng nội dung cho cùng một người nhận trong thời gian ngắn.
+6. **Tự động gửi email kèm E-Card**: Ngay khi dữ liệu được ghi vào Sheet, hệ thống tự động kích hoạt gửi email HTML nhận diện thương hiệu FTEL sang trọng kèm ảnh E-Card đính kèm tới hòm thư người nhận.
+7. **API Tổng hợp phục vụ giải "30 Tiếp lửa bền bỉ"**: Tự động tính toán số lượt cảm ơn cho từng Mentor/Coach để hiển thị bảng vinh danh thời gian thực.
