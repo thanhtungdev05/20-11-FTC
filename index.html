@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="vi" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thắp Lửa Tri Ân – FTEL 20/11/2026 | FPT Telecom</title>
+    <meta name="description" content="Chương trình gửi lời tri ân đến Giảng viên, Mentor, Coach và người chia sẻ tri thức tại FPT Telecom nhân dịp 20/11" />
+    <link rel="icon" type="image/png" href="/assets/logoFPT.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              fpt: {
+                orange: '#f37021',
+                blue: '#002d62',
+                cyan: '#00a3e0',
+                gold: '#ffd700'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="relative min-h-screen text-slate-100 selection:bg-orange-500 selection:text-white">
+    <!-- 3D Three.js Background Canvas -->
+    <div id="webgl-canvas-container"></div>
+
+    <!-- Main Content Layer -->
+    <div class="ui-container">
+      <!-- Navigation Bar -->
+      <header class="glass-header w-full sticky top-0 z-40 transition-all">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <!-- Logo & Title -->
+          <div class="flex items-center gap-3">
+            <div class="h-11 px-2.5 py-1.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center shadow-lg shadow-orange-500/10">
+              <img src="/assets/logoFPT.png" alt="FPT Telecom Logo" class="h-8 w-auto object-contain" />
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-extrabold text-lg sm:text-xl tracking-tight text-white">THẮP LỬA TRI ÂN</span>
+                <span class="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                  FTC • 20/11
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400 hidden sm:block">Trung tâm Đào tạo FTEL (FTC) • Tôn vinh Người trao truyền tri thức</p>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Live Counter Pill -->
+            <div class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs backdrop-blur-md">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+              <span class="text-slate-300">Đã thắp:</span>
+              <strong id="nav-counter" class="text-amber-400 font-bold">265+</strong>
+              <span class="text-slate-400">ngọn lửa</span>
+            </div>
+
+            <!-- Leaderboard Button -->
+            <button 
+              id="open-leaderboard-btn" 
+              class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-lg shadow-amber-500/10 transition-all cursor-pointer backdrop-blur-md"
+            >
+              <span>🏆 Bảng Vinh Danh Top 30</span>
+            </button>
+
+            <!-- Config / Settings Button -->
+            <button 
+              id="open-config-btn" 
+              title="Cấu hình Google Sheet Backend" 
+              class="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all text-sm cursor-pointer backdrop-blur-md"
+            >
+              ⚙️
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Body Container -->
+      <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-6 sm:py-8 flex flex-col justify-center">
+        <!-- Hero Tagline -->
+        <div class="text-center max-w-3xl mx-auto mb-6 sm:mb-10">
+          <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs sm:text-sm font-semibold mb-3 shadow-lg shadow-orange-500/10 backdrop-blur-md">
+            <span>✦ 20/11/2026: GỬI LỜI CẢM ƠN – THẮP SÁNG TRI THỨC ✦</span>
+          </div>
+          <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-3 text-glow-orange leading-tight">
+            <span class="text-gradient-gold">LAN TỎA NGỌN LỬA TRI ÂN</span>
+          </h1>
+          <p class="text-sm sm:text-base text-slate-300/90 leading-relaxed max-w-2xl mx-auto font-normal">
+            Mỗi dòng chia sẻ chân thành của bạn là một tia sáng thắp lên ngọn lửa tôn vinh những người Thầy, Mentor, Coach và người dẫn đường thầm lặng tại FPT Telecom.
+          </p>
+        </div>
+
+        <!-- 2-Column Workspace: Form & 3D Interactive Card Preview -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
+          
+          <!-- LEFT COLUMN: Form Thắp Lửa (7 cols) -->
+          <div class="lg:col-span-7 glass-card-glow rounded-3xl p-4 sm:p-7">
+            <div class="flex items-center justify-between pb-4 mb-5 border-b border-white/10">
+              <div class="flex items-center gap-3">
+                <span class="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center text-lg font-bold border border-orange-500/30 shadow-md shadow-orange-500/20">
+                  ✍️
+                </span>
+                <div>
+                  <h2 class="text-base sm:text-lg font-bold text-white tracking-wide">Trao Gửi Lời Tri Ân</h2>
+                  <p class="text-xs text-slate-400">Dữ liệu được lưu trữ an toàn & bảo mật trên Google Sheets FTEL</p>
+                </div>
+              </div>
+              <span class="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium flex items-center gap-1.5 shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                FTEL Verified
+              </span>
+            </div>
+
+            <form id="tribute-form" class="space-y-4 sm:space-y-5" autocomplete="off">
+              <!-- Section 1: Người Gửi (Sender) -->
+              <div class="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-black/25 border border-white/5">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <span>1. Thông tin người gửi (Bạn)</span>
+                  </label>
+                  <span class="text-[11px] text-slate-400">Email @fpt.net / @fpt.com</span>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Họ và tên của bạn <span class="text-rose-400">*</span></label>
+                    <input 
+                      type="text" 
+                      id="sender-name" 
+                      required 
+                      placeholder="VD: Nguyễn Hoàng Nam" 
+                      class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Email FTEL của bạn <span class="text-rose-400">*</span></label>
+                    <input 
+                      type="email" 
+                      id="sender-email" 
+                      required 
+                      placeholder="VD: namnh@fpt.net" 
+                      class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Đơn vị / Phòng ban <span class="text-rose-400">*</span></label>
+                    <select id="sender-dept" required class="custom-input w-full rounded-xl px-3.5 py-2.5">
+                      <option value="">-- Chọn đơn vị --</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Mã nhân viên (Tùy chọn)</label>
+                    <input 
+                      type="text" 
+                      id="sender-code" 
+                      placeholder="VD: 00123456" 
+                      class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Section 2: Người Nhận (Recipient) -->
+              <div class="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-black/25 border border-white/5">
+                <label class="text-xs font-bold uppercase tracking-wider text-orange-400 flex items-center gap-1.5">
+                  <span>2. Người nhận ngọn lửa tri ân</span>
+                </label>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Họ tên người nhận <span class="text-rose-400">*</span></label>
+                    <input 
+                      type="text" 
+                      id="recipient-name" 
+                      required 
+                      placeholder="VD: Anh Lê Văn Phúc" 
+                      class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Email FTEL người nhận <span class="text-rose-400">*</span></label>
+                    <input 
+                      type="email" 
+                      id="recipient-email" 
+                      required 
+                      placeholder="VD: phuclv@fpt.net" 
+                      class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-300 mb-1">Vai trò người nhận <span class="text-rose-400">*</span></label>
+                  <select id="recipient-role" required class="custom-input w-full rounded-xl px-3.5 py-2.5">
+                    <option value="">-- Chọn vai trò --</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Section 3: Chủ đề & Danh hiệu xét giải -->
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">
+                  3. Danh hiệu & Danh mục xét giải
+                </label>
+                <div id="tags-container" class="flex flex-wrap gap-2"></div>
+              </div>
+
+              <!-- Section 4: Lời cảm ơn (Message) -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    4. Lời cảm ơn tâm huyết <span class="text-rose-400">*</span>
+                  </label>
+                  <button 
+                    type="button" 
+                    id="suggest-wish-btn" 
+                    class="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium underline transition-colors cursor-pointer"
+                  >
+                    💡 Gợi ý câu chúc ý nghĩa
+                  </button>
+                </div>
+                <textarea 
+                  id="tribute-message" 
+                  rows="4" 
+                  required 
+                  minlength="10"
+                  maxlength="500" 
+                  placeholder="Viết lời tri ân, kỷ niệm đáng nhớ hoặc lời cảm ơn về những bài học, sự hỗ trợ tận tâm mà Anh/Chị đã dành cho bạn..."
+                  class="custom-input w-full rounded-2xl p-3.5 placeholder-slate-500 resize-none leading-relaxed"
+                ></textarea>
+                <div class="flex justify-between items-center text-[11px] text-slate-400 mt-1">
+                  <span>Tối thiểu 10 ký tự</span>
+                  <span id="char-counter">0/500 ký tự</span>
+                </div>
+              </div>
+
+              <!-- Section 5: Phong cách E-Card -->
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                  5. Chọn phong cách E-Card
+                </label>
+                <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                  <label class="cursor-pointer">
+                    <input type="radio" name="card-style" value="gold" checked class="peer sr-only" />
+                    <div class="p-2.5 sm:p-3 rounded-xl border border-white/10 bg-black/30 peer-checked:border-amber-400 peer-checked:bg-amber-500/15 text-center transition-all shadow-sm">
+                      <span class="block text-xs font-bold text-amber-300">Hoàng Kim</span>
+                      <span class="text-[10px] text-slate-400">Sang trọng</span>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="card-style" value="flame" class="peer sr-only" />
+                    <div class="p-2.5 sm:p-3 rounded-xl border border-white/10 bg-black/30 peer-checked:border-orange-500 peer-checked:bg-orange-500/15 text-center transition-all shadow-sm">
+                      <span class="block text-xs font-bold text-orange-400">Ngọn Lửa</span>
+                      <span class="text-[10px] text-slate-400">Nhiệt huyết FPT</span>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="card-style" value="cyber" class="peer sr-only" />
+                    <div class="p-2.5 sm:p-3 rounded-xl border border-white/10 bg-black/30 peer-checked:border-cyan-400 peer-checked:bg-cyan-500/15 text-center transition-all shadow-sm">
+                      <span class="block text-xs font-bold text-cyan-300">Công Nghệ</span>
+                      <span class="text-[10px] text-slate-400">Tương lai số</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Submit Button -->
+              <div class="pt-2">
+                <button 
+                  type="submit" 
+                  id="submit-tribute-btn" 
+                  class="btn-flame w-full py-4 px-6 rounded-2xl flex items-center justify-center gap-2 text-base font-extrabold shadow-xl cursor-pointer"
+                >
+                  <span class="text-xl">🔥</span>
+                  <span>THẮP LỬA TRI ÂN & GỬI THIỆP NGAY</span>
+                </button>
+                <p class="text-center text-[11px] text-slate-400 mt-2">
+                  Ngay sau khi gửi, E-Card cá nhân hóa sẽ được tự động gửi trực tiếp đến hộp thư người nhận.
+                </p>
+              </div>
+            </form>
+          </div>
+
+          <!-- RIGHT COLUMN: 3D Live Card Interactive Preview (5 cols) -->
+          <div class="lg:col-span-5 flex flex-col items-center">
+            <div class="w-full glass-card rounded-3xl p-4 sm:p-6 sticky top-24">
+              <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                <div class="flex items-center gap-2">
+                  <span class="text-amber-400 text-sm">✦</span>
+                  <h3 class="text-sm font-bold text-white uppercase tracking-wider">Xem Trước Thiệp 3D</h3>
+                </div>
+                <span class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <span>Tự động cập nhật</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-orange-400 animate-ping"></span>
+                </span>
+              </div>
+
+              <!-- 3D Perspective Card Container -->
+              <div class="card-perspective-container w-full flex justify-center py-2">
+                <div id="card-3d-wrapper" class="group card-3d-tilt relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 cursor-zoom-in max-w-[340px] w-full" title="Bấm vào để phóng to xem thiệp chi tiết">
+                  <canvas id="card-preview-canvas" class="w-full h-auto block"></canvas>
+                  <!-- Hover overlay hint -->
+                  <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
+                    <span class="px-3.5 py-1.5 rounded-full bg-slate-900/90 text-amber-300 border border-amber-400/50 text-xs font-bold flex items-center gap-1.5 shadow-xl backdrop-blur-md">
+                      <span>🔍</span> Bấm để phóng to xem rõ chữ
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card Action Bar -->
+              <div class="flex items-center gap-2 mt-4 pt-3 border-t border-white/10">
+                <button 
+                  type="button" 
+                  id="zoom-card-btn" 
+                  class="flex-1 py-3 px-4 rounded-xl btn-glass-primary font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                >
+                  <span class="text-sm">🔍</span>
+                  <span>PHÓNG TO XEM CHI TIẾT & TẢI VỀ</span>
+                </button>
+              </div>
+
+              <!-- Meaningful 3D hint -->
+              <div class="mt-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300/90 leading-relaxed flex items-start gap-2.5">
+                <span class="text-base leading-none mt-0.5">💡</span>
+                <div>
+                  <strong>Hiệu ứng 3D Tương tác:</strong> Quả cầu tri thức 3D phía sau phản hồi theo cử chỉ chuột của bạn. Khi bấm gửi, ngọn lửa sẽ bùng nổ để truyền năng lượng đến người nhận!
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="glass-header w-full border-t border-white/5 py-5 mt-12 text-center text-xs text-slate-400">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <img src="/assets/logoFPT.png" alt="FTC Logo" class="h-5 w-auto object-contain opacity-80" />
+            <p>© 2026 Trung tâm Đào tạo FTEL (FTC) - FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11</p>
+          </div>
+          <p>Hệ thống tự động hóa E-Card & Tổng hợp số liệu giải "30 Tiếp Lửa Bền Bỉ"</p>
+        </div>
+      </footer>
+    </div>
+
+    <!-- MODAL: Thành công & Vinh danh sau khi gửi -->
+    <div id="success-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+      <div class="relative w-full max-w-lg bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl text-white">
+        <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl shadow-orange-500/40 animate-bounce">
+          🔥
+        </div>
+        <h3 class="text-2xl font-black text-amber-400 mb-2">ĐÃ THẮP LỬA THÀNH CÔNG!</h3>
+        <p class="text-sm text-slate-300 mb-3 leading-relaxed">
+          Ngọn lửa tri ân đầy ấm áp của bạn đã được gửi tới <strong id="success-recipient-name" class="text-white"></strong>. Thiệp E-Card cũng đã được tạo sắc nét chuẩn 1080x1440!
+        </p>
+
+        <!-- Status badge Google Sheets sync -->
+        <div id="success-sync-status" class="mb-5 text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-2">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Final Card Thumbnail -->
+        <div class="max-w-[260px] mx-auto rounded-xl overflow-hidden shadow-2xl border border-white/20 mb-6">
+          <canvas id="success-card-canvas" class="w-full h-auto block"></canvas>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button 
+            id="download-success-card-btn" 
+            class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-bold text-sm shadow-lg shadow-orange-500/20 hover:brightness-110 transition-all flex items-center justify-center gap-2"
+          >
+            <span>📥 Tải Thiệp Về Máy</span>
+          </button>
+          <button 
+            id="send-another-btn" 
+            class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm transition-all"
+          >
+            Gửi người khác
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: Phóng To Thiệp Cực Nét (Lightbox Zoom) -->
+    <div id="card-zoom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-xl transition-all duration-200">
+      <div class="relative w-full max-w-xl max-h-[92vh] flex flex-col items-center glass-card-glow rounded-3xl p-4 sm:p-5 shadow-2xl overflow-hidden text-white">
+        <!-- Header Modal -->
+        <div class="w-full flex items-center justify-between pb-3 mb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <span class="text-amber-400 text-lg">🔍</span>
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                <span>Xem Thiệp Chi Tiết</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">1080x1440 HD</span>
+              </h3>
+              <p class="text-[11px] text-slate-400">Hình ảnh hiển thị với kích thước chuẩn, chữ rõ nét từng chi tiết</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="zoom-download-btn" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md hover:brightness-110 transition-all cursor-pointer">
+              <span>📥 Tải ảnh</span>
+            </button>
+            <button id="close-zoom-modal-btn" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors text-sm cursor-pointer" title="Đóng">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Zoomed Canvas Container (Auto-fit viewport, ZERO scrollbar) -->
+        <div class="relative flex-1 w-full min-h-0 flex items-center justify-center py-2 overflow-hidden">
+          <div class="h-full max-h-[72vh] sm:max-h-[78vh] aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl border border-white/20 flex items-center justify-center bg-black/40">
+            <canvas id="zoom-card-canvas" class="w-full h-full object-contain block"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: Cấu hình Backend Google Sheets -->
+    <div id="config-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="relative w-full max-w-md bg-slate-900 border border-white/15 rounded-2xl p-6 shadow-2xl text-white">
+        <div class="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <span>⚙️ Cấu Hình Google Apps Script</span>
+          </h3>
+          <button id="close-config-modal-btn" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+          Dán URL Web App triển khai từ Google Apps Script (chế độ Restricted) để kết nối lưu trữ trực tiếp vào Google Sheets.
+        </p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Google Apps Script Web App URL</label>
+            <input 
+              type="url" 
+              id="config-script-url" 
+              placeholder="https://script.google.com/macros/s/AKfycb.../exec" 
+              class="custom-input w-full rounded-xl px-3 py-2 text-xs placeholder-slate-500 font-mono"
+            />
+          </div>
+          <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+            <strong>Chế độ hoạt động hiện tại:</strong> 
+            <span id="current-mode-status" class="font-bold text-amber-400">Mô phỏng ngoại tuyến (Demo Mode)</span>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-5">
+          <button id="save-config-btn" class="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-colors">
+            Lưu cấu hình
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

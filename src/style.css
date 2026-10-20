@@ -1,0 +1,282 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --fpt-orange: #f37021;
+  --fpt-orange-glow: rgba(243, 112, 33, 0.45);
+  --fpt-gold: #ffd700;
+  --fpt-gold-glow: rgba(255, 215, 0, 0.4);
+  --fpt-blue: #002d62;
+  --fpt-cyan: #00f2fe;
+  --fpt-cyan-glow: rgba(0, 242, 254, 0.4);
+  --bg-deep: #060913;
+  --glass-bg: rgba(10, 16, 32, 0.42);
+  --glass-bg-hover: rgba(14, 22, 44, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-glow: rgba(243, 112, 33, 0.35);
+}
+
+/* 1. Global Reset & Modern Typography */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: #f8fafc;
+  overflow-x: hidden;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* 2. 3D WebGL Background Canvas (Fixed & Fullscreen) */
+#webgl-canvas-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: auto;
+  background: radial-gradient(circle at 50% 40%, #0d162d 0%, #060913 70%, #030408 100%);
+}
+
+/* 3. Lớp UI đè lên 3D Canvas (Cho phép tương tác click/xoay 3D qua khoảng trống) */
+.ui-container {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none; /* Click xuyên qua khoảng trống để tương tác 3D */
+}
+
+/* Kích hoạt lại tính năng tương tác cho các khối nội dung, nút và form */
+header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, textarea, .interactive-el {
+  pointer-events: auto;
+}
+
+/* 4. Hiệu Ứng Kính Mờ Đỉnh Cao (True Sci-Fi Glassmorphism) */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.glass-card:hover {
+  background: var(--glass-bg-hover);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.glass-card-glow {
+  background: rgba(10, 16, 32, 0.48);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid var(--glass-border-glow);
+  box-shadow: 
+    0 0 35px rgba(243, 112, 33, 0.15),
+    0 20px 50px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-glow:hover {
+  border-color: rgba(243, 112, 33, 0.55);
+  box-shadow: 
+    0 0 45px rgba(243, 112, 33, 0.25),
+    0 25px 60px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Header mờ tinh tế */
+.glass-header {
+  background: rgba(6, 10, 22, 0.45);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* 5. 3D Tilt Card Perspective */
+.card-perspective-container {
+  perspective: 1200px;
+}
+
+.card-3d-tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.15s ease-out, box-shadow 0.25s ease;
+  will-change: transform;
+}
+
+.card-3d-tilt:hover {
+  box-shadow: 0 25px 60px rgba(243, 112, 33, 0.35);
+}
+
+/* 6. Form Inputs chuẩn Sci-Fi & Mobile-friendly */
+.custom-input {
+  background: rgba(8, 14, 28, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 15px; /* Ngăn chặn auto-zoom trên iOS Safari */
+  transition: all 0.25s ease;
+}
+
+@media (max-width: 640px) {
+  .custom-input {
+    font-size: 16px; /* Chuẩn UX mobile */
+  }
+}
+
+.custom-input:focus {
+  outline: none;
+  background: rgba(12, 20, 42, 0.75);
+  border-color: #f37021;
+  box-shadow: 0 0 0 3px rgba(243, 112, 33, 0.25), 0 0 25px rgba(243, 112, 33, 0.2);
+}
+
+.custom-input::placeholder {
+  color: rgba(148, 163, 184, 0.6);
+}
+
+/* 7. Buttons (Cyber Flame & Glass Buttons) */
+.btn-flame {
+  background: linear-gradient(135deg, #f37021 0%, #ff8c00 45%, #ffd700 100%);
+  color: #080c18;
+  font-weight: 800;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 25px rgba(243, 112, 33, 0.4);
+  letter-spacing: 0.5px;
+}
+
+.btn-flame:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(243, 112, 33, 0.6), 0 0 20px rgba(255, 215, 0, 0.4);
+  filter: brightness(1.08);
+}
+
+.btn-flame:active {
+  transform: translateY(0);
+}
+
+.btn-flame::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(60deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: rotate(30deg);
+  transition: all 0.8s ease;
+  opacity: 0;
+}
+
+.btn-flame:hover::after {
+  opacity: 1;
+  transform: rotate(30deg) translate(50%, 50%);
+}
+
+.btn-glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  transition: all 0.25s ease;
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-glass-primary {
+  background: rgba(243, 112, 33, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(243, 112, 33, 0.4);
+  color: #fdba74;
+  transition: all 0.25s ease;
+}
+
+.btn-glass-primary:hover {
+  background: rgba(243, 112, 33, 0.25);
+  border-color: rgba(243, 112, 33, 0.6);
+  box-shadow: 0 0 20px rgba(243, 112, 33, 0.25);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* 8. Text Glow & Gradients */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #ffffff 20%, #ffd700 70%, #f37021 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #ffffff 20%, #00f2fe 70%, #4facfe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-glow-orange {
+  text-shadow: 0 0 25px rgba(243, 112, 33, 0.55);
+}
+
+.text-glow-gold {
+  text-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
+}
+
+/* 9. Sleek Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(243, 112, 33, 0.4);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(243, 112, 33, 0.7);
+}
+
+/* 10. Animations */
+@keyframes floatGentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: floatGentle 4s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.03); }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
