@@ -1,7 +1,7 @@
 # 🔥 DỰ ÁN 20/11 - THẮP LỬA TRI ÂN (FTEL & FTC)
 > **Ứng dụng Web tương tác 3D Real-time gửi thiệp tri ân Thầy Cô, Giảng viên nội bộ & Mentor FPT Telecom nhân ngày Nhà giáo Việt Nam 20/11.**
 
-[![Render](https://img.shields.io/badge/Render-Deployed-brightgreen?logo=render)](https://render.com)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/thanhtungdev05/20-11-FTC)
 [![Three.js](https://img.shields.io/badge/3D-Three.js-orange?logo=three.js)](https://threejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-Build%20Tool-purple?logo=vite)](https://vitejs.dev/)
 [![FPT Telecom](https://img.shields.io/badge/FTEL-FTC-blue)](https://fpt.vn)
