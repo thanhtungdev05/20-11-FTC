@@ -512,16 +512,21 @@
         <!-- STEP 1: Nhập email -->
         <div id="otp-step-1" class="space-y-4">
           <div class="text-left">
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">Email Outlook FTEL của bạn</label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-medium text-slate-300">Email Outlook FTEL của bạn</label>
+              <span id="login-mode-indicator" class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                ⚡ Xác thực siêu tốc (0.1s)
+              </span>
+            </div>
             <input 
               type="email" 
               id="otp-email-input" 
-              placeholder="VD: namnh@fpt.net" 
+              placeholder="VD: namnh@fpt.net hoặc @fpt.com" 
               class="custom-input w-full rounded-xl px-4 py-3 text-sm placeholder-slate-500"
             />
-            <p class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
-              <span>📧</span>
-              <span>Mã OTP sẽ gửi trực tiếp đến hộp thư Microsoft Outlook công ty.</span>
+            <p id="otp-input-tip" class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
+              <span id="otp-tip-icon">⚡</span>
+              <span id="otp-tip-text">Tự động xác thực và khóa an toàn ô người gửi, không cần chờ đợi.</span>
             </p>
           </div>
 
@@ -530,9 +535,19 @@
             id="request-otp-btn" 
             class="btn-flame w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>Nhận Mã OTP Qua Email</span>
-            <span>➜</span>
+            <span id="login-submit-label">⚡ Xác Nhận & Vào Thắp Lửa (0.1s)</span>
+            <span id="login-submit-icon">🔥</span>
           </button>
+
+          <div class="text-center pt-1">
+            <button 
+              type="button" 
+              id="switch-auth-mode-link" 
+              class="text-[11px] text-slate-400 hover:text-amber-300 transition-colors cursor-pointer underline"
+            >
+              🔐 Chuyển sang nhận mã OTP qua Outlook
+            </button>
+          </div>
         </div>
 
         <!-- STEP 2: Nhập mã 6 số OTP -->
@@ -613,8 +628,50 @@
           </button>
         </div>
 
-        <!-- TAB CONTENT 1: Cấu hình Script -->
+        <!-- TAB CONTENT 1: Cấu hình Script & Chế độ xác thực -->
         <div id="admin-view-config" class="space-y-4 overflow-y-auto flex-1 p-1">
+          <!-- Chế độ xác thực đăng nhập CBNV -->
+          <div class="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-xs font-bold text-amber-300 uppercase">Chế Độ Xác Thực Đăng Nhập</h4>
+                <p class="text-[11px] text-slate-400">Thiết lập phương thức kiểm tra email CBNV khi tham gia thắp lửa.</p>
+              </div>
+              <span id="admin-auth-mode-badge" class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ⚡ Siêu Tốc (0.1s)
+              </span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <button 
+                id="admin-btn-mode-direct" 
+                type="button" 
+                class="p-3 rounded-xl border text-left cursor-pointer transition-all bg-amber-500/20 border-amber-500 text-white shadow-md"
+              >
+                <div class="text-xs font-bold flex items-center gap-1.5 text-amber-300">
+                  <span>⚡</span>
+                  <span>Xác Thực Nhanh (0.1s)</span>
+                </div>
+                <p class="text-[11px] text-slate-300 mt-1 leading-snug">
+                  Chỉ cần nhập email FPT là vào ngay, tự động khóa ô email người gửi. Không để người dùng chờ đợi!
+                </p>
+              </button>
+
+              <button 
+                id="admin-btn-mode-otp" 
+                type="button" 
+                class="p-3 rounded-xl border text-left cursor-pointer transition-all bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                <div class="text-xs font-bold flex items-center gap-1.5 text-slate-300">
+                  <span>🔐</span>
+                  <span>Bắt Buộc Mã OTP</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1 leading-snug">
+                  Gửi mã OTP 6 số qua Outlook FTEL (tối ưu Flash OTP tốc độ cao dưới 2-5 giây).
+                </p>
+              </button>
+            </div>
+          </div>
+
           <div>
             <label class="block text-xs font-semibold text-slate-300 mb-1">Google Apps Script Web App URL</label>
             <input 

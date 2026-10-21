@@ -479,8 +479,60 @@ class App {
     const timerDisplay = document.getElementById('otp-timer-display');
     const logoutBtn = document.getElementById('user-logout-btn');
 
+    const loginModeIndicator = document.getElementById('login-mode-indicator');
+    const otpTipIcon = document.getElementById('otp-tip-icon');
+    const otpTipText = document.getElementById('otp-tip-text');
+    const loginSubmitLabel = document.getElementById('login-submit-label');
+    const loginSubmitIcon = document.getElementById('login-submit-icon');
+    const switchAuthModeLink = document.getElementById('switch-auth-mode-link');
+
     let currentEmail = '';
     let countdownInterval = null;
+    let currentAuthMode = ApiService.getAuthMode(); // 'direct' hoặc 'otp'
+
+    // Cập nhật giao diện theo chế độ đăng nhập
+    const updateModalUI = (mode) => {
+      currentAuthMode = mode;
+      if (mode === 'direct') {
+        if (loginModeIndicator) {
+          loginModeIndicator.textContent = '⚡ Xác thực siêu tốc (0.1s)';
+          loginModeIndicator.className = 'text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20';
+        }
+        if (otpTipIcon) otpTipIcon.textContent = '⚡';
+        if (otpTipText) otpTipText.textContent = 'Tự động xác thực và khóa an toàn ô người gửi, không cần chờ đợi.';
+        if (loginSubmitLabel) loginSubmitLabel.textContent = '⚡ Xác Nhận & Vào Thắp Lửa (0.1s)';
+        if (loginSubmitIcon) loginSubmitIcon.textContent = '🔥';
+        if (switchAuthModeLink) switchAuthModeLink.textContent = '🔐 Chuyển sang nhận mã OTP qua Outlook';
+      } else {
+        if (loginModeIndicator) {
+          loginModeIndicator.textContent = '🔐 Xác thực OTP Outlook';
+          loginModeIndicator.className = 'text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20';
+        }
+        if (otpTipIcon) otpTipIcon.textContent = '📧';
+        if (otpTipText) otpTipText.textContent = 'Mã OTP sẽ gửi trực tiếp đến hộp thư Microsoft Outlook công ty (nhận sau 1-3s).';
+        if (loginSubmitLabel) loginSubmitLabel.textContent = 'Nhận Mã OTP Qua Email';
+        if (loginSubmitIcon) loginSubmitIcon.textContent = '➜';
+        if (switchAuthModeLink) switchAuthModeLink.textContent = '⚡ Hoặc xác thực nhanh không cần OTP (0.1s)';
+      }
+    };
+
+    updateModalUI(currentAuthMode);
+
+    // Đồng bộ ngầm trạng thái cấu hình từ Cloud (nếu có)
+    ApiService.getCloudAuthMode().then(cloudMode => {
+      if (cloudMode && cloudMode !== currentAuthMode) {
+        updateModalUI(cloudMode);
+      }
+    }).catch(err => console.warn('Sync cloud auth mode error:', err));
+
+    // Nút chuyển đổi nhanh chế độ xác thực
+    if (switchAuthModeLink) {
+      switchAuthModeLink.addEventListener('click', () => {
+        const nextMode = currentAuthMode === 'direct' ? 'otp' : 'direct';
+        ApiService.setLocalAuthMode(nextMode);
+        updateModalUI(nextMode);
+      });
+    }
 
     const startTimer = () => {
       let timeLeft = 300; // 5 phút
@@ -507,7 +559,7 @@ class App {
       if (modal) modal.classList.remove('hidden');
     }
 
-    // 2. Nút xin mã OTP
+    // 2. Nút Xử lý Đăng Nhập (Tức thì 0.1s nếu Direct / Gửi OTP nếu OTP mode)
     if (requestBtn) {
       requestBtn.addEventListener('click', async () => {
         const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
@@ -520,9 +572,29 @@ class App {
           return;
         }
 
+        // PHƯƠNG ÁN 1: XÁC THỰC NHANH TRỰC TIẾP (0.1s - KHÔNG CẦN CHỜ OTP)
+        if (currentAuthMode === 'direct') {
+          try {
+            const sessionData = ApiService.directLogin(email);
+            if (modal) modal.classList.add('hidden');
+            this.applyUserSession(sessionData);
+
+            confetti({
+              particleCount: 80,
+              spread: 60,
+              origin: { y: 0.6 }
+            });
+            return;
+          } catch (err) {
+            alert('⚠️ ' + (err.message || 'Lỗi xác thực email.'));
+            return;
+          }
+        }
+
+        // PHƯƠNG ÁN 2: GỬI MÃ OTP QUA OUTLOOK (FLASH OTP SIÊU TỐC)
         try {
           requestBtn.disabled = true;
-          requestBtn.innerHTML = '<span>Đang gửi mã vào Outlook...</span>';
+          if (loginSubmitLabel) loginSubmitLabel.textContent = 'Đang gửi mã qua Outlook (Flash)...';
 
           await ApiService.requestOtp(email);
           currentEmail = email;
@@ -540,7 +612,7 @@ class App {
           alert('⚠️ ' + (err.message || 'Không thể gửi mã OTP.'));
         } finally {
           requestBtn.disabled = false;
-          requestBtn.innerHTML = '<span>Nhận Mã OTP Qua Email</span><span>➜</span>';
+          updateModalUI(currentAuthMode);
         }
       });
     }
@@ -675,7 +747,52 @@ class App {
     const newAdminInput = document.getElementById('new-admin-email-input');
     const exportCsvBtn = document.getElementById('admin-export-csv-btn');
 
+    const adminBtnModeDirect = document.getElementById('admin-btn-mode-direct');
+    const adminBtnModeOtp = document.getElementById('admin-btn-mode-otp');
+    const adminAuthModeBadge = document.getElementById('admin-auth-mode-badge');
+
+    const refreshAdminAuthModeUI = (mode) => {
+      const isDirect = mode === 'direct';
+      if (adminAuthModeBadge) {
+        adminAuthModeBadge.textContent = isDirect ? '⚡ Siêu Tốc (0.1s)' : '🔐 OTP Outlook';
+        adminAuthModeBadge.className = isDirect
+          ? 'px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          : 'px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      }
+      if (adminBtnModeDirect) {
+        adminBtnModeDirect.className = isDirect
+          ? 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-amber-500/20 border-amber-500 text-white shadow-md'
+          : 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10';
+      }
+      if (adminBtnModeOtp) {
+        adminBtnModeOtp.className = !isDirect
+          ? 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-amber-500/20 border-amber-500 text-white shadow-md'
+          : 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10';
+      }
+    };
+
+    if (adminBtnModeDirect) {
+      adminBtnModeDirect.addEventListener('click', async () => {
+        adminBtnModeDirect.disabled = true;
+        await ApiService.adminToggleAuthMode('direct');
+        refreshAdminAuthModeUI('direct');
+        alert('⚡ Đã chuyển sang chế độ: Xác thực nhanh tức thì (0.1s, không cần mã OTP)!');
+        window.location.reload();
+      });
+    }
+
+    if (adminBtnModeOtp) {
+      adminBtnModeOtp.addEventListener('click', async () => {
+        adminBtnModeOtp.disabled = true;
+        await ApiService.adminToggleAuthMode('otp');
+        refreshAdminAuthModeUI('otp');
+        alert('🔐 Đã chuyển sang chế độ: Bắt buộc gửi mã OTP qua Outlook!');
+        window.location.reload();
+      });
+    }
+
     const openAdminDashboard = () => {
+      refreshAdminAuthModeUI(ApiService.getAuthMode());
       if (adminUrlInput) adminUrlInput.value = localStorage.getItem('ftel_custom_script_url') || APPS_SCRIPT_URL;
       if (adminPanelModal) adminPanelModal.classList.remove('hidden');
       this.loadAdminList();

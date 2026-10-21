@@ -42,31 +42,40 @@ const CONFIG = {
  * Xử lý yêu cầu POST từ Web App
  */
 function doPost(e) {
-  const lock = LockService.getScriptLock();
-  try {
-    // Khóa tránh ghi đè đồng thời (concurrency control)
-    lock.waitLock(15000);
-    
-    let payload = {};
-    if (e.postData && e.postData.contents) {
-      try {
-        payload = JSON.parse(e.postData.contents);
-      } catch (err) {
-        payload = e.parameter || {};
-      }
-    } else {
+  let payload = {};
+  if (e.postData && e.postData.contents) {
+    try {
+      payload = JSON.parse(e.postData.contents);
+    } catch (err) {
       payload = e.parameter || {};
     }
+  } else {
+    payload = e.parameter || {};
+  }
 
-    const action = payload.action || "submit_gratitude";
+  const action = payload.action || "submit_gratitude";
 
-    // Action 1: Gửi lời tri ân
-    if (action === "submit_gratitude") {
+  // Action 1: Gửi lời tri ân (Cần lock để chống ghi đè/xung đột dòng trên Google Sheet)
+  if (action === "submit_gratitude") {
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(15000);
       const result = handleGratitudeSubmission(payload);
       return createJsonResponse(result);
+    } catch (error) {
+      Logger.log("submit_gratitude Error: " + error.toString());
+      return createJsonResponse({
+        success: false,
+        message: "Lỗi hệ thống khi lưu lời tri ân: " + error.toString()
+      });
+    } finally {
+      lock.releaseLock();
     }
-    
-    // Action 2: Gửi OTP qua email Outlook FTEL
+  }
+
+  // TẤT CẢ CÁC ACTION KHÁC (Gửi OTP, Xác thực, Admin) KHÔNG CẦN SHEET LOCK -> XỬ LÝ SIÊU TỐC (<0.5s)
+  try {
+    // Action 2: Gửi OTP qua email Outlook FTEL (Flash OTP tối ưu)
     if (action === "request_otp") {
       const result = handleRequestOtp(payload);
       return createJsonResponse(result);
@@ -75,6 +84,18 @@ function doPost(e) {
     // Action 3: Xác thực mã OTP
     if (action === "verify_otp") {
       const result = handleVerifyOtp(payload);
+      return createJsonResponse(result);
+    }
+
+    // Action: Lấy cấu hình chế độ đăng nhập (Direct hay OTP)
+    if (action === "get_auth_config") {
+      const result = handleGetAuthConfig();
+      return createJsonResponse(result);
+    }
+
+    // Action: Admin bật/tắt yêu cầu mã OTP
+    if (action === "admin_toggle_otp") {
+      const result = handleAdminToggleOtp(payload);
       return createJsonResponse(result);
     }
 
@@ -113,8 +134,6 @@ function doPost(e) {
       success: false,
       message: "Lỗi hệ thống: " + error.toString()
     });
-  } finally {
-    lock.releaseLock();
   }
 }
 
@@ -140,6 +159,11 @@ function doGet(e) {
         success: true,
         data: leaderboard
       });
+    }
+
+    if (action === "get_auth_config") {
+      const authConfig = handleGetAuthConfig();
+      return createJsonResponse(authConfig);
     }
 
     return createJsonResponse({
@@ -558,12 +582,60 @@ function escapeHtml(text) {
 
 /**
  * ==============================================================================
- * HỆ THỐNG XÁC THỰC OTP QUA OUTLOOK FTEL & PHÂN QUYỀN ADMIN
+ * HỆ THỐNG XÁC THỰC (FLASH OTP & XÁC THỰC NHANH FTEL) & PHÂN QUYỀN ADMIN
  * ==============================================================================
  */
 
 /**
- * Xử lý gửi OTP qua email Outlook FTEL
+ * Lấy trạng thái chế độ xác thực hệ thống
+ * Mặc định: requireOtp = false (Chế độ xác thực nhanh tức thì 0.1s không cần chờ OTP)
+ */
+function handleGetAuthConfig() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const requireOtp = props.getProperty("AUTH_REQUIRE_OTP") === "true";
+    return {
+      success: true,
+      requireOtp: requireOtp,
+      mode: requireOtp ? "otp" : "direct"
+    };
+  } catch (e) {
+    return {
+      success: true,
+      requireOtp: false,
+      mode: "direct"
+    };
+  }
+}
+
+/**
+ * Admin bật/tắt yêu cầu mã OTP toàn hệ thống
+ */
+function handleAdminToggleOtp(data) {
+  const secretKey = (data.secretKey || "").trim();
+  const requireOtp = data.requireOtp === true || data.requireOtp === "true";
+
+  if (secretKey !== CONFIG.ADMIN_SECRET_KEY) {
+    return {
+      success: false,
+      message: "Khóa bảo mật quản trị không chính xác!"
+    };
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty("AUTH_REQUIRE_OTP", requireOtp ? "true" : "false");
+
+  return {
+    success: true,
+    requireOtp: requireOtp,
+    message: requireOtp 
+      ? "Đã chuyển sang chế độ: Bắt buộc xác thực mã OTP qua Outlook." 
+      : "Đã chuyển sang chế độ: Xác thực nhanh tức thì (0.1s, không cần chờ OTP)."
+  };
+}
+
+/**
+ * Xử lý gửi OTP qua email Outlook FTEL (Flash OTP - Tối ưu siêu tốc <1s bằng CacheService & MailApp)
  */
 function handleRequestOtp(data) {
   const email = (data.email || "").trim().toLowerCase();
@@ -575,17 +647,16 @@ function handleRequestOtp(data) {
     };
   }
 
+  const cache = CacheService.getScriptCache();
   const props = PropertiesService.getScriptProperties();
   const now = Date.now();
 
-  // Chống spam yêu cầu OTP (tối thiểu 30s giữa 2 lần)
+  // Chống spam yêu cầu OTP (Rút ngắn thời gian chờ còn 15s)
   const lastReqKey = "REQ_" + email;
-  const lastTime = parseInt(props.getProperty(lastReqKey) || "0", 10);
-  if (now - lastTime < 30000) {
-    const wait = Math.ceil((30000 - (now - lastTime)) / 1000);
+  if (cache.get(lastReqKey)) {
     return {
       success: false,
-      message: "Vui lòng đợi " + wait + " giây trước khi yêu cầu mã OTP mới!"
+      message: "Vui lòng đợi 15 giây trước khi yêu cầu mã OTP mới!"
     };
   }
 
@@ -593,46 +664,63 @@ function handleRequestOtp(data) {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   const expireAt = now + (5 * 60 * 1000); // 5 phút
 
-  props.setProperty("OTP_" + email, code + "_" + expireAt);
-  props.setProperty(lastReqKey, now.toString());
+  // Lưu vào RAM Cache siêu tốc (<15ms)
+  cache.put("OTP_" + email, code, 300); // 300 giây = 5 phút
+  cache.put(lastReqKey, "1", 15);        // 15 giây chống spam
 
-  // Gửi email HTML tới hộp thư Outlook của CBNV
+  // Dự phòng ghi vào Script Properties
+  try {
+    props.setProperty("OTP_" + email, code + "_" + expireAt);
+  } catch (propErr) {
+    Logger.log("Props write fallback warning: " + propErr.toString());
+  }
+
+  // Gửi email siêu nhẹ với MailApp (Direct SMTP Google) để Outlook nhận ngay tức thì
   try {
     const subject = "[FTC 20/11] Mã xác thực OTP thắp lửa tri ân: " + code;
+    const plainText = "Xin chào thành viên FPT Telecom,\n\nMã xác thực OTP thắp lửa tri ân 20/11 của bạn là: " + code + "\n(Mã có hiệu lực trong 5 phút).\n\nFTC - Trung tâm Đào tạo FPT Telecom.";
     const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f37021; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-        <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 25px 20px; text-align: center;">
-          <img src="https://ftc-gialapthietbi.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="38" style="display:block; margin: 0 auto 10px auto;" />
-          <h3 style="color: #ffd700; margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Trung tâm Đào tạo FTEL (FTC)</h3>
-          <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: bold;">XÁC THỰC TÀI KHOẢN FTEL</h2>
+      <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f37021; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 22px 20px; text-align: center;">
+          <img src="https://ftc-gialapthietbi.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="34" style="display:block; margin: 0 auto 8px auto;" />
+          <h3 style="color: #ffd700; margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">Trung tâm Đào tạo FTEL (FTC)</h3>
+          <h2 style="color: #ffffff; margin: 0; font-size: 18px; font-weight: bold;">MÃ XÁC THỰC TÀI KHOẢN FTEL</h2>
         </div>
-        <div style="padding: 30px 25px; line-height: 1.6; color: #e2e8f0; text-align: center;">
-          <p style="font-size: 16px; color: #ffffff; margin: 0 0 15px 0;">
+        <div style="padding: 25px 20px; line-height: 1.6; color: #e2e8f0; text-align: center;">
+          <p style="font-size: 15px; color: #ffffff; margin: 0 0 12px 0;">
             Xin chào thành viên <strong>FPT Telecom</strong>,
           </p>
-          <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 25px;">
-            Bạn đang đăng nhập vào cổng <strong>"Thắp Lửa Tri Ân 20/11"</strong>. Dưới đây là mã xác thực OTP dùng một lần của bạn:
+          <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
+            Bạn đang đăng nhập vào cổng <strong>"Thắp Lửa Tri Ân 20/11"</strong>. Dưới đây là mã OTP dùng một lần của bạn:
           </p>
-          <div style="background: rgba(243, 112, 33, 0.15); border: 2px dashed #f37021; padding: 18px 24px; border-radius: 12px; display: inline-block; margin: 0 auto 25px auto;">
-            <span style="font-family: monospace; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #ffd700;">${code}</span>
+          <div style="background: rgba(243, 112, 33, 0.15); border: 2px dashed #f37021; padding: 14px 22px; border-radius: 12px; display: inline-block; margin: 0 auto 20px auto;">
+            <span style="font-family: monospace; font-size: 34px; font-weight: bold; letter-spacing: 8px; color: #ffd700;">${code}</span>
           </div>
-          <p style="font-size: 13px; color: #94a3b8; margin: 0 0 10px 0;">
-            ⏳ Mã xác thực có hiệu lực trong vòng <strong>5 phút</strong>.
-          </p>
-          <p style="font-size: 12px; color: #64748b; margin: 0;">
-            Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email. Tuyệt đối không chia sẻ mã này cho người khác.
+          <p style="font-size: 12px; color: #94a3b8; margin: 0 0 8px 0;">
+            ⏳ Mã có hiệu lực trong vòng <strong>5 phút</strong>.
           </p>
         </div>
-        <div style="background: #080d1a; padding: 15px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
-          <p style="margin: 0;">FTEL 20/11 - Trung tâm Đào tạo FPT Telecom (FTC)</p>
+        <div style="background: #080d1a; padding: 12px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
+          <p style="margin: 0;">FTEL 20/11 • Trung tâm Đào tạo FPT Telecom (FTC)</p>
         </div>
       </div>
     `;
 
-    GmailApp.sendEmail(email, subject, "", {
-      htmlBody: htmlBody,
-      name: "FTC - Trung tâm Đào tạo FPT Telecom"
-    });
+    try {
+      MailApp.sendEmail({
+        to: email,
+        subject: subject,
+        body: plainText,
+        htmlBody: htmlBody,
+        name: "FTC - Thắp Lửa Tri Ân"
+      });
+    } catch (mailAppErr) {
+      // Fallback qua GmailApp nếu MailApp gặp hạn mức riêng
+      GmailApp.sendEmail(email, subject, plainText, {
+        htmlBody: htmlBody,
+        name: "FTC - Thắp Lửa Tri Ân"
+      });
+    }
 
     return {
       success: true,
@@ -648,7 +736,7 @@ function handleRequestOtp(data) {
 }
 
 /**
- * Xử lý kiểm tra mã OTP
+ * Xử lý kiểm tra mã OTP (Tối ưu kiểm tra RAM CacheService trước)
  */
 function handleVerifyOtp(data) {
   const email = (data.email || "").trim().toLowerCase();
@@ -661,39 +749,38 @@ function handleVerifyOtp(data) {
     };
   }
 
-  const props = PropertiesService.getScriptProperties();
-  const stored = props.getProperty("OTP_" + email);
+  const cache = CacheService.getScriptCache();
+  const cachedOtp = cache.get("OTP_" + email);
+  let isMatch = false;
 
-  if (!stored) {
+  if (cachedOtp) {
+    if (cachedOtp === inputOtp) {
+      isMatch = true;
+      cache.remove("OTP_" + email);
+    }
+  } else {
+    // Fallback: Kiểm tra PropertiesService
+    const props = PropertiesService.getScriptProperties();
+    const stored = props.getProperty("OTP_" + email);
+    if (stored) {
+      const parts = stored.split("_");
+      const validCode = parts[0];
+      const expireAt = parseInt(parts[1], 10);
+      if (Date.now() <= expireAt && inputOtp === validCode) {
+        isMatch = true;
+      }
+      props.deleteProperty("OTP_" + email);
+    }
+  }
+
+  if (!isMatch) {
     return {
       success: false,
-      message: "Mã OTP không tồn tại hoặc đã hết hạn. Vui lòng lấy mã mới!"
+      message: "Mã OTP không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại!"
     };
   }
 
-  const parts = stored.split("_");
-  const validCode = parts[0];
-  const expireAt = parseInt(parts[1], 10);
-
-  if (Date.now() > expireAt) {
-    props.deleteProperty("OTP_" + email);
-    return {
-      success: false,
-      message: "Mã OTP đã hết hạn (quá 5 phút). Vui lòng yêu cầu mã mới!"
-    };
-  }
-
-  if (inputOtp !== validCode) {
-    return {
-      success: false,
-      message: "Mã OTP không chính xác. Vui lòng kiểm tra lại!"
-    };
-  }
-
-  // OTP chính xác -> Xóa mã
-  props.deleteProperty("OTP_" + email);
-
-  // Kiểm tra quyền Admin
+  // OTP chính xác -> Kiểm tra quyền Admin
   const isAdmin = checkIsAdminEmail(email);
 
   return {

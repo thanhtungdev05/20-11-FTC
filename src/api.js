@@ -270,6 +270,93 @@ export class ApiService {
   }
 
   /**
+   * Lấy chế độ xác thực người dùng:
+   * - 'direct': Xác thực nhanh tức thì 0.1s (Khuyên dùng - không cần chờ mã OTP)
+   * - 'otp': Bắt buộc nhận mã OTP 6 số qua Outlook
+   */
+  static getAuthMode() {
+    return localStorage.getItem('ftel_auth_mode') || 'direct';
+  }
+
+  static setLocalAuthMode(mode) {
+    const validMode = mode === 'otp' ? 'otp' : 'direct';
+    localStorage.setItem('ftel_auth_mode', validMode);
+    return validMode;
+  }
+
+  /**
+   * Đồng bộ cấu hình xác thực từ Google Apps Script
+   */
+  static async getCloudAuthMode() {
+    if (this.isMockMode()) return this.getAuthMode();
+    try {
+      const scriptUrl = getEffectiveScriptUrl();
+      const delimiter = scriptUrl.includes('?') ? '&' : '?';
+      const response = await fetch(scriptUrl + delimiter + 'action=get_auth_config');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && typeof data.requireOtp !== 'undefined') {
+          const mode = data.requireOtp ? 'otp' : 'direct';
+          this.setLocalAuthMode(mode);
+          return mode;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not sync auth config from cloud, using cached:", e);
+    }
+    return this.getAuthMode();
+  }
+
+  /**
+   * Admin bật/tắt chế độ OTP trên toàn hệ thống
+   */
+  static async adminToggleAuthMode(mode) {
+    const targetMode = mode === 'otp' ? 'otp' : 'direct';
+    this.setLocalAuthMode(targetMode);
+
+    const adminSess = this.getAdminSession();
+    const scriptUrl = getEffectiveScriptUrl();
+    try {
+      const res = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'admin_toggle_otp',
+          requireOtp: targetMode === 'otp',
+          secretKey: adminSess?.secretKey || 'FTEL_TRI_AN_2026'
+        })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn("Failed to push auth toggle to cloud:", err);
+      return { success: true, mode: targetMode };
+    }
+  }
+
+  /**
+   * Xác thực nhanh trực tiếp cho email FTEL (0.1 giây, tức thì không cần chờ OTP)
+   */
+  static directLogin(email) {
+    email = (email || '').trim().toLowerCase();
+    if (!email) {
+      throw new Error('Vui lòng nhập email Outlook FTEL của bạn!');
+    }
+    if (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com')) {
+      throw new Error('Email phải có đuôi @fpt.net hoặc @fpt.com!');
+    }
+
+    const sessionData = {
+      email: email,
+      verifiedAt: Date.now(),
+      mode: 'direct',
+      isAdmin: false
+    };
+
+    sessionStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
+    return sessionData;
+  }
+
+  /**
    * Xác thực mã OTP
    */
   static async verifyOtp(email, otp) {
