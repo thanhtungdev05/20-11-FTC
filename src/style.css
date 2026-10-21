@@ -92,9 +92,9 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 }
 
 .glass-card-glow {
-  background: rgba(10, 16, 32, 0.55);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  background: rgba(10, 16, 32, 0.38);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
   border: 1px solid var(--glass-border-glow);
   box-shadow: 
     0 0 35px rgba(243, 112, 33, 0.15),
@@ -275,41 +275,68 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 }
 
 /* ==============================================================================
- * 10. TỐI ƯU HÓA ĐẶC BIỆT CHO MOBILE (SIÊU MƯỢT 60-120 FPS & ĐỒNG BỘ 100% GIAO DIỆN)
+ * 10. TỐI ƯU HÓA MOBILE: TRONG SUỐT HOÀN TOÀN THẤY RÕ NGỌN LỬA 3D & KHÔNG BAO GIỜ TRÀN MENU
  * ============================================================================== */
 @media (max-width: 768px) {
-  /* Cho phép ngọn lửa 3D xuyên qua các lớp thẻ trên mobile với độ trong suốt tinh tế & blur nhẹ */
+  /* Khung thẻ chính: Giảm độ đục tối đa, cho phép ngọn lửa 3D bùng cháy rực rỡ xuyên qua biểu mẫu */
   .glass-card {
-    background: rgba(10, 16, 32, 0.60) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
-    backdrop-filter: blur(8px) saturate(140%) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
+    background: rgba(8, 14, 28, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(5px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(5px) saturate(140%) !important;
   }
 
   .glass-card-glow {
-    background: rgba(12, 18, 36, 0.62) !important;
-    border: 1px solid rgba(243, 112, 33, 0.4) !important;
-    box-shadow: 0 0 30px rgba(243, 112, 33, 0.22), 0 12px 35px rgba(0, 0, 0, 0.6) !important;
-    backdrop-filter: blur(8px) saturate(150%) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
+    background: rgba(8, 14, 28, 0.20) !important;
+    border: 1px solid rgba(243, 112, 33, 0.42) !important;
+    box-shadow: 0 0 35px rgba(243, 112, 33, 0.20), 0 10px 35px rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(5px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(5px) saturate(150%) !important;
   }
 
+  /* Khối section con trong form: Không còn nền đen đục chắn lửa */
+  .glass-card-glow div[class*="bg-black"],
+  .glass-card div[class*="bg-black"] {
+    background-color: rgba(4, 8, 18, 0.18) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* Header trên mobile: Gọn gàng, độ mờ nhẹ */
   .glass-header {
     background: rgba(6, 10, 22, 0.85) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
-  /* Chuẩn form mobile: cỡ chữ 16px để ngăn Safari/Chrome tự ý zoom vào màn hình */
+  /* Tuyệt đối ẩn user badge trên hàng menu chính của mobile (tránh 100% việc chèn ép chữ) */
+  #user-header-badge {
+    display: none !important;
+  }
+
+  /* Ô nhập liệu: Trong suốt tinh tế, thấy ngọn lửa bùng cháy cuồn cuộn sau form */
   .custom-input {
-    background: rgba(8, 14, 28, 0.78) !important;
-    backdrop-filter: blur(6px) !important;
-    -webkit-backdrop-filter: blur(6px) !important;
+    background: rgba(6, 12, 26, 0.32) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
     font-size: 16px !important;
     padding-top: 10px !important;
     padding-bottom: 10px !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+  }
+
+  .custom-input:focus {
+    background: rgba(12, 20, 42, 0.50) !important;
+    border-color: rgba(243, 112, 33, 0.85) !important;
+    box-shadow: 0 0 15px rgba(243, 112, 33, 0.35) !important;
+  }
+
+  /* Đảm bảo toàn bộ chữ và nhãn sắc nét trên nền lửa */
+  label {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
   }
 
   /* Touch scrolling mượt mà cho bảng dữ liệu */
@@ -332,6 +359,13 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
   /* Cố định chiều cao modal an toàn cho thanh trình duyệt Safari / Chrome */
   .modal-inner-container {
     max-height: 90dvh !important;
+  }
+}
+
+/* Ẩn mobile sub-bar trên Desktop */
+@media (min-width: 769px) {
+  #user-mobile-bar {
+    display: none !important;
   }
 }
 

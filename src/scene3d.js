@@ -52,8 +52,8 @@ export class Scene3D {
 
     // 2. Camera: Optimized framing for both Mobile and Desktop
     this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-    // On mobile: position camera at y = -1.2, z = 16.5 so the flame rises high into the hero section!
-    this.camera.position.set(0, this.isMobile ? -1.2 : 0.0, this.isMobile ? 16.5 : 17.5);
+    // On mobile: position camera at y = -1.0, z = 16.0 so the flame rises high into the hero section and shines through the transparent card!
+    this.camera.position.set(0, this.isMobile ? -1.0 : 0.0, this.isMobile ? 16.0 : 17.5);
 
     // 3. Renderer: High-performance configuration
     // Crucial for Mobile: pixelRatio = 1.0 (avoids 4x fillrate blowup on retina mobile screens)
@@ -128,14 +128,14 @@ export class Scene3D {
     });
 
     // 1. MAIN VOLUMETRIC FLAME (Ngọn Lửa Tri Ân FTEL)
-    // 22 iterations ensures full volumetric ray traversal & brilliant flame opacity on both mobile and desktop!
+    // 24 iterations ensures dense volumetric ray traversal & brilliant flame opacity on both mobile and desktop!
     this.fireMesh = new FireMesh({
       fireTex: fireTex,
       color: 0xf37021, // FPT Telecom vibrant flame orange
-      magnitude: 1.8,  // Dynamic flame licking
+      magnitude: 1.85, // Dynamic flame licking
       lacunarity: 2.1,
       gain: 0.52,
-      iterations: 22,
+      iterations: 24,
       octaves: 3,
       noiseScale: [1.0, 2.2, 1.0, 0.32] // Upward convection draft
     });
@@ -148,10 +148,10 @@ export class Scene3D {
     this.fireCore = new FireMesh({
       fireTex: fireTex,
       color: 0xffea77, // Brilliant warm gold
-      magnitude: 2.1,
+      magnitude: 2.2,
       lacunarity: 2.0,
       gain: 0.5,
-      iterations: 18,
+      iterations: 20,
       octaves: 3,
       noiseScale: [1.2, 2.4, 1.2, 0.38]
     });
@@ -188,6 +188,32 @@ export class Scene3D {
     this.haloSprite.scale.set(8.5, 8.5, 1);
     this.haloSprite.position.set(0, -2.5, 0);
     this.coreGroup.add(this.haloSprite);
+
+    // 5. Ambient luminous fire aura (Quầng hào quang nhiệt huyết bao quanh lửa)
+    const auraCanvas = document.createElement('canvas');
+    auraCanvas.width = 128;
+    auraCanvas.height = 128;
+    const auraCtx = auraCanvas.getContext('2d');
+    const auraGrad = auraCtx.createRadialGradient(64, 64, 0, 64, 64, 60);
+    auraGrad.addColorStop(0, 'rgba(243, 112, 33, 0.45)');
+    auraGrad.addColorStop(0.35, 'rgba(243, 112, 33, 0.22)');
+    auraGrad.addColorStop(0.7, 'rgba(255, 140, 0, 0.08)');
+    auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    auraCtx.fillStyle = auraGrad;
+    auraCtx.fillRect(0, 0, 128, 128);
+
+    const auraTex = new THREE.CanvasTexture(auraCanvas);
+    const auraMat = new THREE.SpriteMaterial({
+      map: auraTex,
+      color: 0xffffff,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    this.auraSprite = new THREE.Sprite(auraMat);
+    this.auraSprite.scale.set(12.5, 14.5, 1);
+    this.auraSprite.position.set(0, 1.0, -0.6);
+    this.coreGroup.add(this.auraSprite);
 
     this.scene.add(this.coreGroup);
   }
@@ -374,7 +400,7 @@ export class Scene3D {
     const height = this.container.clientHeight || window.innerHeight;
 
     this.isMobile = width < 768 || /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    this.camera.position.set(0, this.isMobile ? -1.2 : 0.0, this.isMobile ? 16.5 : 17.5);
+    this.camera.position.set(0, this.isMobile ? -1.0 : 0.0, this.isMobile ? 16.0 : 17.5);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
@@ -519,6 +545,11 @@ export class Scene3D {
       this.emberMesh.material.opacity = emberPulse;
     }
 
+    // Breathing pulse on luminous aura
+    if (this.auraSprite) {
+      this.auraSprite.material.opacity = 0.80 + Math.sin(time * 3.0) * 0.18;
+    }
+
     // Animate ascending sparks and embers
     if (this.sparks) {
       const positions = this.sparks.geometry.attributes.position.array;
@@ -558,6 +589,10 @@ export class Scene3D {
 
     if (this.fireMesh) this.fireMesh.dispose();
     if (this.fireCore) this.fireCore.dispose();
+    if (this.auraSprite) {
+      if (this.auraSprite.material.map) this.auraSprite.material.map.dispose();
+      this.auraSprite.material.dispose();
+    }
 
     if (this.renderer && this.renderer.domElement) {
       this.container.removeChild(this.renderer.domElement);

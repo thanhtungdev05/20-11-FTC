@@ -651,14 +651,14 @@ class App {
       }
       if (verifiedBadge) verifiedBadge.classList.remove('hidden');
 
-      // Desktop user badge
+      // Desktop user badge (visible on desktop via flex; hidden on mobile via CSS)
       if (userBadge) {
         userBadge.classList.remove('hidden');
-        userBadge.classList.add('sm:flex');
+        userBadge.classList.add('flex');
       }
       if (displayEmail) displayEmail.textContent = session.email;
 
-      // Mobile user sub-bar
+      // Mobile user sub-bar (visible on mobile via flex; hidden on desktop via CSS)
       if (mobileBar) {
         mobileBar.classList.remove('hidden');
         mobileBar.classList.add('flex');
