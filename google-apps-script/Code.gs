@@ -629,9 +629,7 @@ function handleRequestOtp(data) {
       </div>
     `;
 
-    MailApp.sendEmail({
-      to: email,
-      subject: subject,
+    GmailApp.sendEmail(email, subject, "", {
       htmlBody: htmlBody,
       name: "FTC - Trung tâm Đào tạo FPT Telecom"
     });
