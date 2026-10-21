@@ -8,16 +8,11 @@ import { MOCK_LEADERBOARD } from './mockData.js';
  * Sau khi triển khai Google Apps Script (xem file google-apps-script/README.md),
  * hãy dán Web App URL vào biến APPS_SCRIPT_URL dưới đây.
  */
-export const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzKGQrtBT8bpzagyRJKTyHW1Ycosqx8SNl46uXPCH_HA8WaaiewAiAsyYUHeJD0f4C8/exec";
+export const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec";
 
 export function getEffectiveScriptUrl() {
   const custom = localStorage.getItem('ftel_custom_script_url');
   if (custom && custom.trim() !== '') {
-    // Tự động bỏ qua các URL cũ đã lỗi trước đây
-    if (custom.includes('AKfycbzTaNILtS0') || custom.includes('AKfycbzJVQuU')) {
-      localStorage.removeItem('ftel_custom_script_url');
-      return APPS_SCRIPT_URL;
-    }
     return custom;
   }
   return APPS_SCRIPT_URL;
