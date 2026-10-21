@@ -37,7 +37,8 @@ export class Scene3D {
     this.isTyping = false;
     this.isPaused = false;
     this.startTime = performance.now();
-    this.lastFrameTime = 0;
+    this.lastFrameTime = performance.now();
+    this.elapsedTime = 0;
 
     this.init();
   }
@@ -128,14 +129,14 @@ export class Scene3D {
     });
 
     // 1. MAIN VOLUMETRIC FLAME (Ngọn Lửa Tri Ân FTEL)
-    // 24 iterations ensures dense volumetric ray traversal & brilliant flame opacity on both mobile and desktop!
+    // 20 iterations on mobile / 24 on desktop: Prevents thermal throttling & eliminates idle stutter while staying lush
     this.fireMesh = new FireMesh({
       fireTex: fireTex,
       color: 0xf37021, // FPT Telecom vibrant flame orange
       magnitude: 1.85, // Dynamic flame licking
       lacunarity: 2.1,
       gain: 0.52,
-      iterations: 24,
+      iterations: this.isMobile ? 20 : 24,
       octaves: 3,
       noiseScale: [1.0, 2.2, 1.0, 0.32] // Upward convection draft
     });
@@ -151,7 +152,7 @@ export class Scene3D {
       magnitude: 2.2,
       lacunarity: 2.0,
       gain: 0.5,
-      iterations: 20,
+      iterations: this.isMobile ? 16 : 20,
       octaves: 3,
       noiseScale: [1.2, 2.4, 1.2, 0.38]
     });
@@ -508,7 +509,13 @@ export class Scene3D {
     if (this.isPaused) return;
     requestAnimationFrame(this.animate);
 
-    const time = (performance.now() - this.startTime) * 0.001;
+    // Smooth delta-time tracking to completely prevent sudden jumps/stutter after idle or tab suspension
+    const now = performance.now();
+    const rawDelta = this.lastFrameTime ? (now - this.lastFrameTime) * 0.001 : 0.016;
+    this.lastFrameTime = now;
+    const delta = Math.min(rawDelta, 0.05); // Clamp max 50ms to absorb any GC or idle wakeup latency
+    this.elapsedTime = (this.elapsedTime || 0) + delta;
+    const time = this.elapsedTime;
 
     // Smooth mouse lerp
     this.mouse.x += (this.mouse.targetX - this.mouse.x) * 0.05;
