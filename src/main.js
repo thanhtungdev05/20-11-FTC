@@ -618,15 +618,16 @@ class App {
       });
     }
 
-    // 6. Đăng xuất
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
-        if (confirm('Bạn có chắc muốn đăng xuất khỏi phiên làm việc này?')) {
-          ApiService.logout();
-          window.location.reload();
-        }
-      });
-    }
+    // 6. Đăng xuất (Cả desktop và mobile)
+    const handleLogout = () => {
+      if (confirm('Bạn có chắc muốn đăng xuất khỏi phiên làm việc này?')) {
+        ApiService.logout();
+        window.location.reload();
+      }
+    };
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+    const mobileLogoutBtn = document.getElementById('user-mobile-logout-btn');
+    if (mobileLogoutBtn) mobileLogoutBtn.addEventListener('click', handleLogout);
   }
 
   applyUserSession(session) {
@@ -637,6 +638,11 @@ class App {
     const adminHeaderBtn = document.getElementById('open-admin-panel-btn');
     const openConfigBtn = document.getElementById('open-config-btn');
 
+    // Mobile strip elements
+    const mobileBar = document.getElementById('user-mobile-bar');
+    const mobileEmail = document.getElementById('user-mobile-email');
+    const mobileAdminTag = document.getElementById('user-mobile-admin-tag');
+
     if (session && session.email) {
       if (senderEmailInput) {
         senderEmailInput.value = session.email;
@@ -645,11 +651,23 @@ class App {
       }
       if (verifiedBadge) verifiedBadge.classList.remove('hidden');
 
+      // Desktop user badge
       if (userBadge) {
         userBadge.classList.remove('hidden');
-        userBadge.classList.add('flex');
+        userBadge.classList.add('sm:flex');
       }
       if (displayEmail) displayEmail.textContent = session.email;
+
+      // Mobile user sub-bar
+      if (mobileBar) {
+        mobileBar.classList.remove('hidden');
+        mobileBar.classList.add('flex');
+      }
+      if (mobileEmail) mobileEmail.textContent = session.email;
+      if (mobileAdminTag) {
+        if (session.isAdmin) mobileAdminTag.classList.remove('hidden');
+        else mobileAdminTag.classList.add('hidden');
+      }
 
       if (session.isAdmin) {
         if (adminHeaderBtn) {

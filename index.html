@@ -78,10 +78,10 @@
               <span class="inline sm:hidden">Top 30</span>
             </button>
 
-            <!-- User Session Badge (Shown when logged in) -->
-            <div id="user-header-badge" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
+            <!-- User Session Badge (Desktop only: hidden on mobile to prevent crowding) -->
+            <div id="user-header-badge" class="hidden sm:hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-              <span id="user-display-email" class="font-medium max-w-[85px] sm:max-w-[160px] truncate">user@fpt.net</span>
+              <span id="user-display-email" class="font-medium max-w-[150px] truncate">user@fpt.net</span>
               <button id="user-logout-btn" title="Đăng xuất" class="text-slate-400 hover:text-rose-400 text-xs ml-0.5 cursor-pointer">✕</button>
             </div>
 
@@ -104,6 +104,20 @@
               ⚙️
             </button>
           </div>
+        </div>
+
+        <!-- Mobile User Session Sub-Bar (Shown ONLY on mobile when logged in, preventing any header collision) -->
+        <div id="user-mobile-bar" class="hidden w-full px-3 py-1.5 bg-emerald-950/70 border-t border-emerald-500/20 text-xs flex items-center justify-between sm:hidden backdrop-blur-md">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+            <span class="text-slate-300 text-[11px] truncate">
+              Đăng nhập: <strong id="user-mobile-email" class="text-emerald-300 font-mono">user@fpt.net</strong>
+            </span>
+            <span id="user-mobile-admin-tag" class="hidden text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 shrink-0">Admin</span>
+          </div>
+          <button id="user-mobile-logout-btn" title="Đăng xuất" class="text-rose-400 hover:text-rose-300 text-[11px] font-semibold shrink-0 ml-2 cursor-pointer">
+            Đăng xuất ✕
+          </button>
         </div>
       </header>
 

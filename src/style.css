@@ -278,38 +278,35 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
  * 10. TỐI ƯU HÓA ĐẶC BIỆT CHO MOBILE (SIÊU MƯỢT 60-120 FPS & ĐỒNG BỘ 100% GIAO DIỆN)
  * ============================================================================== */
 @media (max-width: 768px) {
-  /* Gỡ bỏ các lớp blur nặng gây sụt giảm khung hình trên chip GPU di động */
-  .glass-card,
-  .glass-card-glow,
-  .glass-header,
-  .btn-glass,
-  .btn-glass-primary {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
+  /* Cho phép ngọn lửa 3D xuyên qua các lớp thẻ trên mobile với độ trong suốt tinh tế & blur nhẹ */
   .glass-card {
-    background: rgba(10, 16, 32, 0.94) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+    background: rgba(10, 16, 32, 0.60) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(8px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(140%) !important;
   }
 
   .glass-card-glow {
-    background: rgba(12, 18, 36, 0.95) !important;
-    border: 1px solid rgba(243, 112, 33, 0.35) !important;
-    box-shadow: 0 0 25px rgba(243, 112, 33, 0.18), 0 12px 35px rgba(0, 0, 0, 0.7) !important;
+    background: rgba(12, 18, 36, 0.62) !important;
+    border: 1px solid rgba(243, 112, 33, 0.4) !important;
+    box-shadow: 0 0 30px rgba(243, 112, 33, 0.22), 0 12px 35px rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(8px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
   }
 
   .glass-header {
-    background: rgba(6, 10, 22, 0.96) !important;
+    background: rgba(6, 10, 22, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
   }
 
   /* Chuẩn form mobile: cỡ chữ 16px để ngăn Safari/Chrome tự ý zoom vào màn hình */
   .custom-input {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    background: rgba(14, 22, 42, 0.92) !important;
+    background: rgba(8, 14, 28, 0.78) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
     font-size: 16px !important;
     padding-top: 10px !important;
     padding-bottom: 10px !important;

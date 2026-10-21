@@ -52,7 +52,8 @@ export class Scene3D {
 
     // 2. Camera: Optimized framing for both Mobile and Desktop
     this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-    this.camera.position.set(0, this.isMobile ? 0.8 : 0.0, this.isMobile ? 21.5 : 17.5);
+    // On mobile: position camera at y = -1.2, z = 16.5 so the flame rises high into the hero section!
+    this.camera.position.set(0, this.isMobile ? -1.2 : 0.0, this.isMobile ? 16.5 : 17.5);
 
     // 3. Renderer: High-performance configuration
     // Crucial for Mobile: pixelRatio = 1.0 (avoids 4x fillrate blowup on retina mobile screens)
@@ -127,15 +128,15 @@ export class Scene3D {
     });
 
     // 1. MAIN VOLUMETRIC FLAME (Ngọn Lửa Tri Ân FTEL)
-    // On mobile: 12 iterations & 2 octaves run 6x faster while looking indistinguishable on smaller screens!
+    // 22 iterations ensures full volumetric ray traversal & brilliant flame opacity on both mobile and desktop!
     this.fireMesh = new FireMesh({
       fireTex: fireTex,
       color: 0xf37021, // FPT Telecom vibrant flame orange
-      magnitude: 1.75, // Dynamic flame licking
+      magnitude: 1.8,  // Dynamic flame licking
       lacunarity: 2.1,
       gain: 0.52,
-      iterations: this.isMobile ? 12 : 26,
-      octaves: this.isMobile ? 2 : 4,
+      iterations: 22,
+      octaves: 3,
       noiseScale: [1.0, 2.2, 1.0, 0.32] // Upward convection draft
     });
     // Tall flame aspect ratio: Width 6.6, Height 13.0, Depth 6.6
@@ -150,8 +151,8 @@ export class Scene3D {
       magnitude: 2.1,
       lacunarity: 2.0,
       gain: 0.5,
-      iterations: this.isMobile ? 10 : 22,
-      octaves: this.isMobile ? 2 : 3,
+      iterations: 18,
+      octaves: 3,
       noiseScale: [1.2, 2.4, 1.2, 0.38]
     });
     this.fireCore.scale.set(4.2, 9.2, 4.2);
@@ -373,7 +374,7 @@ export class Scene3D {
     const height = this.container.clientHeight || window.innerHeight;
 
     this.isMobile = width < 768 || /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    this.camera.position.set(0, this.isMobile ? 0.8 : 0.0, this.isMobile ? 21.5 : 17.5);
+    this.camera.position.set(0, this.isMobile ? -1.2 : 0.0, this.isMobile ? 16.5 : 17.5);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
