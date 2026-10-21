@@ -300,7 +300,7 @@ function sendGratitudeNotificationEmail(params) {
     <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #f37021;">
       <!-- Header Banner -->
       <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 30px 20px; text-align: center;">
-        <img src="https://ftc-gialapthietbi.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="42" style="display:block; margin: 0 auto 12px auto;" />
+        <img src="https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="42" style="display:block; margin: 0 auto 12px auto;" />
         <h3 style="color: #ffd700; margin: 0 0 6px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Trung tâm Đào tạo FTEL (FTC)</h3>
         <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.4);">THẮP LỬA TRI ÂN – THẮP SÁNG TRI THỨC</h1>
       </div>
@@ -682,7 +682,7 @@ function handleRequestOtp(data) {
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 2px solid #f37021; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;">
         <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 20px 16px;">
-          <div style="font-size: 26px; line-height: 1; margin-bottom: 6px;">🔥</div>
+          <img src="https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="38" style="display:block; margin: 0 auto 10px auto; border: 0; outline: none; background: transparent;" />
           <div style="color: #ffffff; font-weight: 900; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase;">FPT TELECOM • FTC</div>
           <div style="color: #ffd700; font-size: 11px; margin-top: 3px; font-weight: bold; letter-spacing: 1px;">CHIẾN DỊCH 20/11 - THẮP LỬA TRI ÂN</div>
         </div>
@@ -697,7 +697,7 @@ function handleRequestOtp(data) {
             <span style="font-family: 'Courier New', monospace, sans-serif; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffd700;">${code}</span>
           </div>
           <p style="font-size: 12px; color: #94a3b8; margin: 0 0 6px 0;">
-            ⏳ Mã có hiệu lực trong vòng <strong>5 phút</strong>.
+            • Mã có hiệu lực trong vòng <strong>5 phút</strong>.
           </p>
           <p style="font-size: 11px; color: #64748b; margin: 0;">
             (Mã OTP hiển thị trực tiếp ngay trên tiêu đề thông báo của Outlook)
