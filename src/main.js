@@ -479,66 +479,26 @@ class App {
     const timerDisplay = document.getElementById('otp-timer-display');
     const logoutBtn = document.getElementById('user-logout-btn');
 
-    const loginModeIndicator = document.getElementById('login-mode-indicator');
-    const otpTipIcon = document.getElementById('otp-tip-icon');
-    const otpTipText = document.getElementById('otp-tip-text');
-    const loginSubmitLabel = document.getElementById('login-submit-label');
-    const loginSubmitIcon = document.getElementById('login-submit-icon');
-    const switchAuthModeLink = document.getElementById('switch-auth-mode-link');
-
     let currentEmail = '';
     let countdownInterval = null;
-    let currentAuthMode = ApiService.getAuthMode(); // 'direct' hoặc 'otp'
-
-    // Cập nhật giao diện theo chế độ đăng nhập
-    const updateModalUI = (mode) => {
-      currentAuthMode = mode;
-      if (mode === 'direct') {
-        if (loginModeIndicator) {
-          loginModeIndicator.textContent = '⚡ Xác thực siêu tốc (0.1s)';
-          loginModeIndicator.className = 'text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20';
-        }
-        if (otpTipIcon) otpTipIcon.textContent = '⚡';
-        if (otpTipText) otpTipText.textContent = 'Tự động xác thực và khóa an toàn ô người gửi, không cần chờ đợi.';
-        if (loginSubmitLabel) loginSubmitLabel.textContent = '⚡ Xác Nhận & Vào Thắp Lửa (0.1s)';
-        if (loginSubmitIcon) loginSubmitIcon.textContent = '🔥';
-        if (switchAuthModeLink) switchAuthModeLink.textContent = '🔐 Chuyển sang nhận mã OTP qua Outlook';
-      } else {
-        if (loginModeIndicator) {
-          loginModeIndicator.textContent = '🔐 Xác thực OTP Outlook';
-          loginModeIndicator.className = 'text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20';
-        }
-        if (otpTipIcon) otpTipIcon.textContent = '📧';
-        if (otpTipText) otpTipText.textContent = 'Mã OTP sẽ gửi trực tiếp đến hộp thư Microsoft Outlook công ty (nhận sau 1-3s).';
-        if (loginSubmitLabel) loginSubmitLabel.textContent = 'Nhận Mã OTP Qua Email';
-        if (loginSubmitIcon) loginSubmitIcon.textContent = '➜';
-        if (switchAuthModeLink) switchAuthModeLink.textContent = '⚡ Hoặc xác thực nhanh không cần OTP (0.1s)';
-      }
-    };
-
-    updateModalUI(currentAuthMode);
-
-    // Đồng bộ ngầm trạng thái cấu hình từ Cloud (nếu có)
-    ApiService.getCloudAuthMode().then(cloudMode => {
-      if (cloudMode && cloudMode !== currentAuthMode) {
-        updateModalUI(cloudMode);
-      }
-    }).catch(err => console.warn('Sync cloud auth mode error:', err));
-
-    // Nút chuyển đổi nhanh chế độ xác thực
-    if (switchAuthModeLink) {
-      switchAuthModeLink.addEventListener('click', () => {
-        const nextMode = currentAuthMode === 'direct' ? 'otp' : 'direct';
-        ApiService.setLocalAuthMode(nextMode);
-        updateModalUI(nextMode);
-      });
-    }
 
     const startTimer = () => {
       let timeLeft = 300; // 5 phút
+      let resendCooldown = 15; // 15 giây cooldown gửi lại
+      if (resendBtn) {
+        resendBtn.disabled = true;
+        resendBtn.textContent = `Gửi lại (${resendCooldown}s)`;
+      }
+
       if (countdownInterval) clearInterval(countdownInterval);
       countdownInterval = setInterval(() => {
         timeLeft--;
+        if (resendCooldown > 0) {
+          resendCooldown--;
+          if (resendBtn) resendBtn.textContent = resendCooldown > 0 ? `Gửi lại (${resendCooldown}s)` : 'Gửi lại mã';
+          if (resendCooldown === 0 && resendBtn) resendBtn.disabled = false;
+        }
+
         if (timeLeft <= 0) {
           clearInterval(countdownInterval);
           if (timerDisplay) timerDisplay.textContent = 'Mã OTP đã hết hạn';
@@ -559,7 +519,7 @@ class App {
       if (modal) modal.classList.remove('hidden');
     }
 
-    // 2. Nút Xử lý Đăng Nhập (Tức thì 0.1s nếu Direct / Gửi OTP nếu OTP mode)
+    // 2. Nút Gửi mã OTP vào Outlook siêu tốc
     if (requestBtn) {
       requestBtn.addEventListener('click', async () => {
         const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
@@ -572,29 +532,9 @@ class App {
           return;
         }
 
-        // PHƯƠNG ÁN 1: XÁC THỰC NHANH TRỰC TIẾP (0.1s - KHÔNG CẦN CHỜ OTP)
-        if (currentAuthMode === 'direct') {
-          try {
-            const sessionData = ApiService.directLogin(email);
-            if (modal) modal.classList.add('hidden');
-            this.applyUserSession(sessionData);
-
-            confetti({
-              particleCount: 80,
-              spread: 60,
-              origin: { y: 0.6 }
-            });
-            return;
-          } catch (err) {
-            alert('⚠️ ' + (err.message || 'Lỗi xác thực email.'));
-            return;
-          }
-        }
-
-        // PHƯƠNG ÁN 2: GỬI MÃ OTP QUA OUTLOOK (FLASH OTP SIÊU TỐC)
         try {
           requestBtn.disabled = true;
-          if (loginSubmitLabel) loginSubmitLabel.textContent = 'Đang gửi mã qua Outlook (Flash)...';
+          requestBtn.innerHTML = '<span>⚡ Đang gửi mã vào Outlook...</span>';
 
           await ApiService.requestOtp(email);
           currentEmail = email;
@@ -612,7 +552,7 @@ class App {
           alert('⚠️ ' + (err.message || 'Không thể gửi mã OTP.'));
         } finally {
           requestBtn.disabled = false;
-          updateModalUI(currentAuthMode);
+          requestBtn.innerHTML = '<span>Nhận Mã OTP Qua Outlook (Gửi Trong 1-3s)</span><span>➜</span>';
         }
       });
     }
@@ -632,13 +572,12 @@ class App {
         if (!currentEmail) return;
         try {
           resendBtn.disabled = true;
-          resendBtn.textContent = 'Đang gửi lại...';
+          resendBtn.textContent = 'Đang gửi...';
           await ApiService.requestOtp(currentEmail);
-          alert('Đã gửi mã OTP mới vào hộp thư Outlook của bạn!');
+          alert('✅ Đã gửi mã OTP mới vào hộp thư Outlook của bạn! Hãy kiểm tra thông báo hoặc hộp thư đến.');
           startTimer();
         } catch (err) {
           alert('⚠️ ' + (err.message || 'Chưa thể gửi lại mã lúc này.'));
-        } finally {
           resendBtn.disabled = false;
           resendBtn.textContent = 'Gửi lại mã';
         }

@@ -504,9 +504,9 @@
           🔥
         </div>
 
-        <h3 class="text-xl sm:text-2xl font-black text-amber-400 mb-1">CỔNG THẮP LỬA TRI ÂN</h3>
+        <h3 class="text-xl sm:text-2xl font-black text-amber-400 mb-1">CỔNG XÁC THỰC OTP FTEL</h3>
         <p class="text-xs text-slate-300 mb-6 leading-relaxed">
-          Vui lòng xác thực email công ty (<strong>@fpt.net / @fpt.com</strong>) để tham gia gửi lời tri ân Thầy Cô.
+          Nhập email Outlook công ty (<strong>@fpt.net / @fpt.com</strong>) để nhận mã OTP xác thực trước khi gửi lời tri ân Thầy Cô.
         </p>
 
         <!-- STEP 1: Nhập email -->
@@ -514,8 +514,8 @@
           <div class="text-left">
             <div class="flex items-center justify-between mb-1.5">
               <label class="block text-xs font-medium text-slate-300">Email Outlook FTEL của bạn</label>
-              <span id="login-mode-indicator" class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                ⚡ Xác thực siêu tốc (0.1s)
+              <span class="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                ⚡ Flash OTP (1-3s)
               </span>
             </div>
             <input 
@@ -524,9 +524,9 @@
               placeholder="VD: namnh@fpt.net hoặc @fpt.com" 
               class="custom-input w-full rounded-xl px-4 py-3 text-sm placeholder-slate-500"
             />
-            <p id="otp-input-tip" class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
-              <span id="otp-tip-icon">⚡</span>
-              <span id="otp-tip-text">Tự động xác thực và khóa an toàn ô người gửi, không cần chờ đợi.</span>
+            <p class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
+              <span>📧</span>
+              <span>Mã OTP 6 số sẽ được gửi siêu tốc tới hộp thư Microsoft Outlook công ty.</span>
             </p>
           </div>
 
@@ -535,19 +535,9 @@
             id="request-otp-btn" 
             class="btn-flame w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span id="login-submit-label">⚡ Xác Nhận & Vào Thắp Lửa (0.1s)</span>
-            <span id="login-submit-icon">🔥</span>
+            <span>Nhận Mã OTP Qua Outlook (Gửi Trong 1-3s)</span>
+            <span>➜</span>
           </button>
-
-          <div class="text-center pt-1">
-            <button 
-              type="button" 
-              id="switch-auth-mode-link" 
-              class="text-[11px] text-slate-400 hover:text-amber-300 transition-colors cursor-pointer underline"
-            >
-              🔐 Chuyển sang nhận mã OTP qua Outlook
-            </button>
-          </div>
         </div>
 
         <!-- STEP 2: Nhập mã 6 số OTP -->

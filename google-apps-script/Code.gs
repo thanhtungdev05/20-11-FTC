@@ -677,31 +677,34 @@ function handleRequestOtp(data) {
 
   // Gửi email siêu nhẹ với MailApp (Direct SMTP Google) để Outlook nhận ngay tức thì
   try {
-    const subject = "[FTC 20/11] Mã xác thực OTP thắp lửa tri ân: " + code;
-    const plainText = "Xin chào thành viên FPT Telecom,\n\nMã xác thực OTP thắp lửa tri ân 20/11 của bạn là: " + code + "\n(Mã có hiệu lực trong 5 phút).\n\nFTC - Trung tâm Đào tạo FPT Telecom.";
+    const subject = "[MÃ OTP: " + code + "] Xác thực Thắp Lửa Tri Ân FTEL";
+    const plainText = "Xin chào CBNV FPT Telecom,\n\nMã xác thực OTP của bạn là: " + code + "\n(Mã có hiệu lực trong 5 phút).\n\nFTC - Trung tâm Đào tạo FPT Telecom.";
     const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f37021; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-        <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 22px 20px; text-align: center;">
-          <img src="https://ftc-gialapthietbi.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="34" style="display:block; margin: 0 auto 8px auto;" />
-          <h3 style="color: #ffd700; margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">Trung tâm Đào tạo FTEL (FTC)</h3>
-          <h2 style="color: #ffffff; margin: 0; font-size: 18px; font-weight: bold;">MÃ XÁC THỰC TÀI KHOẢN FTEL</h2>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 2px solid #f37021; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;">
+        <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 20px 16px;">
+          <div style="font-size: 26px; line-height: 1; margin-bottom: 6px;">🔥</div>
+          <div style="color: #ffffff; font-weight: 900; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase;">FPT TELECOM • FTC</div>
+          <div style="color: #ffd700; font-size: 11px; margin-top: 3px; font-weight: bold; letter-spacing: 1px;">CHIẾN DỊCH 20/11 - THẮP LỬA TRI ÂN</div>
         </div>
-        <div style="padding: 25px 20px; line-height: 1.6; color: #e2e8f0; text-align: center;">
-          <p style="font-size: 15px; color: #ffffff; margin: 0 0 12px 0;">
+        <div style="padding: 24px 18px; line-height: 1.6; color: #e2e8f0;">
+          <p style="font-size: 14px; color: #ffffff; margin: 0 0 12px 0;">
             Xin chào thành viên <strong>FPT Telecom</strong>,
           </p>
-          <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">
-            Bạn đang đăng nhập vào cổng <strong>"Thắp Lửa Tri Ân 20/11"</strong>. Dưới đây là mã OTP dùng một lần của bạn:
+          <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 18px;">
+            Mã xác thực OTP dùng một lần của bạn để tham gia gửi lời cảm ơn là:
           </p>
-          <div style="background: rgba(243, 112, 33, 0.15); border: 2px dashed #f37021; padding: 14px 22px; border-radius: 12px; display: inline-block; margin: 0 auto 20px auto;">
-            <span style="font-family: monospace; font-size: 34px; font-weight: bold; letter-spacing: 8px; color: #ffd700;">${code}</span>
+          <div style="background: rgba(243, 112, 33, 0.15); border: 2px dashed #f37021; padding: 14px 20px; border-radius: 12px; display: inline-block; margin: 0 auto 18px auto;">
+            <span style="font-family: 'Courier New', monospace, sans-serif; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffd700;">${code}</span>
           </div>
-          <p style="font-size: 12px; color: #94a3b8; margin: 0 0 8px 0;">
+          <p style="font-size: 12px; color: #94a3b8; margin: 0 0 6px 0;">
             ⏳ Mã có hiệu lực trong vòng <strong>5 phút</strong>.
           </p>
+          <p style="font-size: 11px; color: #64748b; margin: 0;">
+            (Mã OTP hiển thị trực tiếp ngay trên tiêu đề thông báo của Outlook)
+          </p>
         </div>
-        <div style="background: #080d1a; padding: 12px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
-          <p style="margin: 0;">FTEL 20/11 • Trung tâm Đào tạo FPT Telecom (FTC)</p>
+        <div style="background: #080d1a; padding: 10px; font-size: 10px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
+          FTEL 20/11 • Trung tâm Đào tạo FPT Telecom (FTC)
         </div>
       </div>
     `;
@@ -712,7 +715,8 @@ function handleRequestOtp(data) {
         subject: subject,
         body: plainText,
         htmlBody: htmlBody,
-        name: "FTC - Thắp Lửa Tri Ân"
+        name: "FTC - Thắp Lửa Tri Ân",
+        noReply: true
       });
     } catch (mailAppErr) {
       // Fallback qua GmailApp nếu MailApp gặp hạn mức riêng
