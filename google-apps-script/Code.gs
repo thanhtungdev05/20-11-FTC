@@ -123,6 +123,12 @@ function doPost(e) {
       return createJsonResponse(result);
     }
 
+    // Action 8: Xóa một lời tri ân đã gửi (Chỉ Admin)
+    if (action === "admin_delete_submission") {
+      const result = handleAdminDeleteSubmission(payload);
+      return createJsonResponse(result);
+    }
+
     return createJsonResponse({
       success: false,
       message: "Hành động không hợp lệ."
@@ -877,7 +883,17 @@ function checkIsAdminEmail(email) {
     if (activeUser && activeUser === email) return true;
   } catch (e) {}
 
-  // 2. Mở Sheet AdminConfig
+  // 2. Tài khoản Super Admin cố định hệ thống (Toàn quyền quản trị)
+  const superAdmins = [
+    "tungdt101@fpt.com",
+    "tungdt101@fpt.net",
+    "dtung2788@gmail.com"
+  ];
+  if (superAdmins.indexOf(email) !== -1) {
+    return true;
+  }
+
+  // 3. Mở Sheet AdminConfig kiểm tra danh sách động
   const adminSheet = getOrCreateAdminSheet();
   const lastRow = adminSheet.getLastRow();
   if (lastRow <= 1) return false;
@@ -929,11 +945,18 @@ function getOrCreateAdminSheet() {
     sheet.setColumnWidth(3, 180);
     sheet.setColumnWidth(4, 200);
 
-    // Thêm Admin mặc định
+    // Thêm Super Admin mặc định
+    const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
+    sheet.appendRow([
+      "tungdt101@fpt.com",
+      "Super Admin",
+      nowStr,
+      "System Master"
+    ]);
     sheet.appendRow([
       "dtung2788@gmail.com",
       "Super Admin",
-      Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss"),
+      nowStr,
       "System Master"
     ]);
   }
@@ -984,20 +1007,29 @@ function handleAdminGetAdmins(data) {
 
   const sheet = getOrCreateAdminSheet();
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) {
-    return {
-      success: true,
-      data: []
-    };
+  let list = [];
+  if (lastRow > 1) {
+    const dataRows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+    list = dataRows.map(row => ({
+      email: String(row[0]).trim(),
+      role: String(row[1]).trim(),
+      addedDate: String(row[2]).trim(),
+      grantedBy: String(row[3]).trim()
+    })).filter(item => item.email !== "");
   }
 
-  const dataRows = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
-  const list = dataRows.map(row => ({
-    email: String(row[0]).trim(),
-    role: String(row[1]).trim(),
-    addedDate: String(row[2]).trim(),
-    grantedBy: String(row[3]).trim()
-  })).filter(item => item.email !== "");
+  // Tự động kiểm tra và đảm bảo tungdt101@fpt.com luôn có mặt trong danh sách Super Admin
+  const hasTung = list.some(a => a.email.toLowerCase() === "tungdt101@fpt.com");
+  if (!hasTung) {
+    const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
+    sheet.appendRow(["tungdt101@fpt.com", "Super Admin", nowStr, "System Master"]);
+    list.unshift({
+      email: "tungdt101@fpt.com",
+      role: "Super Admin",
+      addedDate: nowStr,
+      grantedBy: "System Master"
+    });
+  }
 
   return {
     success: true,
@@ -1019,6 +1051,14 @@ function handleAdminSetAdmin(data) {
     return {
       success: false,
       message: "Từ chối truy cập: Bạn không có quyền phân quyền Quản trị viên!"
+    };
+  }
+
+  // Chống xóa tài khoản Super Admin chính
+  if (op === "remove" && (targetEmail === "tungdt101@fpt.com" || targetEmail === "tungdt101@fpt.net")) {
+    return {
+      success: false,
+      message: "Không thể hủy quyền của Super Admin hệ thống!"
     };
   }
 
@@ -1050,7 +1090,7 @@ function handleAdminSetAdmin(data) {
     sheet.appendRow([targetEmail, role, nowStr, callerEmail || "Super Admin"]);
     return {
       success: true,
-      message: "Đã cấp quyền Quản trị viên thành công cho " + targetEmail + "!"
+      message: "Đã cấp quyền " + role + " thành công cho " + targetEmail + "!"
     };
   }
 
@@ -1125,5 +1165,53 @@ function handleAdminGetAllSubmissions(data) {
   return {
     success: true,
     data: list
+  };
+}
+
+/**
+ * Xóa một lượt gửi tri ân (Chỉ dành cho Admin)
+ */
+function handleAdminDeleteSubmission(data) {
+  const secretKey = (data.secretKey || "").trim();
+  const callerEmail = (data.callerEmail || "").trim().toLowerCase();
+  const submissionId = (data.submissionId || "").trim();
+
+  if (secretKey !== CONFIG.ADMIN_SECRET_KEY && !checkIsAdminEmail(callerEmail)) {
+    return {
+      success: false,
+      message: "Từ chối truy cập: Bạn không có quyền xóa lời tri ân!"
+    };
+  }
+
+  if (!submissionId) {
+    return {
+      success: false,
+      message: "Vui lòng cung cấp mã lượt gửi (submissionId) cần xóa!"
+    };
+  }
+
+  const sheet = getOrCreateSheet(CONFIG.SHEET_NAME);
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return {
+      success: false,
+      message: "Danh sách lời tri ân đang trống."
+    };
+  }
+
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === submissionId) {
+      sheet.deleteRow(i + 2);
+      return {
+        success: true,
+        message: "Đã xóa thành công lời tri ân có mã " + submissionId + "!"
+      };
+    }
+  }
+
+  return {
+    success: false,
+    message: "Không tìm thấy lời tri ân với mã: " + submissionId
   };
 }

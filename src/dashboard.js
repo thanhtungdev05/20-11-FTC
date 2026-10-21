@@ -80,7 +80,11 @@ export class DashboardModule {
               class="custom-input w-full px-3.5 py-2 text-sm placeholder-slate-400"
             />
           </div>
-          <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            <button id="dashboard-admin-manage-btn" class="hidden px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-amber-500/10">
+              <span>👑</span>
+              <span>Quản Lý / Xóa Lời Chúc</span>
+            </button>
             <button id="export-csv-btn" class="px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
               <span>↓ Xuất Báo Cáo Excel</span>
             </button>
@@ -125,6 +129,18 @@ export class DashboardModule {
 
     modal.querySelector('#export-csv-btn').addEventListener('click', () => this.exportCsv());
     modal.querySelector('#refresh-dashboard-btn').addEventListener('click', () => this.refresh());
+
+    const adminManageBtn = modal.querySelector('#dashboard-admin-manage-btn');
+    const isAdmin = !!(ApiService.getUserSession()?.isAdmin || ApiService.getAdminSession()?.isAdmin);
+    if (adminManageBtn && isAdmin) {
+      adminManageBtn.classList.remove('hidden');
+      adminManageBtn.classList.add('flex');
+      adminManageBtn.addEventListener('click', () => {
+        this.close();
+        const openAdminBtn = document.getElementById('open-admin-panel-btn') || document.getElementById('footer-admin-link');
+        if (openAdminBtn) openAdminBtn.click();
+      });
+    }
   }
 
   async loadData() {

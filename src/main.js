@@ -673,18 +673,24 @@ class App {
     const submitSecretBtn = document.getElementById('submit-secret-key-btn');
     const secretInput = document.getElementById('admin-secret-key-input');
 
-    const tabConfig = document.getElementById('admin-tab-config');
+    const tabSubmissions = document.getElementById('admin-tab-submissions');
     const tabUsers = document.getElementById('admin-tab-users');
+    const tabConfig = document.getElementById('admin-tab-config');
     const tabExport = document.getElementById('admin-tab-export');
-    const viewConfig = document.getElementById('admin-view-config');
+
+    const viewSubmissions = document.getElementById('admin-view-submissions');
     const viewUsers = document.getElementById('admin-view-users');
+    const viewConfig = document.getElementById('admin-view-config');
     const viewExport = document.getElementById('admin-view-export');
 
     const adminUrlInput = document.getElementById('admin-script-url-input');
     const adminSaveUrlBtn = document.getElementById('admin-save-url-btn');
     const addAdminBtn = document.getElementById('add-admin-btn');
     const newAdminInput = document.getElementById('new-admin-email-input');
+    const newAdminRoleSelect = document.getElementById('new-admin-role-select');
     const exportCsvBtn = document.getElementById('admin-export-csv-btn');
+    const refreshSubmissionsBtn = document.getElementById('admin-refresh-submissions-btn');
+    const searchSubmissionsInput = document.getElementById('admin-search-submissions-input');
 
     const adminBtnModeDirect = document.getElementById('admin-btn-mode-direct');
     const adminBtnModeOtp = document.getElementById('admin-btn-mode-otp');
@@ -734,13 +740,15 @@ class App {
       refreshAdminAuthModeUI(ApiService.getAuthMode());
       if (adminUrlInput) adminUrlInput.value = localStorage.getItem('ftel_custom_script_url') || APPS_SCRIPT_URL;
       if (adminPanelModal) adminPanelModal.classList.remove('hidden');
+      selectTab(tabSubmissions, viewSubmissions);
+      this.loadSubmissionsList();
       this.loadAdminList();
     };
 
     const handleAdminTrigger = () => {
       const adminSess = ApiService.getAdminSession();
       const userSess = ApiService.getUserSession();
-      if (adminSess && adminSess.isAdmin || userSess && userSess.isAdmin) {
+      if ((adminSess && adminSess.isAdmin) || (userSess && userSess.isAdmin)) {
         openAdminDashboard();
       } else {
         if (secretModal) secretModal.classList.remove('hidden');
@@ -786,20 +794,35 @@ class App {
     }
 
     const selectTab = (activeTab, activeView) => {
-      [tabConfig, tabUsers, tabExport].forEach(t => {
-        if (t) t.className = 'px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer';
+      [tabSubmissions, tabUsers, tabConfig, tabExport].forEach(t => {
+        if (t) t.className = 'px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer flex items-center gap-1.5 whitespace-nowrap';
       });
-      [viewConfig, viewUsers, viewExport].forEach(v => v && v.classList.add('hidden'));
-      if (activeTab) activeTab.className = 'px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer';
+      [viewSubmissions, viewUsers, viewConfig, viewExport].forEach(v => v && v.classList.add('hidden'));
+      if (activeTab) activeTab.className = 'px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer flex items-center gap-1.5 whitespace-nowrap';
       if (activeView) activeView.classList.remove('hidden');
     };
 
-    if (tabConfig) tabConfig.addEventListener('click', () => selectTab(tabConfig, viewConfig));
+    if (tabSubmissions) tabSubmissions.addEventListener('click', () => {
+      selectTab(tabSubmissions, viewSubmissions);
+      this.loadSubmissionsList();
+    });
     if (tabUsers) tabUsers.addEventListener('click', () => {
       selectTab(tabUsers, viewUsers);
       this.loadAdminList();
     });
+    if (tabConfig) tabConfig.addEventListener('click', () => selectTab(tabConfig, viewConfig));
     if (tabExport) tabExport.addEventListener('click', () => selectTab(tabExport, viewExport));
+
+    if (refreshSubmissionsBtn) {
+      refreshSubmissionsBtn.addEventListener('click', () => this.loadSubmissionsList());
+    }
+
+    if (searchSubmissionsInput) {
+      searchSubmissionsInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        this.filterSubmissions(query);
+      });
+    }
 
     if (adminSaveUrlBtn) {
       adminSaveUrlBtn.addEventListener('click', () => {
@@ -815,6 +838,7 @@ class App {
     if (addAdminBtn) {
       addAdminBtn.addEventListener('click', async () => {
         const targetEmail = newAdminInput ? newAdminInput.value.trim().toLowerCase() : '';
+        const role = newAdminRoleSelect ? newAdminRoleSelect.value : 'Admin Quản Lý';
         if (!targetEmail) {
           alert('Vui lòng nhập email FTEL cần cấp quyền Admin!');
           return;
@@ -822,7 +846,7 @@ class App {
         try {
           addAdminBtn.disabled = true;
           addAdminBtn.textContent = 'Đang thêm...';
-          const res = await ApiService.adminSetAdmin(targetEmail, 'add');
+          const res = await ApiService.adminSetAdmin(targetEmail, 'add', role);
           if (res.success) {
             alert('✅ ' + res.message);
             if (newAdminInput) newAdminInput.value = '';
@@ -858,6 +882,154 @@ class App {
         }
       });
     }
+  }
+
+  async loadSubmissionsList() {
+    const container = document.getElementById('admin-submissions-table-container');
+    const countEl = document.getElementById('admin-submissions-count');
+    if (!container) return;
+
+    try {
+      container.innerHTML = '<div class="py-12 text-center text-slate-400 text-xs">Đang tải toàn bộ dữ liệu từ Google Sheets...</div>';
+      const res = await ApiService.adminGetAllSubmissions();
+      if (res.success && Array.isArray(res.data)) {
+        this.cachedSubmissions = res.data;
+        if (countEl) countEl.textContent = res.data.length;
+        this.renderSubmissionsTable(this.cachedSubmissions);
+      } else {
+        container.innerHTML = '<div class="py-12 text-center text-rose-400 text-xs">Không thể tải dữ liệu: ' + (res.message || 'Lỗi không xác định') + '</div>';
+      }
+    } catch (err) {
+      container.innerHTML = '<div class="py-12 text-center text-rose-400 text-xs">Lỗi kết nối: ' + err.message + '</div>';
+    }
+  }
+
+  filterSubmissions(query) {
+    if (!this.cachedSubmissions) return;
+    if (!query) {
+      this.renderSubmissionsTable(this.cachedSubmissions);
+      return;
+    }
+    const q = query.toLowerCase();
+    const filtered = this.cachedSubmissions.filter(item => {
+      return (item.submissionId && String(item.submissionId).toLowerCase().includes(q)) ||
+        (item.senderName && String(item.senderName).toLowerCase().includes(q)) ||
+        (item.senderEmail && String(item.senderEmail).toLowerCase().includes(q)) ||
+        (item.recipientName && String(item.recipientName).toLowerCase().includes(q)) ||
+        (item.recipientEmail && String(item.recipientEmail).toLowerCase().includes(q)) ||
+        (item.message && String(item.message).toLowerCase().includes(q)) ||
+        (item.tag && String(item.tag).toLowerCase().includes(q));
+    });
+    this.renderSubmissionsTable(filtered);
+  }
+
+  renderSubmissionsTable(list) {
+    const container = document.getElementById('admin-submissions-table-container');
+    if (!container) return;
+
+    if (!list || list.length === 0) {
+      container.innerHTML = '<div class="py-12 text-center text-slate-500 text-xs">Không tìm thấy lời tri ân nào phù hợp.</div>';
+      return;
+    }
+
+    const sorted = [...list].reverse();
+
+    const rows = sorted.map((item, idx) => {
+      const safeMsg = (item.message || '').replace(/"/g, '&quot;');
+      const shortMsg = (item.message || '').length > 60 
+        ? (item.message.slice(0, 60) + '...') 
+        : (item.message || '');
+      
+      return `
+        <tr class="border-b border-white/5 hover:bg-white/[0.03] transition-colors text-xs">
+          <td class="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">${idx + 1}</td>
+          <td class="py-3 px-3 font-mono text-[11px] text-amber-400/90 whitespace-nowrap">${item.submissionId || '--'}</td>
+          <td class="py-3 px-3 text-slate-400 whitespace-nowrap text-[11px]">${item.timestamp || '--'}</td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-white">${item.senderName || '--'}</div>
+            <div class="text-[11px] text-slate-400 font-mono">${item.senderEmail || '--'}</div>
+            <div class="text-[10px] text-slate-500">${item.senderDept || ''}</div>
+          </td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-orange-300">${item.recipientName || '--'}</div>
+            <div class="text-[11px] text-slate-400 font-mono">${item.recipientEmail || '--'}</div>
+            <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/25">
+              ${item.tag || item.recipientRole || 'Tri ân'}
+            </span>
+          </td>
+          <td class="py-3 px-3 max-w-xs">
+            <p class="text-slate-300 leading-relaxed text-[11px] line-clamp-2" title="${safeMsg}">
+              "${shortMsg}"
+            </p>
+          </td>
+          <td class="py-3 px-3 text-center whitespace-nowrap">
+            <button 
+              type="button"
+              data-delete-id="${item.submissionId}" 
+              data-sender="${(item.senderName || item.senderEmail || '').replace(/"/g, '&quot;')}" 
+              data-recipient="${(item.recipientName || item.recipientEmail || '').replace(/"/g, '&quot;')}"
+              class="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 mx-auto shadow-sm hover:shadow-rose-500/20"
+            >
+              <span>🗑️</span>
+              <span>Xóa</span>
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-white/10 bg-white/[0.02]">
+            <th class="py-2.5 px-3 text-center w-10">STT</th>
+            <th class="py-2.5 px-3">Mã Gửi</th>
+            <th class="py-2.5 px-3">Thời Gian</th>
+            <th class="py-2.5 px-3">Người Gửi (CBNV)</th>
+            <th class="py-2.5 px-3">Người Nhận (Thầy/Cô)</th>
+            <th class="py-2.5 px-3">Lời Chúc</th>
+            <th class="py-2.5 px-3 text-center">Thao Tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
+
+    // Gắn sự kiện Xóa
+    container.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const subId = btn.getAttribute('data-delete-id');
+        const sender = btn.getAttribute('data-sender');
+        const recipient = btn.getAttribute('data-recipient');
+
+        const confirmMsg = `⚠️ BẠN CÓ CHẮC MUỐN XÓA LỜI CHÚC NÀY?\n\n• Mã gửi: ${subId}\n• Người gửi: ${sender}\n• Người nhận: ${recipient}\n\nDữ liệu sẽ bị xóa vĩnh viễn khỏi Google Sheet và hệ thống Bảng vinh danh!`;
+
+        if (!confirm(confirmMsg)) return;
+
+        try {
+          btn.disabled = true;
+          btn.innerHTML = '<span>⏳ Đang xóa...</span>';
+          const res = await ApiService.adminDeleteSubmission(subId);
+          if (res.success) {
+            alert('✅ ' + (res.message || 'Đã xóa lời tri ân thành công!'));
+            await this.loadSubmissionsList();
+            if (this.dashboard && this.dashboard.refresh) {
+              this.dashboard.refresh();
+            }
+          } else {
+            alert('⚠️ Không thể xóa: ' + (res.message || 'Lỗi không xác định'));
+            btn.disabled = false;
+            btn.innerHTML = '<span>🗑️</span><span>Xóa</span>';
+          }
+        } catch (err) {
+          alert('Lỗi kết nối khi xóa: ' + err.message);
+          btn.disabled = false;
+          btn.innerHTML = '<span>🗑️</span><span>Xóa</span>';
+        }
+      });
+    });
   }
 
   async loadAdminList() {

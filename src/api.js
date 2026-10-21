@@ -334,6 +334,20 @@ export class ApiService {
   }
 
   /**
+   * Kiểm tra email có quyền Super Admin toàn hệ thống hay không
+   */
+  static isSuperAdminEmail(email) {
+    if (!email) return false;
+    email = email.trim().toLowerCase();
+    const superAdmins = [
+      'tungdt101@fpt.com',
+      'tungdt101@fpt.net',
+      'dtung2788@gmail.com'
+    ];
+    return superAdmins.includes(email);
+  }
+
+  /**
    * Xác thực nhanh trực tiếp cho email FTEL (0.1 giây, tức thì không cần chờ OTP)
    */
   static directLogin(email) {
@@ -345,14 +359,23 @@ export class ApiService {
       throw new Error('Email phải có đuôi @fpt.net hoặc @fpt.com!');
     }
 
+    const isAdmin = this.isSuperAdminEmail(email);
     const sessionData = {
       email: email,
       verifiedAt: Date.now(),
       mode: 'direct',
-      isAdmin: false
+      isAdmin: isAdmin
     };
 
     sessionStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
+    if (isAdmin) {
+      sessionStorage.setItem('ftel_admin_session', JSON.stringify({ 
+        isAdmin: true, 
+        secretKey: 'FTEL_TRI_AN_2026', 
+        email: email,
+        role: 'Super Admin'
+      }));
+    }
     return sessionData;
   }
 
@@ -379,8 +402,21 @@ export class ApiService {
       throw new Error(result.message || 'Mã OTP không hợp lệ hoặc đã hết hạn.');
     }
 
+    // Tự động cấp quyền Admin cho tài khoản Super Admin
+    if (this.isSuperAdminEmail(email)) {
+      result.data.isAdmin = true;
+    }
+
     // Lưu session đăng nhập
     sessionStorage.setItem('ftel_user_session', JSON.stringify(result.data));
+    if (result.data.isAdmin) {
+      sessionStorage.setItem('ftel_admin_session', JSON.stringify({ 
+        isAdmin: true, 
+        secretKey: 'FTEL_TRI_AN_2026', 
+        email: email,
+        role: 'Super Admin'
+      }));
+    }
     return result.data;
   }
 
@@ -390,7 +426,12 @@ export class ApiService {
   static getUserSession() {
     try {
       const saved = sessionStorage.getItem('ftel_user_session');
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const data = JSON.parse(saved);
+      if (data && data.email && this.isSuperAdminEmail(data.email)) {
+        data.isAdmin = true;
+      }
+      return data;
     } catch (e) {
       return null;
     }
@@ -426,6 +467,15 @@ export class ApiService {
 
   static getAdminSession() {
     try {
+      const user = this.getUserSession();
+      if (user && (user.isAdmin || this.isSuperAdminEmail(user.email))) {
+        return { 
+          isAdmin: true, 
+          secretKey: 'FTEL_TRI_AN_2026', 
+          email: user.email,
+          role: 'Super Admin'
+        };
+      }
       const saved = sessionStorage.getItem('ftel_admin_session');
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
@@ -484,7 +534,26 @@ export class ApiService {
       body: JSON.stringify({
         action: 'admin_get_all_submissions',
         secretKey: adminSess?.secretKey || 'FTEL_TRI_AN_2026',
-        callerEmail: this.getUserSession()?.email || ''
+        callerEmail: this.getUserSession()?.email || adminSess?.email || ''
+      })
+    });
+    return response.json();
+  }
+
+  /**
+   * Xóa một lời tri ân đã gửi (Chỉ Admin)
+   */
+  static async adminDeleteSubmission(submissionId) {
+    const adminSess = this.getAdminSession();
+    const scriptUrl = getEffectiveScriptUrl();
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'admin_delete_submission',
+        submissionId: submissionId,
+        secretKey: adminSess?.secretKey || 'FTEL_TRI_AN_2026',
+        callerEmail: this.getUserSession()?.email || adminSess?.email || ''
       })
     });
     return response.json();

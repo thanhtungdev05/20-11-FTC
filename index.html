@@ -591,15 +591,22 @@
     </div>
 
     <!-- MODAL: BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN (ADMIN PORTAL) -->
-    <div id="admin-panel-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-      <div class="relative w-full max-w-2xl bg-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-7 shadow-2xl text-white max-h-[90vh] flex flex-col overflow-hidden">
+    <div id="admin-panel-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-xl">
+      <div class="relative w-full max-w-5xl bg-slate-900 border border-amber-500/40 rounded-3xl p-5 sm:p-7 shadow-2xl text-white max-h-[92vh] flex flex-col overflow-hidden">
         <!-- Header -->
         <div class="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
-          <div class="flex items-center gap-2.5">
-            <span class="text-2xl">👑</span>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20">
+              👑
+            </div>
             <div>
-              <h3 class="text-base font-bold text-amber-400">Trung Tâm Quản Trị Hệ Thống FTC</h3>
-              <p class="text-xs text-slate-400">Dành riêng cho cán bộ quản trị chiến dịch 20/11</p>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base sm:text-lg font-bold text-amber-400">Trung Tâm Quản Trị Hệ Thống FTC</h3>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Restricted Mode
+                </span>
+              </div>
+              <p class="text-xs text-slate-400">Dành riêng cho Super Admin (<span class="text-amber-300 font-mono">tungdt101@fpt.com</span>) & Cán bộ Quản trị</p>
             </div>
           </div>
           <button id="close-admin-panel-btn" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer">✕</button>
@@ -607,19 +614,62 @@
 
         <!-- Navigation Tabs -->
         <div class="flex gap-2 border-b border-white/10 pb-3 mb-4 text-xs font-semibold overflow-x-auto">
-          <button id="admin-tab-config" class="px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer">
-            ⚙️ Cấu Hình Backend
+          <button id="admin-tab-submissions" class="px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+            <span>💌</span>
+            <span>Quản Lý Lời Chúc (Xóa / Xem)</span>
           </button>
-          <button id="admin-tab-users" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">
-            👥 Phân Quyền Quản Trị
+          <button id="admin-tab-users" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+            <span>👥</span>
+            <span>Phân Quyền Quản Trị</span>
           </button>
-          <button id="admin-tab-export" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer">
-            📥 Xuất Toàn Bộ Dữ Liệu
+          <button id="admin-tab-config" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+            <span>⚙️</span>
+            <span>Cấu Hình Backend</span>
+          </button>
+          <button id="admin-tab-export" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+            <span>📊</span>
+            <span>Xuất Toàn Bộ Dữ Liệu</span>
           </button>
         </div>
 
+        <!-- TAB CONTENT 0: Quản Lý Lời Chúc (Xem & Xóa) -->
+        <div id="admin-view-submissions" class="space-y-3.5 overflow-hidden flex-1 flex flex-col">
+          <!-- Toolbar: Search + Count + Refresh -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-black/40 border border-white/10">
+            <div class="relative w-full sm:w-80">
+              <input 
+                id="admin-search-submissions-input" 
+                type="text" 
+                placeholder="Tìm theo người gửi, người nhận, lời chúc, mã ID..." 
+                class="custom-input w-full px-3.5 py-2 text-xs placeholder-slate-400"
+              />
+            </div>
+            <div class="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+              <div class="text-xs text-slate-300 flex items-center gap-1.5">
+                <span>Tổng số lời chúc:</span>
+                <strong id="admin-submissions-count" class="text-amber-400 font-bold px-2.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">0</strong>
+              </div>
+              <button 
+                id="admin-refresh-submissions-btn" 
+                type="button" 
+                class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span>🔄</span>
+                <span>Làm mới</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Submissions Table Container -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-2xl bg-black/30">
+            <div id="admin-submissions-table-container">
+              <div class="py-12 text-center text-slate-400 text-xs">Đang tải danh sách lời tri ân...</div>
+            </div>
+          </div>
+        </div>
+
         <!-- TAB CONTENT 1: Cấu hình Script & Chế độ xác thực -->
-        <div id="admin-view-config" class="space-y-4 overflow-y-auto flex-1 p-1">
+        <div id="admin-view-config" class="hidden space-y-4 overflow-y-auto flex-1 p-1 custom-scrollbar">
           <!-- Chế độ xác thực đăng nhập CBNV -->
           <div class="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2.5">
             <div class="flex items-center justify-between">
@@ -681,33 +731,37 @@
         </div>
 
         <!-- TAB CONTENT 2: Phân Quyền Admin -->
-        <div id="admin-view-users" class="hidden space-y-4 overflow-y-auto flex-1 p-1">
+        <div id="admin-view-users" class="hidden space-y-4 overflow-y-auto flex-1 p-1 custom-scrollbar">
           <div class="p-3.5 rounded-2xl bg-black/40 border border-white/10">
             <h4 class="text-xs font-bold text-amber-300 uppercase mb-2">Thêm Quản Trị Viên Mới</h4>
-            <div class="flex gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
               <input 
                 type="email" 
                 id="new-admin-email-input" 
-                placeholder="VD: admin_ftc@fpt.net" 
-                class="custom-input flex-1 rounded-xl px-3 py-2 text-xs placeholder-slate-500"
+                placeholder="VD: admin_ftc@fpt.net hoặc tungdt101@fpt.com" 
+                class="custom-input sm:col-span-6 rounded-xl px-3 py-2 text-xs placeholder-slate-500"
               />
-              <button id="add-admin-btn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-bold text-xs hover:brightness-110 cursor-pointer">
+              <select id="new-admin-role-select" class="custom-input sm:col-span-3 rounded-xl px-2.5 py-2 text-xs bg-slate-800 text-white cursor-pointer border border-white/15">
+                <option value="Admin Quản Lý">Admin Quản Lý</option>
+                <option value="Super Admin">Super Admin</option>
+              </select>
+              <button id="add-admin-btn" class="sm:col-span-3 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-bold text-xs hover:brightness-110 cursor-pointer text-center">
                 + Cấp Quyền
               </button>
             </div>
-            <p class="text-[10px] text-slate-400 mt-1.5">Tài khoản được cấp quyền sẽ xem được dữ liệu tổng và cấu hình hệ thống.</p>
+            <p class="text-[10px] text-slate-400 mt-1.5">Tài khoản được cấp quyền sẽ có thể đăng nhập quản trị, xem toàn bộ dữ liệu và xóa lời tri ân.</p>
           </div>
 
           <div>
             <h4 class="text-xs font-bold text-slate-300 uppercase mb-2">Danh Sách Quản Trị Viên Hiện Tại</h4>
-            <div id="admin-list-container" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+            <div id="admin-list-container" class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
               <div class="text-xs text-slate-500">Đang tải danh sách Admin...</div>
             </div>
           </div>
         </div>
 
         <!-- TAB CONTENT 3: Xuất Dữ Liệu -->
-        <div id="admin-view-export" class="hidden space-y-4 overflow-y-auto flex-1 text-center py-6">
+        <div id="admin-view-export" class="hidden space-y-4 overflow-y-auto flex-1 text-center py-6 custom-scrollbar">
           <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto mb-3">
             📊
           </div>
