@@ -534,7 +534,7 @@ class App {
 
         try {
           requestBtn.disabled = true;
-          requestBtn.innerHTML = '<span>⚡ Đang gửi mã vào Outlook...</span>';
+          requestBtn.innerHTML = '<span>Đang gửi mã vào Outlook...</span>';
 
           await ApiService.requestOtp(email);
           currentEmail = email;
@@ -552,7 +552,7 @@ class App {
           alert('⚠️ ' + (err.message || 'Không thể gửi mã OTP.'));
         } finally {
           requestBtn.disabled = false;
-          requestBtn.innerHTML = '<span>Nhận Mã OTP Qua Outlook (Gửi Trong 1-3s)</span><span>➜</span>';
+          requestBtn.innerHTML = '<span>Nhận Mã OTP Qua Outlook</span><span>➜</span>';
         }
       });
     }
