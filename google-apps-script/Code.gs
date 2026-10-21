@@ -300,7 +300,7 @@ function sendGratitudeNotificationEmail(params) {
     <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #f37021;">
       <!-- Header Banner -->
       <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 30px 20px; text-align: center;">
-        <img src="https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="42" style="display:block; margin: 0 auto 12px auto;" />
+        <img src="${getFptLogoBlob() ? "cid:fptLogo" : "https://raw.githubusercontent.com/thanhtungdev05/20-11-FTC/main/public/assets/logoFPT.png"}" alt="FPT Logo" height="42" style="display:block; margin: 0 auto 12px auto;" />
         <h3 style="color: #ffd700; margin: 0 0 6px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Trung tâm Đào tạo FTEL (FTC)</h3>
         <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.4);">THẮP LỬA TRI ÂN – THẮP SÁNG TRI THỨC</h1>
       </div>
@@ -347,6 +347,13 @@ function sendGratitudeNotificationEmail(params) {
     htmlBody: htmlBody,
     name: "FTC - Trung tâm Đào tạo FPT Telecom"
   };
+
+  const cardLogoBlob = getFptLogoBlob();
+  if (cardLogoBlob) {
+    mailOptions.inlineImages = {
+      fptLogo: cardLogoBlob
+    };
+  }
 
   // Nếu có ảnh Base64 của E-Card, đính kèm vào Email
   if (params.cardImageBase64 && params.cardImageBase64.indexOf("base64,") !== -1) {
@@ -637,6 +644,30 @@ function handleAdminToggleOtp(data) {
 /**
  * Xử lý gửi OTP qua email Outlook FTEL (Flash OTP - Tối ưu siêu tốc <1s bằng CacheService & MailApp)
  */
+
+/**
+ * Lấy logo FPT dưới dạng Blob để đính kèm nội dòng (CID Inline Image)
+ * Giúp Outlook hiển thị logo 100% tự động, KHÔNG BAO GIỜ BỊ LỖI ẢNH hay chặn proxy.
+ */
+let _cachedFptLogoBlob = null;
+function getFptLogoBlob() {
+  if (_cachedFptLogoBlob) return _cachedFptLogoBlob;
+  try {
+    const url = "https://raw.githubusercontent.com/thanhtungdev05/20-11-FTC/main/public/assets/logoFPT.png";
+    _cachedFptLogoBlob = UrlFetchApp.fetch(url).getBlob().setName("logoFPT.png");
+    return _cachedFptLogoBlob;
+  } catch (err) {
+    try {
+      const fallbackUrl = "https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/logoFPT.png";
+      _cachedFptLogoBlob = UrlFetchApp.fetch(fallbackUrl).getBlob().setName("logoFPT.png");
+      return _cachedFptLogoBlob;
+    } catch (err2) {
+      Logger.log("getFptLogoBlob error: " + err2.toString());
+      return null;
+    }
+  }
+}
+
 function handleRequestOtp(data) {
   const email = (data.email || "").trim().toLowerCase();
   
@@ -679,10 +710,15 @@ function handleRequestOtp(data) {
   try {
     const subject = "[MÃ OTP: " + code + "] Xác thực Thắp Lửa Tri Ân FTEL";
     const plainText = "Xin chào CBNV FPT Telecom,\n\nMã xác thực OTP của bạn là: " + code + "\n(Mã có hiệu lực trong 5 phút).\n\nFTC - Trung tâm Đào tạo FPT Telecom.";
+    
+    // Đính kèm logo nội dòng CID để Outlook hiển thị tức thì, KHÔNG BỊ CHẶN ẢNH
+    const logoBlob = getFptLogoBlob();
+    const logoSrc = logoBlob ? "cid:fptLogo" : "https://raw.githubusercontent.com/thanhtungdev05/20-11-FTC/main/public/assets/logoFPT.png";
+    
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 2px solid #f37021; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;">
         <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 20px 16px;">
-          <img src="https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/logoFPT.png" alt="FPT Logo" height="38" style="display:block; margin: 0 auto 10px auto; border: 0; outline: none; background: transparent;" />
+          <img src="${logoSrc}" alt="FPT Logo" height="38" style="display:block; margin: 0 auto 10px auto; border: 0; outline: none; background: transparent;" />
           <div style="color: #ffffff; font-weight: 900; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase;">FPT TELECOM • FTC</div>
           <div style="color: #ffd700; font-size: 11px; margin-top: 3px; font-weight: bold; letter-spacing: 1px;">CHIẾN DỊCH 20/11 - THẮP LỬA TRI ÂN</div>
         </div>
@@ -708,21 +744,29 @@ function handleRequestOtp(data) {
         </div>
       </div>
     `;
-
+    
+    const mailOptions = {
+      to: email,
+      subject: subject,
+      body: plainText,
+      htmlBody: htmlBody,
+      name: "FTC - Thắp Lửa Tri Ân",
+      noReply: true
+    };
+    
+    if (logoBlob) {
+      mailOptions.inlineImages = {
+        fptLogo: logoBlob
+      };
+    }
+    
     try {
-      MailApp.sendEmail({
-        to: email,
-        subject: subject,
-        body: plainText,
-        htmlBody: htmlBody,
-        name: "FTC - Thắp Lửa Tri Ân",
-        noReply: true
-      });
+      MailApp.sendEmail(mailOptions);
     } catch (mailAppErr) {
-      // Fallback qua GmailApp nếu MailApp gặp hạn mức riêng
       GmailApp.sendEmail(email, subject, plainText, {
         htmlBody: htmlBody,
-        name: "FTC - Thắp Lửa Tri Ân"
+        name: "FTC - Thắp Lửa Tri Ân",
+        inlineImages: logoBlob ? { fptLogo: logoBlob } : {}
       });
     }
 
