@@ -12,6 +12,11 @@ export const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTaNILt
 
 export function getEffectiveScriptUrl() {
   const custom = localStorage.getItem('ftel_custom_script_url');
+  // Tự động xóa các link cũ từng lỗi trước đây để luôn dùng link chuẩn mới nhất
+  if (custom && (custom.includes('AKfycbzKGQrt') || custom.includes('AKfycbzJVQuU'))) {
+    localStorage.removeItem('ftel_custom_script_url');
+    return APPS_SCRIPT_URL;
+  }
   if (custom && custom.trim() !== '') {
     return custom;
   }

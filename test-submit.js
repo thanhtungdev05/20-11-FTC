@@ -12,7 +12,7 @@ const testData = {
 };
 
 async function run() {
-  const url = "https://script.google.com/macros/s/AKfycbzKGQrtBT8bpzagyRJKTyHW1Ycosqx8SNl46uXPCH_HA8WaaiewAiAsyYUHeJD0f4C8/exec";
+  const url = "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec";
   console.log("Sending test request to:", url);
   try {
     const res = await fetch(url, {
