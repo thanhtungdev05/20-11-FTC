@@ -979,22 +979,24 @@ class App {
     }).join('');
 
     container.innerHTML = `
-      <table class="w-full text-left border-collapse">
-        <thead>
-          <tr class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-white/10 bg-white/[0.02]">
-            <th class="py-2.5 px-3 text-center w-10">STT</th>
-            <th class="py-2.5 px-3">Mã Gửi</th>
-            <th class="py-2.5 px-3">Thời Gian</th>
-            <th class="py-2.5 px-3">Người Gửi (CBNV)</th>
-            <th class="py-2.5 px-3">Người Nhận (Thầy/Cô)</th>
-            <th class="py-2.5 px-3">Lời Chúc</th>
-            <th class="py-2.5 px-3 text-center">Thao Tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
+      <div class="w-full overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse min-w-[700px]">
+          <thead>
+            <tr class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-white/10 bg-white/[0.02]">
+              <th class="py-2.5 px-3 text-center w-10">STT</th>
+              <th class="py-2.5 px-3">Mã Gửi</th>
+              <th class="py-2.5 px-3">Thời Gian</th>
+              <th class="py-2.5 px-3">Người Gửi (CBNV)</th>
+              <th class="py-2.5 px-3">Người Nhận (Thầy/Cô)</th>
+              <th class="py-2.5 px-3">Lời Chúc</th>
+              <th class="py-2.5 px-3 text-center">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
     `;
 
     // Gắn sự kiện Xóa

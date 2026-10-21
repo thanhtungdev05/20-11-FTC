@@ -9,8 +9,8 @@
   --fpt-cyan: #00f2fe;
   --fpt-cyan-glow: rgba(0, 242, 254, 0.4);
   --bg-deep: #060913;
-  --glass-bg: rgba(10, 16, 32, 0.42);
-  --glass-bg-hover: rgba(14, 22, 44, 0.55);
+  --glass-bg: rgba(10, 16, 32, 0.55);
+  --glass-bg-hover: rgba(14, 22, 44, 0.65);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-border-glow: rgba(243, 112, 33, 0.35);
 }
@@ -27,14 +27,22 @@
 html {
   scroll-behavior: smooth;
   color-scheme: dark;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
   background-color: var(--bg-deep);
   color: #f8fafc;
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 2. 3D WebGL Background Canvas (Fixed & Fullscreen) */
@@ -43,6 +51,7 @@ body {
   inset: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   z-index: 0;
   pointer-events: auto;
   background: radial-gradient(circle at 50% 40%, #0d162d 0%, #060913 70%, #030408 100%);
@@ -53,10 +62,13 @@ body {
   position: relative;
   z-index: 10;
   width: 100%;
+  max-width: 100vw;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  pointer-events: none; /* Click xuyên qua khoảng trống để tương tác 3D */
+  pointer-events: none;
+  overflow-x: hidden;
 }
 
 /* Kích hoạt lại tính năng tương tác cho các khối nội dung, nút và form */
@@ -64,7 +76,7 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
   pointer-events: auto;
 }
 
-/* 4. Hiệu Ứng Kính Mờ Đỉnh Cao (True Sci-Fi Glassmorphism) */
+/* 4. Hiệu Ứng Kính Mờ Đỉnh Cao (Desktop Glassmorphism & High-Performance Mobile Mode) */
 .glass-card {
   background: var(--glass-bg);
   backdrop-filter: blur(20px) saturate(180%);
@@ -80,7 +92,7 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 }
 
 .glass-card-glow {
-  background: rgba(10, 16, 32, 0.48);
+  background: rgba(10, 16, 32, 0.55);
   backdrop-filter: blur(24px) saturate(190%);
   -webkit-backdrop-filter: blur(24px) saturate(190%);
   border: 1px solid var(--glass-border-glow);
@@ -101,7 +113,7 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 
 /* Header mờ tinh tế */
 .glass-header {
-  background: rgba(6, 10, 22, 0.45);
+  background: rgba(6, 10, 22, 0.6);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -125,24 +137,19 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 
 /* 6. Form Inputs chuẩn Sci-Fi & Mobile-friendly */
 .custom-input {
-  background: rgba(8, 14, 28, 0.5);
+  background: rgba(8, 14, 28, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   color: #ffffff;
-  font-size: 15px; /* Ngăn chặn auto-zoom trên iOS Safari */
+  font-size: 15px;
   transition: all 0.25s ease;
-}
-
-@media (max-width: 640px) {
-  .custom-input {
-    font-size: 16px; /* Chuẩn UX mobile */
-  }
+  touch-action: manipulation;
 }
 
 .custom-input:focus {
   outline: none;
-  background: rgba(12, 20, 42, 0.75);
+  background: rgba(12, 20, 42, 0.85);
   border-color: #f37021;
   box-shadow: 0 0 0 3px rgba(243, 112, 33, 0.25), 0 0 25px rgba(243, 112, 33, 0.2);
 }
@@ -158,9 +165,10 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
   font-weight: 800;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 8px 25px rgba(243, 112, 33, 0.4);
   letter-spacing: 0.5px;
+  touch-action: manipulation;
 }
 
 .btn-flame:hover {
@@ -194,13 +202,15 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 .btn-glass {
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f1f5f9;
   transition: all 0.25s ease;
+  touch-action: manipulation;
 }
 
 .btn-glass:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.25);
   transform: translateY(-1px);
 }
@@ -208,9 +218,11 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 .btn-glass-primary {
   background: rgba(243, 112, 33, 0.15);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(243, 112, 33, 0.4);
   color: #fdba74;
   transition: all 0.25s ease;
+  touch-action: manipulation;
 }
 
 .btn-glass-primary:hover {
@@ -262,10 +274,74 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
   background: rgba(243, 112, 33, 0.7);
 }
 
-/* 10. Animations */
+/* ==============================================================================
+ * 10. TỐI ƯU HÓA ĐẶC BIỆT CHO MOBILE (SIÊU MƯỢT 60-120 FPS & ĐỒNG BỘ 100% GIAO DIỆN)
+ * ============================================================================== */
+@media (max-width: 768px) {
+  /* Gỡ bỏ các lớp blur nặng gây sụt giảm khung hình trên chip GPU di động */
+  .glass-card,
+  .glass-card-glow,
+  .glass-header,
+  .btn-glass,
+  .btn-glass-primary {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .glass-card {
+    background: rgba(10, 16, 32, 0.94) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+  }
+
+  .glass-card-glow {
+    background: rgba(12, 18, 36, 0.95) !important;
+    border: 1px solid rgba(243, 112, 33, 0.35) !important;
+    box-shadow: 0 0 25px rgba(243, 112, 33, 0.18), 0 12px 35px rgba(0, 0, 0, 0.7) !important;
+  }
+
+  .glass-header {
+    background: rgba(6, 10, 22, 0.96) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* Chuẩn form mobile: cỡ chữ 16px để ngăn Safari/Chrome tự ý zoom vào màn hình */
+  .custom-input {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(14, 22, 42, 0.92) !important;
+    font-size: 16px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* Touch scrolling mượt mà cho bảng dữ liệu */
+  .custom-scrollbar {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Tối ưu hiệu ứng hover trên cảm ứng */
+  .btn-flame:hover {
+    transform: none !important;
+  }
+
+  /* Ngăn chặn giật lag 3D tilt trên điện thoại */
+  .card-3d-tilt {
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* Cố định chiều cao modal an toàn cho thanh trình duyệt Safari / Chrome */
+  .modal-inner-container {
+    max-height: 90dvh !important;
+  }
+}
+
+/* 11. Keyframe Animations */
 @keyframes floatGentle {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-5px); }
 }
 
 .animate-float {
@@ -274,7 +350,7 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
 
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.9; transform: scale(1.03); }
+  50% { opacity: 0.9; transform: scale(1.02); }
 }
 
 .animate-pulse-glow {

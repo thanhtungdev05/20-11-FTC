@@ -28,86 +28,86 @@ export class DashboardModule {
 
     const modal = document.createElement('div');
     modal.id = 'dashboard-modal';
-    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-xl transition-all duration-300';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-6 bg-black/85 backdrop-blur-xl transition-all duration-300';
     modal.innerHTML = `
-      <div class="relative w-full max-w-5xl max-h-[92vh] flex flex-col glass-card rounded-3xl border border-amber-500/35 shadow-2xl overflow-hidden text-white">
+      <div class="relative w-full max-w-5xl max-h-[92dvh] sm:max-h-[92vh] flex flex-col glass-card rounded-3xl border border-amber-500/35 shadow-2xl overflow-hidden text-white">
         <!-- Header -->
-        <div class="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-white/10 bg-white/[0.03]">
-          <div class="flex items-center gap-3">
-            <div class="h-10 px-2 py-1 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <img src="/assets/logoFPT.png" alt="FPT Logo" class="h-7 w-auto object-contain" />
+        <div class="flex items-center justify-between px-3.5 sm:px-6 py-3 sm:py-4 border-b border-white/10 bg-white/[0.03]">
+          <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div class="h-9 sm:h-10 px-2 py-1 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
+              <img src="/assets/logoFPT.png" alt="FPT Logo" class="h-6 sm:h-7 w-auto object-contain" />
             </div>
-            <div>
-              <h2 class="text-base sm:text-xl font-bold text-white flex items-center gap-2">
+            <div class="min-w-0">
+              <h2 class="text-sm sm:text-xl font-bold text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <span>BẢNG VINH DANH "30 TIẾP LỬA BỀN BỈ"</span>
-                <span class="text-xs px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 font-medium">FTC • FTEL 20/11</span>
+                <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 font-medium">FTC • 20/11</span>
               </h2>
-              <p class="text-xs text-slate-400">Trung tâm Đào tạo FTEL (FTC) • Dữ liệu thời gian thực phục vụ xét giải và truyền thông</p>
+              <p class="text-[10px] sm:text-xs text-slate-400 truncate">Trung tâm Đào tạo FTEL (FTC) • Dữ liệu thời gian thực</p>
             </div>
           </div>
-          <button id="close-dashboard-btn" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer text-sm">
+          <button id="close-dashboard-btn" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer text-sm shrink-0">
             ✕
           </button>
         </div>
 
         <!-- Metric Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border-b border-white/10 bg-black/25 text-center">
-          <div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
-            <span class="text-xs text-slate-400">Tổng ngọn lửa thắp sáng</span>
-            <div id="stat-total-submissions" class="text-2xl font-black text-amber-400 mt-1">--</div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 p-3 sm:p-4 border-b border-white/10 bg-black/25 text-center">
+          <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
+            <span class="text-[11px] sm:text-xs text-slate-400">Tổng ngọn lửa thắp sáng</span>
+            <div id="stat-total-submissions" class="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 sm:mt-1">--</div>
           </div>
-          <div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
-            <span class="text-xs text-slate-400">Mentor/Coach được tri ân</span>
-            <div id="stat-total-mentors" class="text-2xl font-black text-orange-400 mt-1">--</div>
+          <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
+            <span class="text-[11px] sm:text-xs text-slate-400">Mentor/Coach được tri ân</span>
+            <div id="stat-total-mentors" class="text-xl sm:text-2xl font-black text-orange-400 mt-0.5 sm:mt-1">--</div>
           </div>
-          <div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
-            <span class="text-xs text-slate-400">CBNV tham gia gửi</span>
-            <div id="stat-total-senders" class="text-2xl font-black text-sky-400 mt-1">--</div>
+          <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
+            <span class="text-[11px] sm:text-xs text-slate-400">CBNV tham gia gửi</span>
+            <div id="stat-total-senders" class="text-xl sm:text-2xl font-black text-sky-400 mt-0.5 sm:mt-1">--</div>
           </div>
-          <div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
-            <span class="text-xs text-slate-400">Đơn vị / Chi nhánh</span>
-            <div id="stat-total-depts" class="text-2xl font-black text-emerald-400 mt-1">13</div>
+          <div class="p-2.5 sm:p-3.5 rounded-2xl bg-white/[0.04] border border-white/5">
+            <span class="text-[11px] sm:text-xs text-slate-400">Đơn vị / Chi nhánh</span>
+            <div id="stat-total-depts" class="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5 sm:mt-1">13</div>
           </div>
         </div>
 
         <!-- Filter & Search Toolbar -->
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 sm:px-6 py-3 border-b border-white/10 bg-black/20">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 px-3.5 sm:px-6 py-2.5 sm:py-3 border-b border-white/10 bg-black/20">
           <div class="relative w-full sm:w-72">
             <input 
               id="dashboard-search-input" 
               type="text" 
               placeholder="Tìm theo tên, email, đơn vị..." 
-              class="custom-input w-full px-3.5 py-2 text-sm placeholder-slate-400"
+              class="custom-input w-full px-3 py-2 text-xs sm:text-sm placeholder-slate-400"
             />
           </div>
           <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-            <button id="dashboard-admin-manage-btn" class="hidden px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-amber-500/10">
+            <button id="dashboard-admin-manage-btn" class="hidden px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-amber-500/10">
               <span>👑</span>
               <span>Quản Lý / Xóa Lời Chúc</span>
             </button>
-            <button id="export-csv-btn" class="px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
-              <span>↓ Xuất Báo Cáo Excel</span>
+            <button id="export-csv-btn" class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer">
+              <span>↓ Xuất Báo Cáo</span>
             </button>
-            <button id="refresh-dashboard-btn" class="px-3.5 py-2 rounded-xl btn-glass text-slate-300 text-xs font-medium transition-all cursor-pointer">
+            <button id="refresh-dashboard-btn" class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl btn-glass text-slate-300 text-xs font-medium transition-all cursor-pointer">
               ↻ Làm mới
             </button>
           </div>
         </div>
 
         <!-- Table Content -->
-        <div class="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 custom-scrollbar">
           <div id="leaderboard-table-container">
-            <div class="py-12 text-center text-slate-500">Đang đồng bộ dữ liệu...</div>
+            <div class="py-12 text-center text-slate-500 text-xs sm:text-sm">Đang đồng bộ dữ liệu...</div>
           </div>
         </div>
 
         <!-- Footer -->
-        <div class="px-6 py-3 border-t border-white/10 bg-slate-950 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+        <div class="px-4 sm:px-6 py-2.5 sm:py-3 border-t border-white/10 bg-slate-950 flex flex-col sm:flex-row items-center justify-between text-[11px] sm:text-xs text-slate-400 gap-1.5 sm:gap-2">
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Hệ thống bảo mật: Google Sheets Restricted Mode</span>
           </div>
-          <span class="text-slate-500">Giải thưởng 30 Tiếp Lửa Bền Bỉ xét theo số lượt tri ân hợp lệ</span>
+          <span class="text-slate-500 text-[10px] sm:text-xs">Giải thưởng 30 Tiếp Lửa Bền Bỉ xét theo số lượt tri ân hợp lệ</span>
         </div>
       </div>
     `;
@@ -242,20 +242,22 @@ export class DashboardModule {
     }).join('');
 
     container.innerHTML = `
-      <table class="w-full text-left border-collapse">
-        <thead>
-          <tr class="text-xs font-semibold text-slate-400 border-b border-white/10 uppercase tracking-wider">
-            <th class="py-2.5 px-3 text-center">Hạng</th>
-            <th class="py-2.5 px-3">Cán bộ được tri ân</th>
-            <th class="py-2.5 px-3 hidden md:table-cell">Đơn vị / Phòng ban</th>
-            <th class="py-2.5 px-3 hidden sm:table-cell">Vai trò</th>
-            <th class="py-2.5 px-3 text-right">Số ngọn lửa nhận</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
-      </table>
+      <div class="w-full overflow-x-auto custom-scrollbar -mx-1 sm:mx-0">
+        <table class="w-full text-left border-collapse min-w-[340px]">
+          <thead>
+            <tr class="text-[11px] sm:text-xs font-semibold text-slate-400 border-b border-white/10 uppercase tracking-wider">
+              <th class="py-2.5 px-2 sm:px-3 text-center">Hạng</th>
+              <th class="py-2.5 px-2 sm:px-3">Cán bộ được tri ân</th>
+              <th class="py-2.5 px-2 sm:px-3 hidden md:table-cell">Đơn vị / Phòng ban</th>
+              <th class="py-2.5 px-2 sm:px-3 hidden sm:table-cell">Vai trò</th>
+              <th class="py-2.5 px-2 sm:px-3 text-right">Số ngọn lửa nhận</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
     `;
   }
 

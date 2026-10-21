@@ -41,25 +41,25 @@
     <div class="ui-container">
       <!-- Navigation Bar -->
       <header class="glass-header w-full sticky top-0 z-40 transition-all">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <!-- Logo & Title -->
-          <div class="flex items-center gap-3">
-            <div class="h-11 px-2.5 py-1.5 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center shadow-lg shadow-orange-500/10">
-              <img src="/assets/logoFPT.png" alt="FPT Telecom Logo" class="h-8 w-auto object-contain" />
+          <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div class="h-9 sm:h-11 px-2 py-1 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/10">
+              <img src="/assets/logoFPT.png" alt="FPT Telecom Logo" class="h-6 sm:h-8 w-auto object-contain" />
             </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="font-extrabold text-lg sm:text-xl tracking-tight text-white">THẮP LỬA TRI ÂN</span>
-                <span class="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 sm:gap-2">
+                <span class="font-black text-sm sm:text-xl tracking-tight text-white whitespace-nowrap">THẮP LỬA TRI ÂN</span>
+                <span class="text-[9px] sm:text-[11px] font-bold px-1.5 sm:px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 whitespace-nowrap">
                   FTC • 20/11
                 </span>
               </div>
-              <p class="text-[11px] text-slate-400 hidden sm:block">Trung tâm Đào tạo FTEL (FTC) • Tôn vinh Người trao truyền tri thức</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-400 hidden sm:block truncate">Trung tâm Đào tạo FTEL (FTC) • Tôn vinh Người trao truyền tri thức</p>
             </div>
           </div>
 
           <!-- Actions -->
-          <div class="flex items-center gap-2 sm:gap-3">
+          <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <!-- Live Counter Pill -->
             <div class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs backdrop-blur-md">
               <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
@@ -71,32 +71,35 @@
             <!-- Leaderboard Button -->
             <button 
               id="open-leaderboard-btn" 
-              class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-lg shadow-amber-500/10 transition-all cursor-pointer backdrop-blur-md"
+              class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-semibold flex items-center gap-1 sm:gap-1.5 shadow-lg shadow-amber-500/10 transition-all cursor-pointer whitespace-nowrap"
             >
-              <span>🏆 Bảng Vinh Danh Top 30</span>
+              <span>🏆</span>
+              <span class="hidden sm:inline">Bảng Vinh Danh Top 30</span>
+              <span class="inline sm:hidden">Top 30</span>
             </button>
 
             <!-- User Session Badge (Shown when logged in) -->
-            <div id="user-header-badge" class="hidden items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300 backdrop-blur-md">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span id="user-display-email" class="font-medium max-w-[120px] sm:max-w-[160px] truncate">user@fpt.net</span>
-              <button id="user-logout-btn" title="Đăng xuất" class="text-slate-400 hover:text-rose-400 text-xs ml-1 cursor-pointer">✕</button>
+            <div id="user-header-badge" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+              <span id="user-display-email" class="font-medium max-w-[85px] sm:max-w-[160px] truncate">user@fpt.net</span>
+              <button id="user-logout-btn" title="Đăng xuất" class="text-slate-400 hover:text-rose-400 text-xs ml-0.5 cursor-pointer">✕</button>
             </div>
 
             <!-- Admin Badge & Panel Button (Shown only for Admin) -->
             <button 
               id="open-admin-panel-btn" 
               title="Mở Bảng Quản Trị FTC" 
-              class="hidden px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold items-center gap-1.5 cursor-pointer backdrop-blur-md"
+              class="hidden px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold items-center gap-1 cursor-pointer whitespace-nowrap"
             >
-              <span>👑 Quản Trị</span>
+              <span>👑</span>
+              <span class="hidden sm:inline">Quản Trị</span>
             </button>
 
             <!-- Config / Settings Button (Hidden by default for regular users) -->
             <button 
               id="open-config-btn" 
               title="Cấu hình Google Sheet Backend" 
-              class="hidden w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all text-sm cursor-pointer backdrop-blur-md"
+              class="hidden w-8 sm:w-9 h-8 sm:h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all text-xs sm:text-sm cursor-pointer"
             >
               ⚙️
             </button>
@@ -105,25 +108,25 @@
       </header>
 
       <!-- Main Body Container -->
-      <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-6 sm:py-8 flex flex-col justify-center">
+      <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 flex flex-col justify-center">
         <!-- Hero Tagline -->
-        <div class="text-center max-w-5xl w-full mx-auto mb-6 sm:mb-10 px-2">
-          <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 text-xs sm:text-sm font-semibold mb-3 shadow-lg shadow-orange-500/10 backdrop-blur-md">
+        <div class="text-center max-w-5xl w-full mx-auto mb-4 sm:mb-10 px-1">
+          <div class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[10px] sm:text-xs font-semibold mb-2 sm:mb-3 shadow-lg shadow-orange-500/10">
             <span>✦ 20/11/2026: GỬI LỜI CẢM ƠN – THẮP SÁNG TRI THỨC ✦</span>
           </div>
-          <h1 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-3 text-glow-orange leading-tight">
-            <span class="text-gradient-gold inline-block whitespace-nowrap">LAN TỎA NGỌN LỬA TRI ÂN</span>
+          <h1 class="text-xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-2 sm:mb-3 text-glow-orange leading-tight">
+            <span class="text-gradient-gold inline-block break-normal sm:whitespace-nowrap">LAN TỎA NGỌN LỬA TRI ÂN</span>
           </h1>
-          <p class="inline-block text-sm sm:text-base text-slate-100 font-medium leading-relaxed max-w-2xl mx-auto px-5 py-2.5 rounded-2xl bg-black/50 backdrop-blur-md border border-white/10 shadow-xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+          <p class="inline-block text-xs sm:text-base text-slate-100 font-medium leading-relaxed max-w-2xl mx-auto px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-black/60 border border-white/10 shadow-xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
             Mỗi dòng chia sẻ chân thành của bạn là một tia sáng thắp lên ngọn lửa tôn vinh những người Thầy, Mentor, Coach và người dẫn đường thầm lặng tại FPT Telecom.
           </p>
         </div>
 
         <!-- 2-Column Workspace: Form & 3D Interactive Card Preview -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-start">
           
           <!-- LEFT COLUMN: Form Thắp Lửa (7 cols) -->
-          <div class="lg:col-span-7 glass-card-glow rounded-3xl p-4 sm:p-7">
+          <div class="lg:col-span-7 glass-card-glow rounded-3xl p-3.5 sm:p-7">
             <div class="flex items-center justify-between pb-4 mb-5 border-b border-white/10">
               <div class="flex items-center gap-3">
                 <span class="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center text-lg font-bold border border-orange-500/30 shadow-md shadow-orange-500/20">
@@ -318,23 +321,23 @@
           </div>
 
           <!-- RIGHT COLUMN: 3D Live Card Interactive Preview (5 cols) -->
-          <div class="lg:col-span-5 flex flex-col items-center">
-            <div class="w-full glass-card rounded-3xl p-4 sm:p-6 sticky top-24">
-              <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+          <div class="lg:col-span-5 flex flex-col items-center w-full mt-4 lg:mt-0">
+            <div class="w-full glass-card rounded-3xl p-3.5 sm:p-6 sticky top-20">
+              <div class="flex items-center justify-between mb-3 pb-3 border-b border-white/10">
                 <div class="flex items-center gap-2">
                   <span class="text-amber-400 text-sm">✦</span>
-                  <h3 class="text-sm font-bold text-white uppercase tracking-wider">Xem Trước Thiệp 3D</h3>
+                  <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Xem Trước Thiệp 3D</h3>
                 </div>
-                <span class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1.5">
                   <span>Tự động cập nhật</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-orange-400 animate-ping"></span>
                 </span>
               </div>
 
               <!-- 3D Perspective Card Container -->
-              <div class="card-perspective-container w-full flex justify-center py-2">
-                <div id="card-3d-wrapper" class="group card-3d-tilt relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 cursor-zoom-in max-w-[340px] w-full" title="Bấm vào để phóng to xem thiệp chi tiết">
-                  <canvas id="card-preview-canvas" class="w-full h-auto block"></canvas>
+              <div class="card-perspective-container w-full flex justify-center py-1 sm:py-2">
+                <div id="card-3d-wrapper" class="group card-3d-tilt relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 cursor-zoom-in max-w-[310px] sm:max-w-[340px] w-full mx-auto" title="Bấm vào để phóng to xem thiệp chi tiết">
+                  <canvas id="card-preview-canvas" class="w-full max-w-full h-auto block"></canvas>
                   <!-- Hover overlay hint -->
                   <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
                     <span class="px-3.5 py-1.5 rounded-full bg-slate-900/90 text-amber-300 border border-amber-400/50 text-xs font-bold flex items-center gap-1.5 shadow-xl backdrop-blur-md">
