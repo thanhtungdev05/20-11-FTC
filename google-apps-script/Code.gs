@@ -25,6 +25,9 @@ const CONFIG = {
   // Tên Sheet lưu trữ cấu hình & danh sách cán bộ quản trị (nếu có)
   ADMIN_SHEET: "AdminConfig",
   
+  // Tên Sheet lưu trữ danh sách cán bộ đã xác thực OTP thành công (Smart Quick Login)
+  VERIFIED_USERS_SHEET: "VerifiedUsers",
+  
   // Mã bí mật dành cho Admin truy cập Dashboard (hoặc xác thực)
   ADMIN_SECRET_KEY: "FTEL_TRI_AN_2026",
   
@@ -85,6 +88,19 @@ function doPost(e) {
     if (action === "verify_otp") {
       const result = handleVerifyOtp(payload);
       return createJsonResponse(result);
+    }
+
+    // Action 3.1: Kiểm tra trạng thái đã xác thực OTP của email (Smart Quick Login)
+    if (action === "check_email_status") {
+      const email = (payload.email || "").trim().toLowerCase();
+      const verified = isUserAlreadyVerified(email);
+      const isAdmin = checkIsAdminEmail(email);
+      return createJsonResponse({
+        success: true,
+        email: email,
+        isVerified: verified,
+        isAdmin: isAdmin
+      });
     }
 
     // Action: Lấy cấu hình chế độ đăng nhập (Direct hay OTP)
@@ -170,6 +186,18 @@ function doGet(e) {
     if (action === "get_auth_config") {
       const authConfig = handleGetAuthConfig();
       return createJsonResponse(authConfig);
+    }
+
+    if (action === "check_email_status") {
+      const email = (params.email || "").trim().toLowerCase();
+      const verified = isUserAlreadyVerified(email);
+      const isAdmin = checkIsAdminEmail(email);
+      return createJsonResponse({
+        success: true,
+        email: email,
+        isVerified: verified,
+        isAdmin: isAdmin
+      });
     }
 
     return createJsonResponse({
@@ -283,6 +311,12 @@ function handleGratitudeSubmission(data) {
     emailSentStatus,                                               // L: Trạng thái gửi mail
     emailSentTime                                                  // M: Thời gian gửi mail
   ]);
+
+  // Tự động ghi nhận người gửi vào danh sách đã xác thực
+  try {
+    recordVerifiedUser(senderEmail);
+    CacheService.getScriptCache().put("VERIFIED_" + senderEmail, "1", 21600);
+  } catch (recErr) {}
 
   return {
     success: true,
@@ -857,7 +891,15 @@ function handleVerifyOtp(data) {
     };
   }
 
-  // OTP chính xác -> Kiểm tra quyền Admin
+  // OTP chính xác -> Lưu vào danh sách VerifiedUsers & Cache RAM
+  try {
+    recordVerifiedUser(email);
+    CacheService.getScriptCache().put("VERIFIED_" + email, "1", 21600);
+  } catch (recErr) {
+    Logger.log("recordVerifiedUser warning: " + recErr.toString());
+  }
+
+  // Kiểm tra quyền Admin
   const isAdmin = checkIsAdminEmail(email);
 
   return {
@@ -868,6 +910,103 @@ function handleVerifyOtp(data) {
       isAdmin: isAdmin
     }
   };
+}
+
+/**
+ * Lưu email vào danh sách người dùng đã xác thực OTP trên Google Sheet (Smart Quick Login)
+ */
+function recordVerifiedUser(email) {
+  if (!email) return;
+  email = email.trim().toLowerCase();
+  try {
+    let ss = null;
+    if (CONFIG.SPREADSHEET_ID && CONFIG.SPREADSHEET_ID.trim() !== "") {
+      try { ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID.trim()); } catch (e) {}
+    }
+    if (!ss) {
+      try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) {}
+    }
+    if (!ss) return;
+
+    let sheet = ss.getSheetByName(CONFIG.VERIFIED_USERS_SHEET);
+    if (!sheet) {
+      sheet = ss.insertSheet(CONFIG.VERIFIED_USERS_SHEET);
+      const headers = [
+        "Email Cán Bộ",
+        "Thời Gian Xác Thực Đầu Tiên",
+        "Trạng Thái",
+        "Lần Đăng Nhập Cuối"
+      ];
+      const headerRange = sheet.getRange(1, 1, 1, headers.length);
+      headerRange.setValues([headers]);
+      headerRange.setBackground("#f37021");
+      headerRange.setFontColor("#ffffff");
+      headerRange.setFontWeight("bold");
+      sheet.setFrozenRows(1);
+    }
+
+    const lastRow = sheet.getLastRow();
+    const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
+
+    if (lastRow > 1) {
+      const emailCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < emailCol.length; i++) {
+        if (emailCol[i][0] && emailCol[i][0].toString().trim().toLowerCase() === email) {
+          // Đã tồn tại -> cập nhật thời gian đăng nhập gần nhất
+          sheet.getRange(i + 2, 4).setValue(nowStr);
+          return;
+        }
+      }
+    }
+
+    // Chưa tồn tại -> chèn dòng mới
+    sheet.appendRow([email, nowStr, "ACTIVE", nowStr]);
+  } catch (err) {
+    Logger.log("recordVerifiedUser Error: " + err.toString());
+  }
+}
+
+/**
+ * Kiểm tra xem email đã từng xác thực OTP trước đó chưa
+ */
+function isUserAlreadyVerified(email) {
+  if (!email) return false;
+  email = email.trim().toLowerCase();
+
+  // 1. Kiểm tra cache RAM nhanh trước (0.001s)
+  const cache = CacheService.getScriptCache();
+  if (cache.get("VERIFIED_" + email) === "1") {
+    return true;
+  }
+
+  // 2. Kiểm tra Google Sheet
+  try {
+    let ss = null;
+    if (CONFIG.SPREADSHEET_ID && CONFIG.SPREADSHEET_ID.trim() !== "") {
+      try { ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID.trim()); } catch (e) {}
+    }
+    if (!ss) {
+      try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) {}
+    }
+    if (!ss) return false;
+
+    let sheet = ss.getSheetByName(CONFIG.VERIFIED_USERS_SHEET);
+    if (!sheet) return false;
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return false;
+
+    const emailCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < emailCol.length; i++) {
+      if (emailCol[i][0] && emailCol[i][0].toString().trim().toLowerCase() === email) {
+        cache.put("VERIFIED_" + email, "1", 21600); // Cache 6 tiếng
+        return true;
+      }
+    }
+  } catch (err) {
+    Logger.log("isUserAlreadyVerified Error: " + err.toString());
+  }
+  return false;
 }
 
 /**

@@ -511,6 +511,63 @@ class App {
       }, 1000);
     };
 
+    // Helper: Cập nhật giao diện nút và huy hiệu thông minh theo email đã xác thực
+    const updateAuthUIForEmail = (email) => {
+      email = (email || '').trim().toLowerCase();
+      const statusBadge = document.getElementById('otp-status-badge');
+      const helperText = document.getElementById('otp-helper-text');
+      const helperIcon = document.getElementById('otp-helper-icon');
+      const btnText = document.getElementById('request-otp-btn-text');
+      const btnIcon = document.getElementById('request-otp-btn-icon');
+
+      if (!email || (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com'))) {
+        if (statusBadge) {
+          statusBadge.className = 'text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 transition-all';
+          statusBadge.textContent = '🔒 Xác thực FTEL';
+        }
+        if (helperText) helperText.textContent = 'Nhập email công ty để xác thực (Tài khoản đã xác thực sẽ được vào thẳng không cần OTP).';
+        if (helperIcon) helperIcon.textContent = '📧';
+        if (btnText) btnText.textContent = 'Tiếp Tục';
+        if (btnIcon) btnIcon.textContent = '➜';
+        return;
+      }
+
+      // Kiểm tra xem thiết bị này đã từng xác thực email này chưa (0.001s)
+      const isTrusted = ApiService.isTrustedDevice(email);
+      if (isTrusted) {
+        if (statusBadge) {
+          statusBadge.className = 'text-[10px] font-semibold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-500/30 transition-all';
+          statusBadge.textContent = '⚡ Thiết bị tin cậy';
+        }
+        if (helperText) helperText.textContent = '✓ Thiết bị này đã xác thực trước đó. Bấm để vào thẳng ngay không cần mã OTP!';
+        if (helperIcon) helperIcon.textContent = '✅';
+        if (btnText) btnText.textContent = '⚡ Đăng Nhập Vào Thẳng Ngay';
+        if (btnIcon) btnIcon.textContent = '🔥';
+      } else {
+        if (statusBadge) {
+          statusBadge.className = 'text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 transition-all';
+          statusBadge.textContent = '🔒 Tài khoản mới';
+        }
+        if (helperText) helperText.textContent = 'Nhập mã OTP xác thực lần đầu (từ lần sau sẽ tự động vào thẳng).';
+        if (helperIcon) helperIcon.textContent = '📩';
+        if (btnText) btnText.textContent = 'Nhận Mã OTP Qua Outlook';
+        if (btnIcon) btnIcon.textContent = '➜';
+      }
+    };
+
+    // Prefill email đăng nhập gần nhất nếu có
+    const lastLoginEmail = ApiService.getLastLoginEmail();
+    if (emailInput && lastLoginEmail) {
+      emailInput.value = lastLoginEmail;
+      updateAuthUIForEmail(lastLoginEmail);
+    }
+
+    if (emailInput) {
+      emailInput.addEventListener('input', () => {
+        updateAuthUIForEmail(emailInput.value);
+      });
+    }
+
     // 1. Kiểm tra session hiện tại
     const session = ApiService.getUserSession();
     if (session && session.email) {
@@ -519,7 +576,7 @@ class App {
       if (modal) modal.classList.remove('hidden');
     }
 
-    // 2. Nút Gửi mã OTP vào Outlook siêu tốc
+    // 2. Nút Tiếp tục / Đăng nhập thẳng / Gửi OTP siêu tốc
     if (requestBtn) {
       requestBtn.addEventListener('click', async () => {
         const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
@@ -532,10 +589,40 @@ class App {
           return;
         }
 
+        // BƯỚC 1: Nếu thiết bị này đã từng xác thực email này -> VÀO THẲNG NGAY TỨC THÌ (0.001s)!
+        if (ApiService.isTrustedDevice(email)) {
+          const sessionData = ApiService.quickLogin(email);
+          if (modal) modal.classList.add('hidden');
+          this.applyUserSession(sessionData);
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.6 }
+          });
+          return;
+        }
+
+        // BƯỚC 2: Kiểm tra đối chiếu trên hệ thống đám mây (Google Sheet)
         try {
           requestBtn.disabled = true;
-          requestBtn.innerHTML = '<span>Đang gửi mã vào Outlook...</span>';
+          requestBtn.innerHTML = '<span>Đang kiểm tra tài khoản...</span>';
 
+          const status = await ApiService.checkEmailStatus(email);
+          if (status && status.isVerified) {
+            // Đã từng xác thực trên hệ thống trước đó -> CHO ĐĂNG NHẬP VÀO THẲNG & NHỚ THIẾT BỊ NÀY!
+            const sessionData = ApiService.quickLogin(email);
+            if (modal) modal.classList.add('hidden');
+            this.applyUserSession(sessionData);
+            confetti({
+              particleCount: 90,
+              spread: 70,
+              origin: { y: 0.6 }
+            });
+            return;
+          }
+
+          // BƯỚC 3: Nếu chưa từng xác thực trên hệ thống (Người mới) -> GỬI OTP QUA OUTLOOK
+          requestBtn.innerHTML = '<span>Đang gửi mã vào Outlook...</span>';
           await ApiService.requestOtp(email);
           currentEmail = email;
 
@@ -552,7 +639,7 @@ class App {
           alert('⚠️ ' + (err.message || 'Không thể gửi mã OTP.'));
         } finally {
           requestBtn.disabled = false;
-          requestBtn.innerHTML = '<span>Nhận Mã OTP Qua Outlook</span><span>➜</span>';
+          updateAuthUIForEmail(email);
         }
       });
     }
@@ -563,6 +650,7 @@ class App {
         if (countdownInterval) clearInterval(countdownInterval);
         if (step2) step2.classList.add('hidden');
         if (step1) step1.classList.remove('hidden');
+        if (emailInput) updateAuthUIForEmail(emailInput.value);
       });
     }
 
@@ -584,7 +672,7 @@ class App {
       });
     }
 
-    // 5. Nút Xác thực OTP
+    // 5. Nút Xác thực OTP (Lần đầu tiên -> Sau đó tự nhớ thiết bị vĩnh viễn)
     if (verifyBtn) {
       verifyBtn.addEventListener('click', async () => {
         const otp = codeInput ? codeInput.value.trim() : '';

@@ -348,9 +348,107 @@ export class ApiService {
   }
 
   /**
-   * Xác thực nhanh trực tiếp cho email FTEL (0.1 giây, tức thì không cần chờ OTP)
+   * ==============================================================================
+   * HỆ THỐNG THIẾT BỊ TIN CẬY & SMART QUICK LOGIN (VÀO THẲNG KHÔNG CẦN OTP LẦN 2)
+   * ==============================================================================
    */
-  static directLogin(email) {
+  static getTrustedDeviceKey(email) {
+    return `ftel_trusted_dev_${(email || '').trim().toLowerCase()}`;
+  }
+
+  /**
+   * Kiểm tra thiết bị hiện tại đã từng xác thực email này chưa (0.001s)
+   */
+  static isTrustedDevice(email) {
+    if (!email) return false;
+    email = email.trim().toLowerCase();
+    const token = localStorage.getItem(this.getTrustedDeviceKey(email));
+    return !!token;
+  }
+
+  /**
+   * Ghi nhận thiết bị tin cậy vĩnh viễn trên trình duyệt
+   */
+  static setTrustedDevice(email) {
+    if (!email) return;
+    email = email.trim().toLowerCase();
+    const tokenData = {
+      email: email,
+      trustedAt: Date.now(),
+      deviceId: 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now()
+    };
+    try {
+      localStorage.setItem(this.getTrustedDeviceKey(email), JSON.stringify(tokenData));
+      localStorage.setItem('ftel_last_login_email', email);
+    } catch (e) {
+      console.warn("Could not save trusted device to localStorage:", e);
+    }
+  }
+
+  /**
+   * Xóa thiết bị tin cậy
+   */
+  static removeTrustedDevice(email) {
+    if (!email) return;
+    email = email.trim().toLowerCase();
+    localStorage.removeItem(this.getTrustedDeviceKey(email));
+  }
+
+  /**
+   * Lấy email đăng nhập gần nhất
+   */
+  static getLastLoginEmail() {
+    return localStorage.getItem('ftel_last_login_email') || '';
+  }
+
+  /**
+   * Kiểm tra trạng thái xác thực của email (Kép: Trình duyệt cục bộ + Google Sheet Đám mây)
+   */
+  static async checkEmailStatus(email) {
+    email = (email || '').trim().toLowerCase();
+    if (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com')) {
+      return { isTrustedDevice: false, isVerified: false, isAdmin: false };
+    }
+
+    // 1. Kiểm tra nhanh trên thiết bị cục bộ (0.001s)
+    const trustedLocally = this.isTrustedDevice(email);
+    const isAdmin = this.isSuperAdminEmail(email);
+
+    if (trustedLocally) {
+      return { isTrustedDevice: true, isVerified: true, isAdmin: isAdmin };
+    }
+
+    // 2. Nếu máy mới, kiểm tra trên Google Apps Script (Cloud)
+    if (!this.isMockMode()) {
+      try {
+        const scriptUrl = getEffectiveScriptUrl();
+        const res = await fetch(scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'check_email_status', email: email })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success) {
+            return {
+              isTrustedDevice: false,
+              isVerified: !!data.isVerified,
+              isAdmin: data.isAdmin || isAdmin
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("Could not check email status from cloud:", err);
+      }
+    }
+
+    return { isTrustedDevice: false, isVerified: false, isAdmin: isAdmin };
+  }
+
+  /**
+   * Đăng nhập thẳng siêu tốc (Instant Quick Login) cho tài khoản đã xác thực
+   */
+  static quickLogin(email) {
     email = (email || '').trim().toLowerCase();
     if (!email) {
       throw new Error('Vui lòng nhập email Outlook FTEL của bạn!');
@@ -363,7 +461,7 @@ export class ApiService {
     const sessionData = {
       email: email,
       verifiedAt: Date.now(),
-      mode: 'direct',
+      mode: 'quick_login',
       isAdmin: isAdmin
     };
 
@@ -376,6 +474,17 @@ export class ApiService {
         role: 'Super Admin'
       }));
     }
+    // Ghi nhớ thiết bị này
+    this.setTrustedDevice(email);
+    return sessionData;
+  }
+
+  /**
+   * Xác thực nhanh trực tiếp cho email FTEL (0.1 giây, tức thì không cần chờ OTP)
+   */
+  static directLogin(email) {
+    const sessionData = this.quickLogin(email);
+    sessionData.mode = 'direct';
     return sessionData;
   }
 
@@ -406,6 +515,9 @@ export class ApiService {
     if (this.isSuperAdminEmail(email)) {
       result.data.isAdmin = true;
     }
+
+    // Ghi nhận thiết bị tin cậy vĩnh viễn (Lần sau không cần OTP nữa)
+    this.setTrustedDevice(email);
 
     // Lưu session đăng nhập
     sessionStorage.setItem('ftel_user_session', JSON.stringify(result.data));

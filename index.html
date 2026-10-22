@@ -530,7 +530,7 @@
           <div class="text-left">
             <div class="flex items-center justify-between mb-1.5">
               <label class="block text-xs font-medium text-slate-300">Email Outlook FTEL của bạn</label>
-              <span class="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              <span id="otp-status-badge" class="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 transition-all">
                 🔒 Xác thực FTEL
               </span>
             </div>
@@ -538,21 +538,21 @@
               type="email" 
               id="otp-email-input" 
               placeholder="VD: namnh@fpt.net hoặc @fpt.com" 
-              class="custom-input w-full rounded-xl px-4 py-3 text-sm placeholder-slate-500"
+              class="custom-input w-full rounded-xl px-4 py-3 text-sm placeholder-slate-500 transition-all"
             />
-            <p class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
-              <span>📧</span>
-              <span>Mã OTP 6 số sẽ được gửi trực tiếp tới hộp thư Microsoft Outlook công ty.</span>
+            <p id="otp-helper-msg" class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5 transition-all">
+              <span id="otp-helper-icon">📧</span>
+              <span id="otp-helper-text">Nhập email công ty để xác thực (Tài khoản đã xác thực sẽ được vào thẳng không cần OTP).</span>
             </p>
           </div>
 
           <button 
             type="button" 
             id="request-otp-btn" 
-            class="btn-flame w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer"
+            class="btn-flame w-full py-3.5 px-6 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
-            <span>Nhận Mã OTP Qua Outlook</span>
-            <span>➜</span>
+            <span id="request-otp-btn-text">Tiếp Tục</span>
+            <span id="request-otp-btn-icon">➜</span>
           </button>
         </div>
 
