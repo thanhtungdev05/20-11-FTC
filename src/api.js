@@ -266,6 +266,16 @@ export class ApiService {
     if (!result.success) {
       throw new Error(result.message || 'Không thể gửi mã OTP.');
     }
+
+    // Nếu email này đã từng xác thực trước đó trên thiết bị khác (Cross-Device Remember)
+    if (result.alreadyVerified) {
+      const sessionData = result.data || {
+        email: email,
+        isAdmin: this.isSuperAdminEmail(email)
+      };
+      this.setUserSession(sessionData);
+    }
+
     return result;
   }
 
@@ -348,107 +358,36 @@ export class ApiService {
   }
 
   /**
-   * ==============================================================================
-   * HỆ THỐNG THIẾT BỊ TIN CẬY & SMART QUICK LOGIN (VÀO THẲNG KHÔNG CẦN OTP LẦN 2)
-   * ==============================================================================
+   * Lưu phiên đăng nhập an toàn vào LocalStorage (Ghi nhớ vĩnh viễn trên thiết bị)
    */
-  static getTrustedDeviceKey(email) {
-    return `ftel_trusted_dev_${(email || '').trim().toLowerCase()}`;
-  }
-
-  /**
-   * Kiểm tra thiết bị hiện tại đã từng xác thực email này chưa (0.001s)
-   */
-  static isTrustedDevice(email) {
-    if (!email) return false;
-    email = email.trim().toLowerCase();
-    const token = localStorage.getItem(this.getTrustedDeviceKey(email));
-    return !!token;
-  }
-
-  /**
-   * Ghi nhận thiết bị tin cậy vĩnh viễn trên trình duyệt
-   */
-  static setTrustedDevice(email) {
-    if (!email) return;
-    email = email.trim().toLowerCase();
-    const tokenData = {
-      email: email,
-      trustedAt: Date.now(),
-      deviceId: 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now()
-    };
+  static setUserSession(sessionData) {
+    if (!sessionData || !sessionData.email) return;
+    if (this.isSuperAdminEmail(sessionData.email)) {
+      sessionData.isAdmin = true;
+    }
     try {
-      localStorage.setItem(this.getTrustedDeviceKey(email), JSON.stringify(tokenData));
-      localStorage.setItem('ftel_last_login_email', email);
-    } catch (e) {
-      console.warn("Could not save trusted device to localStorage:", e);
-    }
-  }
+      localStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
+      sessionStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
 
-  /**
-   * Xóa thiết bị tin cậy
-   */
-  static removeTrustedDevice(email) {
-    if (!email) return;
-    email = email.trim().toLowerCase();
-    localStorage.removeItem(this.getTrustedDeviceKey(email));
-  }
-
-  /**
-   * Lấy email đăng nhập gần nhất
-   */
-  static getLastLoginEmail() {
-    return localStorage.getItem('ftel_last_login_email') || '';
-  }
-
-  /**
-   * Kiểm tra trạng thái xác thực của email (Kép: Trình duyệt cục bộ + Google Sheet Đám mây)
-   */
-  static async checkEmailStatus(email) {
-    email = (email || '').trim().toLowerCase();
-    if (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com')) {
-      return { isTrustedDevice: false, isVerified: false, isAdmin: false };
-    }
-
-    // 1. Kiểm tra nhanh trên thiết bị cục bộ (0.001s)
-    const trustedLocally = this.isTrustedDevice(email);
-    const isAdmin = this.isSuperAdminEmail(email);
-
-    if (trustedLocally) {
-      return { isTrustedDevice: true, isVerified: true, isAdmin: isAdmin };
-    }
-
-    // 2. Nếu máy mới, kiểm tra trên Google Apps Script (Cloud)
-    if (!this.isMockMode()) {
-      try {
-        const scriptUrl = getEffectiveScriptUrl();
-        const res = await fetch(scriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'check_email_status', email: email })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success) {
-            return {
-              isTrustedDevice: false,
-              isVerified: !!data.isVerified,
-              isAdmin: data.isAdmin || isAdmin
-            };
-          }
-        }
-      } catch (err) {
-        console.warn("Could not check email status from cloud:", err);
+      if (sessionData.isAdmin) {
+        const adminData = {
+          isAdmin: true,
+          secretKey: 'FTEL_TRI_AN_2026',
+          email: sessionData.email,
+          role: 'Super Admin'
+        };
+        localStorage.setItem('ftel_admin_session', JSON.stringify(adminData));
+        sessionStorage.setItem('ftel_admin_session', JSON.stringify(adminData));
       }
+    } catch (e) {
+      console.warn("Lưu session thất bại:", e);
     }
-
-    return { isTrustedDevice: false, isVerified: false, isAdmin: isAdmin };
   }
 
   /**
-   * Đăng nhập thẳng siêu tốc (Instant Quick Login) cho tài khoản đã xác thực
+   * Xác thực nhanh trực tiếp cho email FTEL (0.1 giây, tức thì không cần chờ OTP)
    */
-  static quickLogin(email) {
+  static directLogin(email) {
     email = (email || '').trim().toLowerCase();
     if (!email) {
       throw new Error('Vui lòng nhập email Outlook FTEL của bạn!');
@@ -461,30 +400,11 @@ export class ApiService {
     const sessionData = {
       email: email,
       verifiedAt: Date.now(),
-      mode: 'quick_login',
+      mode: 'direct',
       isAdmin: isAdmin
     };
 
-    sessionStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
-    if (isAdmin) {
-      sessionStorage.setItem('ftel_admin_session', JSON.stringify({ 
-        isAdmin: true, 
-        secretKey: 'FTEL_TRI_AN_2026', 
-        email: email,
-        role: 'Super Admin'
-      }));
-    }
-    // Ghi nhớ thiết bị này
-    this.setTrustedDevice(email);
-    return sessionData;
-  }
-
-  /**
-   * Xác thực nhanh trực tiếp cho email FTEL (0.1 giây, tức thì không cần chờ OTP)
-   */
-  static directLogin(email) {
-    const sessionData = this.quickLogin(email);
-    sessionData.mode = 'direct';
+    this.setUserSession(sessionData);
     return sessionData;
   }
 
@@ -516,28 +436,17 @@ export class ApiService {
       result.data.isAdmin = true;
     }
 
-    // Ghi nhận thiết bị tin cậy vĩnh viễn (Lần sau không cần OTP nữa)
-    this.setTrustedDevice(email);
-
-    // Lưu session đăng nhập
-    sessionStorage.setItem('ftel_user_session', JSON.stringify(result.data));
-    if (result.data.isAdmin) {
-      sessionStorage.setItem('ftel_admin_session', JSON.stringify({ 
-        isAdmin: true, 
-        secretKey: 'FTEL_TRI_AN_2026', 
-        email: email,
-        role: 'Super Admin'
-      }));
-    }
+    // Lưu session đăng nhập vĩnh viễn trên thiết bị
+    this.setUserSession(result.data);
     return result.data;
   }
 
   /**
-   * Lấy phiên đăng nhập hiện tại
+   * Lấy phiên đăng nhập hiện tại (Ghi nhớ vĩnh viễn trên trình duyệt thiết bị này)
    */
   static getUserSession() {
     try {
-      const saved = sessionStorage.getItem('ftel_user_session');
+      const saved = localStorage.getItem('ftel_user_session') || sessionStorage.getItem('ftel_user_session');
       if (!saved) return null;
       const data = JSON.parse(saved);
       if (data && data.email && this.isSuperAdminEmail(data.email)) {
@@ -550,9 +459,11 @@ export class ApiService {
   }
 
   /**
-   * Đăng xuất
+   * Đăng xuất khỏi thiết bị này
    */
   static logout() {
+    localStorage.removeItem('ftel_user_session');
+    localStorage.removeItem('ftel_admin_session');
     sessionStorage.removeItem('ftel_user_session');
     sessionStorage.removeItem('ftel_admin_session');
   }
@@ -573,7 +484,9 @@ export class ApiService {
       throw new Error(result.message || 'Sai khóa bảo mật quản trị!');
     }
 
-    sessionStorage.setItem('ftel_admin_session', JSON.stringify({ isAdmin: true, secretKey }));
+    const adminData = { isAdmin: true, secretKey };
+    localStorage.setItem('ftel_admin_session', JSON.stringify(adminData));
+    sessionStorage.setItem('ftel_admin_session', JSON.stringify(adminData));
     return result.data;
   }
 
@@ -588,7 +501,7 @@ export class ApiService {
           role: 'Super Admin'
         };
       }
-      const saved = sessionStorage.getItem('ftel_admin_session');
+      const saved = localStorage.getItem('ftel_admin_session') || sessionStorage.getItem('ftel_admin_session');
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
       return null;

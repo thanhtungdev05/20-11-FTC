@@ -536,8 +536,23 @@ class App {
           requestBtn.disabled = true;
           requestBtn.innerHTML = '<span>Đang gửi mã vào Outlook...</span>';
 
-          await ApiService.requestOtp(email);
+          const res = await ApiService.requestOtp(email);
           currentEmail = email;
+
+          // Nếu email này đã từng xác thực trước đó trên thiết bị khác: ĐĂNG NHẬP THẲNG LUÔN!
+          if (res && res.alreadyVerified) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (modal) modal.classList.add('hidden');
+            const sessionData = res.data || { email: email, isAdmin: res.isAdmin };
+            this.applyUserSession(sessionData);
+            confetti({
+              particleCount: 90,
+              spread: 70,
+              origin: { y: 0.6 }
+            });
+            alert('🎉 Chào mừng bạn quay trở lại! Email ' + email + ' đã được kích hoạt chính chủ trước đó. Bạn không cần nhập lại mã OTP nữa!');
+            return;
+          }
 
           if (sentToEl) sentToEl.textContent = email;
           if (step1) step1.classList.add('hidden');
