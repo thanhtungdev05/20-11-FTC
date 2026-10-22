@@ -7,6 +7,10 @@
 export const fptLogoImg = new Image();
 fptLogoImg.src = '/assets/logoFPT.png';
 
+// Preload Official Key Visual 30 Năm Tiếp Lửa for E-Card
+export const keyVisualImg = new Image();
+keyVisualImg.src = '/assets/key-visual-card.jpg';
+
 export class CardGenerator {
   /**
    * Vẽ E-Card lên canvas đã truyền vào
@@ -22,7 +26,7 @@ export class CardGenerator {
     // Tỉ lệ co giãn linh hoạt nếu width khác 1080
     const scale = width / 1080;
 
-    const theme = data.cardStyle || 'gold';
+    const theme = data.cardStyle || 'kv';
     const recipientName = (data.recipientName || 'Người Thầy / Mentor FTEL').trim();
     const recipientRole = (data.recipientRole || 'Mentor chia sẻ tri thức').trim();
     const senderName = (data.senderName || 'Đồng nghiệp FTEL').trim();
@@ -33,6 +37,191 @@ export class CardGenerator {
     // Font chữ chuẩn hỗ trợ trọn vẹn tiếng Việt có dấu
     const FONT_PRIMARY = '"Plus Jakarta Sans", "Montserrat", "Segoe UI", sans-serif';
     const FONT_TITLE = '"Montserrat", "Plus Jakarta Sans", "Segoe UI", sans-serif';
+
+    // =========================================================================
+    // PHONG CÁCH 1: OFFICIAL KEY VISUAL - 30 NĂM TIẾP LỬA (CHÍNH THỨC)
+    // =========================================================================
+    if (theme === 'kv') {
+      const kvLoaded = keyVisualImg.complete && keyVisualImg.naturalWidth > 0;
+      if (kvLoaded) {
+        ctx.drawImage(keyVisualImg, 0, 0, width, height);
+      } else {
+        // Fallback màu nền Sapphire sâu thẳm nếu ảnh đang tải
+        const bgGrad = ctx.createRadialGradient(
+          width / 2, height * 0.45, 100 * scale,
+          width / 2, height / 2, width * 0.75
+        );
+        bgGrad.addColorStop(0, '#0a1d4a');
+        bgGrad.addColorStop(1, '#030818');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      // Khung bảng kính mờ cao cấp lồng ghép trên nền KV (Frosted Royal Glass Plaque)
+      const plaqueX = 85 * scale;
+      const plaqueY = 525 * scale;
+      const plaqueW = width - 170 * scale;
+      const plaqueH = 740 * scale;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(5, 15, 42, 0.82)';
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.65)';
+      ctx.lineWidth = 2 * scale;
+      ctx.shadowColor = 'rgba(243, 112, 33, 0.35)';
+      ctx.shadowBlur = 25 * scale;
+      roundRect(ctx, plaqueX, plaqueY, plaqueW, plaqueH, 24 * scale, true, true);
+
+      // Viền trong vàng mảnh
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.25)';
+      ctx.lineWidth = 1 * scale;
+      roundRect(ctx, plaqueX + 12 * scale, plaqueY + 12 * scale, plaqueW - 24 * scale, plaqueH - 24 * scale, 18 * scale, false, true);
+
+      // Corner Accents vàng kim
+      const cornerSize = 25 * scale;
+      const corners = [
+        { x: plaqueX, y: plaqueY, dx: 1, dy: 1 },
+        { x: plaqueX + plaqueW, y: plaqueY, dx: -1, dy: 1 },
+        { x: plaqueX, y: plaqueY + plaqueH, dx: 1, dy: -1 },
+        { x: plaqueX + plaqueW, y: plaqueY + plaqueH, dx: -1, dy: -1 }
+      ];
+      corners.forEach(c => {
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 3 * scale;
+        ctx.beginPath();
+        ctx.moveTo(c.x + c.dx * cornerSize, c.y);
+        ctx.lineTo(c.x, c.y);
+        ctx.lineTo(c.x, c.y + c.dy * cornerSize);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      // Thông tin Người nhận
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffd700';
+      ctx.font = `italic 600 ${20 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText('✦ TRÂN TRỌNG GỬI ĐẾN ✦', width / 2, plaqueY + 55 * scale);
+
+      // Tên Người Nhận
+      const maxNameWidth = plaqueW - 100 * scale;
+      let nameFontSize = 38 * scale;
+      ctx.font = `bold ${nameFontSize}px ${FONT_PRIMARY}`;
+      while (ctx.measureText(recipientName.toUpperCase()).width > maxNameWidth && nameFontSize > 22 * scale) {
+        nameFontSize -= 2 * scale;
+        ctx.font = `bold ${nameFontSize}px ${FONT_PRIMARY}`;
+      }
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
+      ctx.shadowBlur = 15 * scale;
+      ctx.fillText(recipientName.toUpperCase(), width / 2, plaqueY + 108 * scale);
+      ctx.restore();
+
+      // Vai trò Người nhận
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = `500 ${20 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText(recipientRole, width / 2, plaqueY + 145 * scale);
+
+      // Badge Danh Hiệu (Tag Pill)
+      const tagText = `✦ ${tag.toUpperCase()} ✦`;
+      ctx.font = `bold ${16 * scale}px ${FONT_PRIMARY}`;
+      const tagTextWidth = ctx.measureText(tagText).width;
+      const pillW = Math.min(tagTextWidth + 40 * scale, plaqueW - 60 * scale);
+      const pillH = 32 * scale;
+      const pillY = plaqueY + 168 * scale;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(243, 112, 33, 0.22)';
+      ctx.strokeStyle = 'rgba(243, 112, 33, 0.65)';
+      ctx.lineWidth = 1.2 * scale;
+      roundRect(ctx, width / 2 - pillW / 2, pillY, pillW, pillH, 16 * scale, true, true);
+      ctx.fillStyle = '#ff9900';
+      ctx.fillText(tagText, width / 2, pillY + 22 * scale);
+      ctx.restore();
+
+      // Đường phân cách kim cương
+      const divY1 = plaqueY + 222 * scale;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)';
+      ctx.lineWidth = 1 * scale;
+      ctx.beginPath();
+      ctx.moveTo(width / 2 - 130 * scale, divY1);
+      ctx.lineTo(width / 2 + 130 * scale, divY1);
+      ctx.stroke();
+      ctx.fillStyle = '#ffd700';
+      drawDiamond(ctx, width / 2, divY1, 6 * scale);
+      ctx.restore();
+
+      // Lời chúc tri ân (Message)
+      const maxTextW = plaqueW - 100 * scale;
+      let msgFontSize = 23 * scale;
+      let lineHeight = 40 * scale;
+
+      if (message.length > 250) {
+        msgFontSize = 19 * scale;
+        lineHeight = 33 * scale;
+      } else if (message.length < 100) {
+        msgFontSize = 26 * scale;
+        lineHeight = 46 * scale;
+      }
+
+      ctx.save();
+      ctx.font = `italic 400 ${msgFontSize}px ${FONT_PRIMARY}`;
+      ctx.fillStyle = '#f8fafc';
+      ctx.textAlign = 'center';
+
+      let lines = getLines(ctx, `"${message}"`, maxTextW);
+      const maxMsgHeight = 280 * scale;
+      while (lines.length * lineHeight > maxMsgHeight && msgFontSize > 15 * scale) {
+        msgFontSize -= 1.5 * scale;
+        lineHeight = msgFontSize * 1.55;
+        ctx.font = `italic 400 ${msgFontSize}px ${FONT_PRIMARY}`;
+        lines = getLines(ctx, `"${message}"`, maxTextW);
+      }
+
+      const totalTextH = lines.length * lineHeight;
+      const msgCenterY = plaqueY + 380 * scale;
+      const startY = msgCenterY - totalTextH / 2 + lineHeight * 0.72;
+
+      lines.forEach((line, index) => {
+        ctx.fillText(line, width / 2, startY + index * lineHeight);
+      });
+      ctx.restore();
+
+      // Đường phân cách người gửi
+      const divY2 = plaqueY + 540 * scale;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1 * scale;
+      ctx.beginPath();
+      ctx.moveTo(width / 2 - 100 * scale, divY2);
+      ctx.lineTo(width / 2 + 100 * scale, divY2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Thông tin Người gửi
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `500 ${17 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText('Ngọn lửa tri ân được thắp lên bởi', width / 2, plaqueY + 578 * scale);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${28 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText(senderName, width / 2, plaqueY + 620 * scale);
+
+      ctx.fillStyle = '#ffd700';
+      ctx.font = `600 ${19 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText(senderDept, width / 2, plaqueY + 655 * scale);
+
+      // Chân trang KV
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.font = `600 ${14 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText('✦ FPT TELECOM • 30 NĂM KHÍ PHÁCH TIÊN PHONG • 20/11/2026 ✦', width / 2, 1395 * scale);
+
+      return;
+    }
+
+    // =========================================================================
+    // PHONG CÁCH CỔ ĐIỂN: GOLD, FLAME, CYBER
+    // =========================================================================
 
     // 1. Phối màu theo chủ đề
     let bgGradCenter = '#091b3b';
