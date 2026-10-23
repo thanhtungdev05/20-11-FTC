@@ -1265,7 +1265,7 @@ export class Scene3D {
 
     altarGroup.add(stairsGroup);
 
-    // --- D. BACKGROUND 3D NAVY CITY SKYLINE & CENTRAL RADIAL SKY GLOW ---
+    // --- D. BACKGROUND 3-LAYER 3D NAVY METROPOLIS SKYLINE & CENTRAL RADIAL SKY GLOW ---
     const skylineGroup = new THREE.Group();
 
     // 1. Central Radial Light Burst behind the Torch, Book & Skyline (Ánh sáng tỏa ra từ tâm)
@@ -1274,79 +1274,285 @@ export class Scene3D {
     skyGlowCanvas.height = 256;
     const sgCtx = skyGlowCanvas.getContext('2d');
     const sgGrad = sgCtx.createRadialGradient(128, 128, 4, 128, 128, 125);
-    sgGrad.addColorStop(0.0, 'rgba(255, 230, 150, 0.55)');
-    sgGrad.addColorStop(0.22, 'rgba(96, 165, 250, 0.52)');
-    sgGrad.addColorStop(0.55, 'rgba(37, 99, 235, 0.28)');
+    sgGrad.addColorStop(0.0, 'rgba(255, 230, 150, 0.62)');
+    sgGrad.addColorStop(0.24, 'rgba(96, 165, 250, 0.58)');
+    sgGrad.addColorStop(0.58, 'rgba(37, 99, 235, 0.32)');
     sgGrad.addColorStop(1.0, 'rgba(3, 10, 36, 0.0)');
     sgCtx.fillStyle = sgGrad;
     sgCtx.fillRect(0, 0, 256, 256);
 
+    const skyGlowTex = new THREE.CanvasTexture(skyGlowCanvas);
     const centralSkyGlow = new THREE.Sprite(
       new THREE.SpriteMaterial({
-        map: new THREE.CanvasTexture(skyGlowCanvas),
+        map: skyGlowTex,
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       })
     );
-    centralSkyGlow.scale.set(24.0, 22.0, 1);
-    centralSkyGlow.position.set(0, -3.2, -4.8);
+    centralSkyGlow.scale.set(28.0, 24.0, 1);
+    centralSkyGlow.position.set(0, -2.6, -5.2);
     skylineGroup.add(centralSkyGlow);
 
-    // 2. 3D Vertical Navy City Skyline Monoliths (Các khối trụ/tòa nhà cao tầng xanh navy)
-    const towerMat = new THREE.MeshStandardMaterial({
-      color: 0x071942,
-      roughness: 0.4,
-      metalness: 0.55,
-      emissive: 0x061538,
-      emissiveIntensity: 0.5
-    });
+    // Horizon Golden-Blue Mist Sprites on Left & Right Flanks
+    const leftHorizonGlow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: skyGlowTex,
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+    );
+    leftHorizonGlow.scale.set(18.0, 10.0, 1);
+    leftHorizonGlow.position.set(-8.5, -6.2, -4.5);
+    skylineGroup.add(leftHorizonGlow);
 
-    const towerEdgeMat = new THREE.LineBasicMaterial({
-      color: 0x38bdf8,
+    const rightHorizonGlow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: skyGlowTex,
+        color: 0xfbbf24,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+    );
+    rightHorizonGlow.scale.set(18.0, 10.0, 1);
+    rightHorizonGlow.position.set(8.5, -6.5, -4.2);
+    skylineGroup.add(rightHorizonGlow);
+
+    // 2. Procedural Architectural Curtain-Wall Facade Textures (With Torch Rim-Lighting)
+    const createFacadeMaterial = (isLeftCluster, depthLayer) => {
+      const fCanvas = document.createElement('canvas');
+      fCanvas.width = 128;
+      fCanvas.height = 256;
+      const fCtx = fCanvas.getContext('2d');
+
+      // Vertical navy-to-sapphire architectural gradient
+      const vGrad = fCtx.createLinearGradient(0, 0, 0, 256);
+      if (depthLayer === 1) {
+        vGrad.addColorStop(0.0, '#1e40af');
+        vGrad.addColorStop(0.35, '#0f2963');
+        vGrad.addColorStop(0.8, '#07163b');
+        vGrad.addColorStop(1.0, '#040c24');
+      } else if (depthLayer === 2) {
+        vGrad.addColorStop(0.0, '#1d4ed8');
+        vGrad.addColorStop(0.45, '#0b2154');
+        vGrad.addColorStop(1.0, '#040b20');
+      } else {
+        vGrad.addColorStop(0.0, '#2563eb');
+        vGrad.addColorStop(0.5, '#0a1d4a');
+        vGrad.addColorStop(1.0, '#03091c');
+      }
+      fCtx.fillStyle = vGrad;
+      fCtx.fillRect(0, 0, 128, 256);
+
+      // Subtle vertical glass curtain-wall mullions
+      fCtx.fillStyle = 'rgba(96, 165, 250, 0.12)';
+      for (let x = 12; x < 120; x += 16) {
+        fCtx.fillRect(x, 6, 2, 244);
+      }
+
+      // Horizontal structural floor bands
+      fCtx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+      for (let y = 18; y < 240; y += 22) {
+        fCtx.fillRect(4, y, 120, 1.5);
+      }
+
+      // Warm Golden & Cyan Rim-Light on the vertical edge facing the central Torch!
+      const rimX0 = isLeftCluster ? 128 : 0;
+      const rimX1 = isLeftCluster ? 76 : 52;
+      const rimGrad = fCtx.createLinearGradient(rimX0, 0, rimX1, 0);
+      rimGrad.addColorStop(0.0, 'rgba(253, 224, 71, 0.65)');
+      rimGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.32)');
+      rimGrad.addColorStop(1.0, 'rgba(15, 41, 99, 0.0)');
+      fCtx.fillStyle = rimGrad;
+      fCtx.fillRect(0, 0, 128, 256);
+
+      // Bright top roof edge highlight
+      fCtx.fillStyle = 'rgba(147, 197, 253, 0.75)';
+      fCtx.fillRect(0, 0, 128, 5);
+
+      const fTex = new THREE.CanvasTexture(fCanvas);
+      return new THREE.MeshStandardMaterial({
+        map: fTex,
+        color: 0xffffff,
+        roughness: 0.3,
+        metalness: 0.55,
+        emissive: depthLayer === 1 ? 0x0a1e4a : 0x071638,
+        emissiveIntensity: 0.55
+      });
+    };
+
+    const leftMatL1 = createFacadeMaterial(true, 1);
+    const leftMatL2 = createFacadeMaterial(true, 2);
+    const leftMatL3 = createFacadeMaterial(true, 3);
+    const rightMatL1 = createFacadeMaterial(false, 1);
+    const rightMatL2 = createFacadeMaterial(false, 2);
+    const rightMatL3 = createFacadeMaterial(false, 3);
+
+    const towerEdgeCyanMat = new THREE.LineBasicMaterial({
+      color: 0x60a5fa,
       transparent: true,
-      opacity: 0.48
+      opacity: 0.52
     });
 
-    // Left & Right Skyline Tower Configurations [x, height, width, depth, z, rotY]
+    const towerEdgeGoldMat = new THREE.LineBasicMaterial({
+      color: 0xfbbf24,
+      transparent: true,
+      opacity: 0.45
+    });
+
+    // 3. 38 Tightly-Clustered 3D Metropolis Towers in 3 Depth Layers (V-Shape Amphitheater)
+    // Format: [x, height, width, depth, z, rotY, layer, hasCrown]
     const towerSpecs = [
-      // Left Cluster (Matches the stepped high-rises on the left of Key Visual)
-      [-8.2, 6.2, 1.5, 1.4, -3.2, 0.08],
-      [-6.7, 7.6, 1.55, 1.5, -3.8, 0.05],
-      [-5.3, 5.4, 1.35, 1.3, -2.9, 0.12],
-      [-4.1, 6.8, 1.4, 1.4, -4.2, 0.04],
-      [-2.9, 4.8, 1.25, 1.2, -3.4, 0.06],
-      [-9.6, 4.9, 1.4, 1.4, -4.5, 0.1],
-      // Right Cluster (Matches the stepped high-rises on the right of Key Visual)
-      [3.0, 5.0, 1.25, 1.2, -3.5, -0.06],
-      [4.2, 6.6, 1.45, 1.4, -4.1, -0.05],
-      [5.5, 5.6, 1.35, 1.3, -3.0, -0.1],
-      [6.8, 7.8, 1.6, 1.5, -3.9, -0.06],
-      [8.3, 8.8, 1.65, 1.5, -3.3, -0.08],
-      [9.7, 6.4, 1.45, 1.4, -4.4, -0.1]
+      // --- LAYER 1: FOREGROUND SKYLINE (z = -2.8 to -3.8) ---
+      // Left Wing Layer 1
+      [-2.8, 5.2, 1.35, 1.25, -3.1, 0.08, 1, false],
+      [-3.95, 6.4, 1.45, 1.35, -2.9, 0.1, 1, true],
+      [-5.25, 5.8, 1.4, 1.3, -3.2, 0.06, 1, false],
+      [-6.55, 7.5, 1.6, 1.45, -2.85, 0.12, 1, true],
+      [-8.05, 6.9, 1.55, 1.4, -3.15, 0.08, 1, false],
+      [-9.55, 8.6, 1.7, 1.5, -3.0, 0.1, 1, true],
+      [-11.2, 7.8, 1.65, 1.45, -3.3, 0.07, 1, false],
+      [-12.9, 9.4, 1.8, 1.55, -3.1, 0.09, 1, true],
+      // Right Wing Layer 1
+      [2.85, 5.1, 1.35, 1.25, -3.1, -0.08, 1, false],
+      [4.0, 6.2, 1.45, 1.35, -2.95, -0.1, 1, false],
+      [5.3, 5.7, 1.4, 1.3, -3.2, -0.06, 1, true],
+      [6.65, 7.7, 1.6, 1.45, -2.9, -0.11, 1, true],
+      [8.15, 8.9, 1.7, 1.5, -3.1, -0.08, 1, true],
+      [9.7, 7.4, 1.55, 1.4, -3.3, -0.1, 1, false],
+      [11.3, 9.2, 1.75, 1.5, -3.05, -0.07, 1, true],
+      [13.0, 8.3, 1.7, 1.45, -3.35, -0.09, 1, false],
+
+      // --- LAYER 2: MIDGROUND INTERLOCKING HIGH-RISES (z = -4.2 to -5.6) ---
+      // Left Wing Layer 2 (Staggered to fill all gaps!)
+      [-2.2, 6.1, 1.4, 1.3, -4.4, 0.05, 2, false],
+      [-3.4, 7.8, 1.6, 1.45, -4.6, 0.07, 2, true],
+      [-4.65, 8.7, 1.65, 1.5, -4.3, 0.04, 2, true],
+      [-6.0, 9.6, 1.75, 1.55, -4.7, 0.08, 2, true],
+      [-7.4, 10.5, 1.8, 1.6, -4.5, 0.06, 2, true],
+      [-8.85, 9.8, 1.75, 1.55, -4.8, 0.05, 2, false],
+      [-10.4, 11.4, 1.9, 1.65, -4.6, 0.07, 2, true],
+      [-12.1, 10.8, 1.85, 1.6, -4.9, 0.06, 2, false],
+      [-13.9, 12.2, 2.0, 1.7, -4.7, 0.08, 2, true],
+      // Right Wing Layer 2
+      [2.25, 6.0, 1.4, 1.3, -4.4, -0.05, 2, false],
+      [3.45, 7.6, 1.6, 1.45, -4.6, -0.07, 2, true],
+      [4.7, 8.5, 1.65, 1.5, -4.35, -0.04, 2, false],
+      [6.05, 9.8, 1.75, 1.55, -4.7, -0.08, 2, true],
+      [7.45, 10.9, 1.85, 1.6, -4.5, -0.06, 2, true],
+      [8.95, 10.2, 1.75, 1.55, -4.85, -0.05, 2, false],
+      [10.5, 11.8, 1.9, 1.65, -4.6, -0.07, 2, true],
+      [12.2, 11.0, 1.85, 1.6, -4.9, -0.06, 2, false],
+      [14.0, 12.6, 2.0, 1.7, -4.7, -0.08, 2, true],
+
+      // --- LAYER 3: DISTANT SOARING SKYSCRAPER SILHOUETTES (z = -6.2 to -8.0) ---
+      [-5.2, 11.5, 2.1, 1.8, -6.5, 0.03, 3, true],
+      [-8.2, 13.2, 2.2, 1.9, -6.8, 0.04, 3, true],
+      [-11.5, 14.2, 2.3, 2.0, -7.0, 0.05, 3, true],
+      [-15.2, 13.6, 2.4, 2.0, -6.6, 0.06, 3, false],
+      [5.2, 11.6, 2.1, 1.8, -6.5, -0.03, 3, true],
+      [8.3, 13.5, 2.2, 1.9, -6.8, -0.04, 3, true],
+      [11.6, 14.5, 2.3, 2.0, -7.0, -0.05, 3, true],
+      [15.3, 13.8, 2.4, 2.0, -6.6, -0.06, 3, false]
     ];
 
-    towerSpecs.forEach(([tx, th, tw, td, tz, troty]) => {
+    towerSpecs.forEach(([tx, th, tw, td, tz, troty, layer, hasCrown], idx) => {
+      const isLeft = tx < 0;
+      const mat = isLeft
+        ? layer === 1
+          ? leftMatL1
+          : layer === 2
+          ? leftMatL2
+          : leftMatL3
+        : layer === 1
+        ? rightMatL1
+        : layer === 2
+        ? rightMatL2
+        : rightMatL3;
+
       const tGeo = new THREE.BoxGeometry(tw, th, td);
-      const tMesh = new THREE.Mesh(tGeo, towerMat);
-      const ty = -9.4 + th * 0.5;
+      const tMesh = new THREE.Mesh(tGeo, mat);
+      const baseY = -9.6;
+      const ty = baseY + th * 0.5;
       tMesh.position.set(tx, ty, tz);
       tMesh.rotation.y = troty;
       skylineGroup.add(tMesh);
 
-      // Luminous architectural edge lines on each skyscraper
+      // Luminous architectural edge lines
       const edgesGeo = new THREE.EdgesGeometry(tGeo);
-      const edgeLines = new THREE.LineSegments(edgesGeo, towerEdgeMat);
+      const edgeMat =
+        idx % 3 === 0 ? towerEdgeGoldMat : towerEdgeCyanMat;
+      const edgeLines = new THREE.LineSegments(edgesGeo, edgeMat);
       edgeLines.position.copy(tMesh.position);
       edgeLines.rotation.copy(tMesh.rotation);
       skylineGroup.add(edgeLines);
 
-      // Subtle glowing rooftop rim on each building
-      const roofRimGeo = new THREE.BoxGeometry(tw + 0.03, 0.04, td + 0.03);
-      const roofRim = new THREE.Mesh(roofRimGeo, glowingBlueStripMat);
-      roofRim.position.set(tx, -9.4 + th, tz);
+      // Glowing rooftop rim
+      const roofRimGeo = new THREE.BoxGeometry(tw + 0.03, 0.045, td + 0.03);
+      const roofRim = new THREE.Mesh(
+        roofRimGeo,
+        idx % 3 === 0 ? glowingGoldStripMat : glowingBlueStripMat
+      );
+      roofRim.position.set(tx, baseY + th, tz);
       roofRim.rotation.y = troty;
       skylineGroup.add(roofRim);
+
+      // Stepped Crown Penthouse on major towers
+      if (hasCrown) {
+        const crownW = tw * 0.68;
+        const crownH = 0.55 + (layer * 0.15);
+        const crownD = td * 0.68;
+        const crownGeo = new THREE.BoxGeometry(crownW, crownH, crownD);
+        const crownMesh = new THREE.Mesh(crownGeo, mat);
+        crownMesh.position.set(tx, baseY + th + crownH * 0.5, tz);
+        crownMesh.rotation.y = troty;
+        skylineGroup.add(crownMesh);
+
+        const crownRimGeo = new THREE.BoxGeometry(
+          crownW + 0.03,
+          0.04,
+          crownD + 0.03
+        );
+        const crownRim = new THREE.Mesh(crownRimGeo, glowingBlueStripMat);
+        crownRim.position.set(tx, baseY + th + crownH, tz);
+        crownRim.rotation.y = troty;
+        skylineGroup.add(crownRim);
+      }
+    });
+
+    // 4. Warm Golden City Bokeh Orbs near the base of the Skyline & Stairway (Như góc phải ảnh Key Visual)
+    const bokehPositions = [
+      [5.8, -6.2, -2.2, 0.55],
+      [7.2, -7.1, -1.8, 0.72],
+      [8.4, -5.8, -2.5, 0.48],
+      [9.1, -7.8, -1.2, 0.85],
+      [6.4, -8.3, 0.4, 0.62],
+      [10.5, -6.5, -2.6, 0.68],
+      [-5.6, -6.8, -2.3, 0.52],
+      [-7.5, -7.4, -2.0, 0.65],
+      [-9.2, -6.2, -2.6, 0.58],
+      [-6.2, -8.2, -1.2, 0.48]
+    ];
+
+    bokehPositions.forEach(([bx, by, bz, bScale]) => {
+      const bokeh = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this.haloSprite.material.map,
+          color: 0xffd700,
+          transparent: true,
+          opacity: 0.78,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+      );
+      bokeh.scale.set(bScale, bScale, 1);
+      bokeh.position.set(bx, by, bz);
+      skylineGroup.add(bokeh);
     });
 
     altarGroup.add(skylineGroup);
