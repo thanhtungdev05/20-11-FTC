@@ -255,6 +255,24 @@ export class ApiService {
       throw new Error('Email phải có đuôi @fpt.net hoặc @fpt.com!');
     }
 
+    // Kiểm tra danh sách email đã từng xác thực vĩnh viễn trên thiết bị này
+    try {
+      const localVerifiedList = JSON.parse(localStorage.getItem('ftel_verified_emails') || '[]');
+      if (Array.isArray(localVerifiedList) && localVerifiedList.includes(email)) {
+        const sessionData = {
+          email: email,
+          isAdmin: this.isSuperAdminEmail(email),
+          verifiedAt: Date.now()
+        };
+        this.setUserSession(sessionData);
+        return {
+          success: true,
+          alreadyVerified: true,
+          data: sessionData
+        };
+      }
+    } catch (e) {}
+
     const scriptUrl = getEffectiveScriptUrl();
     const response = await fetch(scriptUrl, {
       method: 'POST',
@@ -362,12 +380,21 @@ export class ApiService {
    */
   static setUserSession(sessionData) {
     if (!sessionData || !sessionData.email) return;
-    if (this.isSuperAdminEmail(sessionData.email)) {
+    const normalizedEmail = sessionData.email.trim().toLowerCase();
+    sessionData.email = normalizedEmail;
+    if (this.isSuperAdminEmail(normalizedEmail)) {
       sessionData.isAdmin = true;
     }
     try {
       localStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
       sessionStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
+
+      // Ghi nhớ vĩnh viễn email đã xác thực (chỉ cần xác thực OTP 1 lần duy nhất)
+      const verifiedList = JSON.parse(localStorage.getItem('ftel_verified_emails') || '[]');
+      if (Array.isArray(verifiedList) && !verifiedList.includes(normalizedEmail)) {
+        verifiedList.push(normalizedEmail);
+        localStorage.setItem('ftel_verified_emails', JSON.stringify(verifiedList));
+      }
 
       if (sessionData.isAdmin) {
         const adminData = {

@@ -778,10 +778,10 @@ function handleRequestOtp(data) {
 
   // Sinh mã 6 số
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expireAt = now + (5 * 60 * 1000); // 5 phút
+  const expireAt = now + (10 * 60 * 1000); // 10 phút
 
   // Lưu vào RAM Cache siêu tốc (<15ms)
-  cache.put("OTP_" + email, code, 300); // 300 giây = 5 phút
+  cache.put("OTP_" + email, code, 600); // 600 giây = 10 phút
   cache.put(lastReqKey, "1", 15);        // 15 giây chống spam
 
   // Dự phòng ghi vào Script Properties
@@ -794,7 +794,7 @@ function handleRequestOtp(data) {
   // Gửi email siêu nhẹ với MailApp (Direct SMTP Google) để Outlook nhận ngay tức thì
   try {
     const subject = "[MÃ OTP: " + code + "] Xác thực Thắp Lửa Tri Ân FTEL";
-    const plainText = "Xin chào CBNV FPT Telecom,\n\nMã xác thực OTP của bạn là: " + code + "\n(Mã có hiệu lực trong 5 phút).\n\nFTC - Trung tâm Đào tạo FPT Telecom.";
+    const plainText = "Xin chào CBNV FPT Telecom,\n\nMã xác thực OTP của bạn là: " + code + "\n(Mã có hiệu lực trong 10 phút).\n\nFTC - Trung tâm Đào tạo và Phát triển FPT Telecom.";
     
     // Đính kèm logo nội dòng CID để Outlook hiển thị tức thì, KHÔNG BỊ CHẶN ẢNH
     const logoBlob = getFptLogoBlob();
@@ -818,7 +818,7 @@ function handleRequestOtp(data) {
             <span style="font-family: 'Courier New', monospace, sans-serif; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #ffd700;">${code}</span>
           </div>
           <p style="font-size: 12px; color: #94a3b8; margin: 0 0 6px 0;">
-            • Mã có hiệu lực trong vòng <strong>5 phút</strong>.
+            • Mã có hiệu lực trong vòng <strong>10 phút</strong>.
           </p>
           <p style="font-size: 11px; color: #64748b; margin: 0;">
             (Mã OTP hiển thị trực tiếp ngay trên tiêu đề thông báo của Outlook)

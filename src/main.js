@@ -483,8 +483,9 @@ class App {
     let countdownInterval = null;
 
     const startTimer = () => {
-      let timeLeft = 300; // 5 phút
+      let timeLeft = 600; // 10 phút (600 giây)
       let resendCooldown = 15; // 15 giây cooldown gửi lại
+      if (timerDisplay) timerDisplay.textContent = 'Hiệu lực: 10:00';
       if (resendBtn) {
         resendBtn.disabled = true;
         resendBtn.textContent = `Gửi lại (${resendCooldown}s)`;

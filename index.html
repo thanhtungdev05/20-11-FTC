@@ -574,9 +574,9 @@
 
         <!-- STEP 2: Nhập mã 6 số OTP -->
         <div id="otp-step-2" class="hidden space-y-4">
-          <div class="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 text-left">
+          <div class="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 text-center">
             <span>Mã OTP 6 số đã được gửi đến:</span>
-            <strong id="otp-sent-to-email" class="block text-white font-mono mt-0.5">...</strong>
+            <strong id="otp-sent-to-email" class="block text-white font-bold mt-0.5">...</strong>
           </div>
 
           <div class="text-left">
@@ -586,10 +586,10 @@
               id="otp-code-input" 
               maxlength="6"
               placeholder="Ví dụ: 123456" 
-              class="custom-input w-full rounded-xl px-4 py-3 text-center text-2xl font-black tracking-widest font-mono text-amber-300 placeholder-slate-500"
+              class="custom-input w-full rounded-xl px-4 py-3 text-center text-2xl font-black tracking-widest text-amber-300 placeholder-slate-500"
             />
             <div class="flex items-center justify-between text-[11px] text-slate-400 mt-2">
-              <span id="otp-timer-display" class="text-amber-400 font-semibold">Hiệu lực: 05:00</span>
+              <span id="otp-timer-display" class="text-amber-400 font-semibold">Hiệu lực: 10:00</span>
               <button type="button" id="resend-otp-btn" class="text-slate-400 hover:text-white underline cursor-pointer disabled:opacity-50">
                 Gửi lại mã
               </button>
