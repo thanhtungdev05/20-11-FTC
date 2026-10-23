@@ -71,10 +71,10 @@
               <span class="text-slate-400">ngọn lửa</span>
             </div>
 
-            <!-- Leaderboard Button -->
+            <!-- Leaderboard Button (Hidden per request) -->
             <button 
               id="open-leaderboard-btn" 
-              class="px-2 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-semibold flex items-center gap-1 sm:gap-1.5 shadow-md shadow-amber-500/10 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              class="hidden px-2 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-semibold items-center gap-1 sm:gap-1.5 shadow-md shadow-amber-500/10 transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
               <span>🏆</span>
               <span class="hidden sm:inline">Top 30</span>
@@ -125,63 +125,48 @@
 
       <!-- Main Body Container -->
       <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 flex flex-col justify-center">
-        <!-- Hero Tagline (Đồng bộ nhận diện Key Visual 30 Năm Tiếp Lửa) -->
-        <div class="text-center max-w-5xl w-full mx-auto mb-4 sm:mb-8 px-1">
-          <div class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[10px] sm:text-xs font-semibold mb-2 shadow-lg shadow-orange-500/10">
-            <span>✦ 20/11/2026: FPT TELECOM – 30 NĂM KHÍ PHÁCH TIÊN PHONG ✦</span>
-          </div>
-          
-          <div class="font-serif italic text-xl sm:text-3xl text-amber-300 drop-shadow-md mb-0.5">Happy</div>
-          <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight drop-shadow-[0_0_35px_rgba(243,112,33,0.55)] uppercase mb-2">
-            TRAINER'S DAY
+        <!-- Hero Tagline (Điểm nhấn ngọn lửa ở khu vực tiêu đề, hiển thị đầy đủ dấu tiếng Việt) -->
+        <div class="text-center max-w-5xl w-full mx-auto mb-5 sm:mb-8 px-1 pt-1">
+          <h1 class="hero-main-title text-2xl sm:text-4xl lg:text-5xl font-black text-gradient-gold tracking-wide uppercase mb-3">
+            LAN TỎA NGỌN LỬA TRI ÂN
           </h1>
-          <div class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-bold shadow-md mb-3">
-            <span>🔥</span>
-            <span>30 Năm Tiếp Lửa Tri Ân</span>
-            <span>🔥</span>
-          </div>
 
           <div>
-            <p class="inline-block text-xs sm:text-base text-slate-100 font-medium leading-relaxed max-w-2xl mx-auto px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-black/60 border border-white/10 shadow-xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-              Mỗi dòng chia sẻ chân thành của bạn là một tia sáng thắp lên ngọn đuốc tri thức tôn vinh những người Thầy, Mentor, Coach và người dẫn đường thầm lặng tại FPT Telecom.
+            <p class="inline-block text-xs sm:text-base text-slate-100 font-medium leading-relaxed max-w-2xl mx-auto px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-slate-950/75 border border-white/10 shadow-xl backdrop-blur-md drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+              Mỗi dòng chia sẻ chân thành của bạn là một tia sáng thắp lên ngọn lửa tôn vinh những người Thầy, Mentor, Coach và người dẫn đường thầm lặng tại FPT Telecom.
             </p>
           </div>
         </div>
 
         <!-- 2-Column Workspace: Form & 3D Interactive Card Preview -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-start">
+        <div class="workspace-content-area grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-start">
           
           <!-- LEFT COLUMN: Form Thắp Lửa (7 cols) -->
           <div class="lg:col-span-7 glass-card-glow rounded-3xl p-3.5 sm:p-7">
             <div class="flex items-center justify-between pb-4 mb-5 border-b border-white/10">
               <div class="flex items-center gap-3">
-                <span class="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center text-lg font-bold border border-orange-500/30 shadow-md shadow-orange-500/20">
+                <span class="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center text-lg font-bold border border-orange-500/30 shadow-md shadow-orange-500/20 shrink-0">
                   ✍️
                 </span>
                 <div>
                   <h2 class="text-base sm:text-lg font-bold text-white tracking-wide">Trao Gửi Lời Tri Ân</h2>
-                  <p class="text-xs text-slate-400">Dữ liệu được lưu trữ an toàn & bảo mật trên Google Sheets FTEL</p>
+                  <p class="text-xs text-slate-300">Dữ liệu được lưu trữ an toàn & chỉ sử dụng cho hoạt động Tri ân 20/11</p>
                 </div>
               </div>
-              <span class="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium flex items-center gap-1.5 shadow-sm">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                FTEL Verified
-              </span>
             </div>
 
             <form id="tribute-form" class="space-y-4 sm:space-y-5" autocomplete="off">
-              <!-- Section 1: Người Gửi (Sender) -->
-              <div class="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-black/25 border border-white/5">
+              <!-- Section 1: Người Thắp Lửa Tri Ân -->
+              <div class="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-slate-950/55 border border-white/10">
                 <div class="flex items-center justify-between">
                   <label class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                    <span>1. Thông tin người gửi (Bạn)</span>
+                    <span>1. NGƯỜI THẮP LỬA TRI ÂN</span>
                   </label>
-                  <span class="text-[11px] text-slate-400">Email @fpt.net / @fpt.com</span>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Họ và tên của bạn <span class="text-rose-400">*</span></label>
+                    <label class="block text-xs font-medium text-slate-200 mb-1">Họ và tên của bạn <span class="text-rose-400">*</span></label>
                     <input 
                       type="text" 
                       id="sender-name" 
@@ -191,7 +176,7 @@
                     />
                   </div>
                   <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Email FTEL của bạn <span class="text-rose-400">*</span></label>
+                    <label class="block text-xs font-medium text-slate-200 mb-1">Email FTEL của bạn <span class="text-rose-400">*</span></label>
                     <input 
                       type="email" 
                       id="sender-email" 
@@ -199,41 +184,19 @@
                       placeholder="VD: namnh@fpt.net" 
                       class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
                     />
-                    <div id="sender-email-verified-badge" class="hidden mt-1 text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                      <span>✓</span>
-                      <span>Email Outlook FTEL đã xác thực bảo mật</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Đơn vị / Phòng ban <span class="text-rose-400">*</span></label>
-                    <select id="sender-dept" required class="custom-input w-full rounded-xl px-3.5 py-2.5">
-                      <option value="">-- Chọn đơn vị --</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Mã nhân viên (Tùy chọn)</label>
-                    <input 
-                      type="text" 
-                      id="sender-code" 
-                      placeholder="VD: 00123456" 
-                      class="custom-input w-full rounded-xl px-3.5 py-2.5 placeholder-slate-500"
-                    />
                   </div>
                 </div>
               </div>
 
-              <!-- Section 2: Người Nhận (Recipient) -->
-              <div class="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-black/25 border border-white/5">
+              <!-- Section 2: Người Nhận Ngọn Lửa Tri Ân -->
+              <div class="space-y-3 p-3.5 sm:p-4 rounded-2xl bg-slate-950/55 border border-white/10">
                 <label class="text-xs font-bold uppercase tracking-wider text-orange-400 flex items-center gap-1.5">
-                  <span>2. Người nhận ngọn lửa tri ân</span>
+                  <span>2. NGƯỜI NHẬN NGỌN LỬA TRI ÂN</span>
                 </label>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Họ tên người nhận <span class="text-rose-400">*</span></label>
+                    <label class="block text-xs font-medium text-slate-200 mb-1">Họ tên người nhận <span class="text-rose-400">*</span></label>
                     <input 
                       type="text" 
                       id="recipient-name" 
@@ -243,7 +206,7 @@
                     />
                   </div>
                   <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Email FTEL người nhận <span class="text-rose-400">*</span></label>
+                    <label class="block text-xs font-medium text-slate-200 mb-1">Email FTEL người nhận <span class="text-rose-400">*</span></label>
                     <input 
                       type="email" 
                       id="recipient-email" 
@@ -255,26 +218,18 @@
                 </div>
 
                 <div>
-                  <label class="block text-xs font-medium text-slate-300 mb-1">Vai trò người nhận <span class="text-rose-400">*</span></label>
+                  <label class="block text-xs font-medium text-slate-200 mb-1">Dấu ấn của người nhận lửa <span class="text-rose-400">*</span></label>
                   <select id="recipient-role" required class="custom-input w-full rounded-xl px-3.5 py-2.5">
-                    <option value="">-- Chọn vai trò --</option>
+                    <option value="">-- Chọn dấu ấn --</option>
                   </select>
                 </div>
               </div>
 
-              <!-- Section 3: Chủ đề & Danh hiệu xét giải -->
-              <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">
-                  3. Danh hiệu & Danh mục xét giải
-                </label>
-                <div id="tags-container" class="flex flex-wrap gap-2"></div>
-              </div>
-
-              <!-- Section 4: Lời cảm ơn (Message) -->
+              <!-- Section 3: Lời cảm ơn tâm huyết (Message) -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
-                  <label class="text-xs font-bold uppercase tracking-wider text-slate-300">
-                    4. Lời cảm ơn tâm huyết <span class="text-rose-400">*</span>
+                  <label class="text-xs font-bold uppercase tracking-wider text-slate-200">
+                    3. LỜI CẢM ƠN TÂM HUYẾT <span class="text-rose-400">*</span>
                   </label>
                   <button 
                     type="button" 
@@ -290,51 +245,12 @@
                   required 
                   minlength="10"
                   maxlength="500" 
-                  placeholder="Viết lời tri ân, kỷ niệm đáng nhớ hoặc lời cảm ơn về những bài học, sự hỗ trợ tận tâm mà Anh/Chị đã dành cho bạn..."
+                  placeholder="“Anh/chị ấy đã giúp bạn học được hoặc làm tốt hơn điều gì?”"
                   class="custom-input w-full rounded-2xl p-3.5 placeholder-slate-500 resize-none leading-relaxed"
                 ></textarea>
                 <div class="flex justify-between items-center text-[11px] text-slate-400 mt-1">
                   <span>Tối thiểu 10 ký tự</span>
                   <span id="char-counter">0/500 ký tự</span>
-                </div>
-              </div>
-
-              <!-- Section 5: Phong cách E-Card -->
-              <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
-                  <span>5. Chọn phong cách E-Card</span>
-                  <span class="text-[10px] text-amber-400 font-normal">✦ Tùy chọn 4 giao diện cao cấp ✦</span>
-                </label>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-                  <label class="cursor-pointer">
-                    <input type="radio" name="card-style" value="kv" checked class="peer sr-only" />
-                    <div class="p-2 sm:p-2.5 rounded-xl border border-amber-400/40 bg-amber-500/10 peer-checked:border-amber-400 peer-checked:bg-amber-500/25 text-center transition-all shadow-sm ring-1 ring-amber-400/30">
-                      <div class="text-[9px] font-extrabold uppercase tracking-wider text-amber-400">✦ Official KV ✦</div>
-                      <span class="block text-xs font-bold text-white">30 Năm Tiếp Lửa</span>
-                      <span class="text-[10px] text-amber-200/80">Mẫu chính thức</span>
-                    </div>
-                  </label>
-                  <label class="cursor-pointer">
-                    <input type="radio" name="card-style" value="gold" class="peer sr-only" />
-                    <div class="p-2 sm:p-2.5 rounded-xl border border-white/10 bg-black/30 peer-checked:border-amber-400 peer-checked:bg-amber-500/15 text-center transition-all shadow-sm">
-                      <span class="block text-xs font-bold text-amber-300 mt-2 sm:mt-1.5">Hoàng Kim</span>
-                      <span class="text-[10px] text-slate-400">Sang trọng</span>
-                    </div>
-                  </label>
-                  <label class="cursor-pointer">
-                    <input type="radio" name="card-style" value="flame" class="peer sr-only" />
-                    <div class="p-2 sm:p-2.5 rounded-xl border border-white/10 bg-black/30 peer-checked:border-orange-500 peer-checked:bg-orange-500/15 text-center transition-all shadow-sm">
-                      <span class="block text-xs font-bold text-orange-400 mt-2 sm:mt-1.5">Ngọn Lửa</span>
-                      <span class="text-[10px] text-slate-400">Nhiệt huyết FPT</span>
-                    </div>
-                  </label>
-                  <label class="cursor-pointer">
-                    <input type="radio" name="card-style" value="cyber" class="peer sr-only" />
-                    <div class="p-2 sm:p-2.5 rounded-xl border border-white/10 bg-black/30 peer-checked:border-cyan-400 peer-checked:bg-cyan-500/15 text-center transition-all shadow-sm">
-                      <span class="block text-xs font-bold text-cyan-300 mt-2 sm:mt-1.5">Công Nghệ</span>
-                      <span class="text-[10px] text-slate-400">Tương lai số</span>
-                    </div>
-                  </label>
                 </div>
               </div>
 
@@ -346,11 +262,8 @@
                   class="btn-flame w-full py-4 px-6 rounded-2xl flex items-center justify-center gap-2 text-base font-extrabold shadow-xl cursor-pointer"
                 >
                   <span class="text-xl">🔥</span>
-                  <span>THẮP LỬA TRI ÂN & GỬI THIỆP NGAY</span>
+                  <span>THẮP LỬA TRI ÂN NGAY</span>
                 </button>
-                <p class="text-center text-[11px] text-slate-400 mt-2">
-                  Ngay sau khi gửi, E-Card cá nhân hóa sẽ được tự động gửi trực tiếp đến hộp thư người nhận.
-                </p>
               </div>
             </form>
           </div>
@@ -429,8 +342,11 @@
           🔥
         </div>
         <h3 class="text-2xl font-black text-amber-400 mb-2">ĐÃ THẮP LỬA THÀNH CÔNG!</h3>
-        <p class="text-sm text-slate-300 mb-3 leading-relaxed">
-          Ngọn lửa tri ân đầy ấm áp của bạn đã được gửi tới <strong id="success-recipient-name" class="text-white"></strong>. Thiệp E-Card cũng đã được tạo sắc nét chuẩn 1080x1440!
+        <p class="text-sm text-slate-300 mb-2 leading-relaxed">
+          Ngọn lửa tri ân đầy ấm áp của bạn đã được gửi tới <strong id="success-recipient-name" class="text-white"></strong>.
+        </p>
+        <p class="text-xs sm:text-sm text-amber-300 font-medium mb-4 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/25">
+          Ngay sau khi gửi, E-Card cá nhân hóa sẽ được tự động gửi trực tiếp đến hộp thư người nhận.
         </p>
 
         <!-- Status badge Google Sheets sync -->

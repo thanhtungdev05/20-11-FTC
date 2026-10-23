@@ -19,12 +19,71 @@ export const DEPARTMENTS = [
 ];
 
 export const ROLES = [
-  "Giảng viên Nội bộ FTEL",
-  "Mentor / Coach chuyên môn",
-  "Người hướng dẫn tân binh (Buddy)",
-  "Trưởng nhóm / Leader dẫn dắt",
-  "Đồng nghiệp tận tâm chia sẻ tri thức"
+  "Giảng viên – Người truyền tri thức",
+  "Mentor/ Coach – Người đồng hành, khai mở năng lực",
+  "Người dẫn dắt – Người truyền cảm hứng",
+  "Quản lý trực tiếp – Người định hướng",
+  "Đồng nghiệp tận tâm – Người sẻ chia, sát cánh",
+  "Khác – Một người đặc biệt trong hành trình"
 ];
+
+/**
+ * Danh bạ nhân sự FTEL (Email -> Họ và tên)
+ * Tự động điền Họ và tên khi người dùng đăng nhập hoặc nhập email
+ */
+export const EMPLOYEE_DIRECTORY = {
+  "tungdt101@fpt.com": "Đặng Thanh Tùng",
+  "tungdt101@fpt.net": "Đặng Thanh Tùng",
+  "hungnv@fpt.net": "Nguyễn Văn Hùng",
+  "anhtm@fpt.net": "Trần Mai Anh",
+  "phuclh@fpt.net": "Lê Hoàng Phúc",
+  "phuclv@fpt.net": "Lê Văn Phúc",
+  "hangpt@fpt.net": "Phạm Thúy Hằng",
+  "baodq@fpt.net": "Đỗ Quốc Bảo",
+  "dangvh@fpt.net": "Vũ Hải Đăng",
+  "vannt@fpt.net": "Ngô Thanh Vân",
+  "khiemhg@fpt.net": "Hoàng Gia Khiêm",
+  "lanbt@fpt.net": "Bùi Thị Lan",
+  "nghiadt@fpt.net": "Đinh Trọng Nghĩa"
+};
+
+export function lookupEmployeeName(email) {
+  if (!email) return "";
+  const normalized = String(email).trim().toLowerCase();
+  if (EMPLOYEE_DIRECTORY[normalized]) {
+    return EMPLOYEE_DIRECTORY[normalized];
+  }
+  try {
+    const cachedDir = JSON.parse(localStorage.getItem('ftel_employee_dir_cache') || '{}');
+    if (cachedDir && cachedDir[normalized]) {
+      return cachedDir[normalized];
+    }
+    const submissions = JSON.parse(localStorage.getItem('ftel_tribute_submissions_v1') || '[]');
+    if (Array.isArray(submissions)) {
+      for (const item of submissions) {
+        if (String(item?.senderEmail || '').trim().toLowerCase() === normalized && item?.senderName) {
+          return item.senderName;
+        }
+        if (String(item?.recipientEmail || '').trim().toLowerCase() === normalized && item?.recipientName) {
+          return item.recipientName;
+        }
+      }
+    }
+  } catch (e) {}
+  return "";
+}
+
+export function saveEmployeeNameCache(email, fullName) {
+  if (!email || !fullName) return;
+  const normalized = String(email).trim().toLowerCase();
+  const cleanName = String(fullName).trim();
+  if (!normalized || !cleanName) return;
+  try {
+    const cachedDir = JSON.parse(localStorage.getItem('ftel_employee_dir_cache') || '{}');
+    cachedDir[normalized] = cleanName;
+    localStorage.setItem('ftel_employee_dir_cache', JSON.stringify(cachedDir));
+  } catch (e) {}
+}
 
 export const TRIBUTE_TAGS = [
   { id: "tiep-lua", name: "30 Tiếp Lửa Bền Bỉ", color: "from-amber-400 to-orange-500", desc: "Dành cho Mentor kiên trì đồng hành & truyền lửa" },

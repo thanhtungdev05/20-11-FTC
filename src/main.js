@@ -3,7 +3,7 @@ import { Scene3D } from './scene3d.js';
 import { CardGenerator, fptLogoImg, keyVisualImg } from './cardGenerator.js';
 import { ApiService, APPS_SCRIPT_URL } from './api.js';
 import { DashboardModule } from './dashboard.js';
-import { DEPARTMENTS, ROLES, TRIBUTE_TAGS, SAMPLE_WISHES } from './mockData.js';
+import { DEPARTMENTS, ROLES, TRIBUTE_TAGS, SAMPLE_WISHES, lookupEmployeeName, saveEmployeeNameCache } from './mockData.js';
 
 class App {
   constructor() {
@@ -78,7 +78,7 @@ class App {
         opt.textContent = role;
         roleSelect.appendChild(opt);
       });
-      roleSelect.value = ROLES[0];
+      roleSelect.value = '';
     }
   }
 
@@ -116,6 +116,7 @@ class App {
     const senderEmail = document.getElementById('sender-email');
     const senderDept = document.getElementById('sender-dept');
     const recipientName = document.getElementById('recipient-name');
+    const recipientEmail = document.getElementById('recipient-email');
     const recipientRole = document.getElementById('recipient-role');
     const messageInput = document.getElementById('tribute-message');
     const charCounter = document.getElementById('char-counter');
@@ -138,6 +139,30 @@ class App {
         updateEvents.forEach(evt => el.addEventListener(evt, () => this.updateCardPreview()));
       }
     });
+
+    // Tự động điền Họ tên khi nhập Email (tra cứu từ Danh sách nhân sự)
+    if (senderEmail && senderName) {
+      ['input', 'change', 'blur'].forEach(evt => {
+        senderEmail.addEventListener(evt, () => {
+          const foundName = lookupEmployeeName(senderEmail.value);
+          if (foundName && !senderName.value.trim()) {
+            senderName.value = foundName;
+            this.updateCardPreview();
+          }
+        });
+      });
+    }
+    if (recipientEmail && recipientName) {
+      ['input', 'change', 'blur'].forEach(evt => {
+        recipientEmail.addEventListener(evt, () => {
+          const foundName = lookupEmployeeName(recipientEmail.value);
+          if (foundName && !recipientName.value.trim()) {
+            recipientName.value = foundName;
+            this.updateCardPreview();
+          }
+        });
+      });
+    }
 
     // Message input + character counter + 3D typing pulse
     if (messageInput) {
@@ -196,7 +221,7 @@ class App {
   getCurrentFormData(isForPreview = true) {
     const sName = document.getElementById('sender-name')?.value?.trim() || '';
     const sEmail = document.getElementById('sender-email')?.value?.trim() || '';
-    const sDept = document.getElementById('sender-dept')?.value || '';
+    const sDept = document.getElementById('sender-dept')?.value || 'FPT Telecom';
     const sCode = document.getElementById('sender-code')?.value?.trim() || '';
     const rName = document.getElementById('recipient-name')?.value?.trim() || '';
     const rEmail = document.getElementById('recipient-email')?.value?.trim() || '';
@@ -225,7 +250,7 @@ class App {
       senderCode: sCode,
       recipientName: rName || 'Người Thầy / Mentor FTEL',
       recipientEmail: rEmail || 'mentor@fpt.net',
-      recipientRole: rRole || 'Mentor chia sẻ tri thức',
+      recipientRole: rRole || 'Giảng viên – Người truyền tri thức',
       tag: this.selectedTag,
       message: msg || 'Cảm ơn Anh/Chị đã luôn tận tâm truyền lửa và thắp sáng tri thức!',
       cardStyle: this.selectedCardStyle
@@ -297,6 +322,8 @@ class App {
       }
 
       // 4. Submit to Google Apps Script API (or local fallback)
+      saveEmployeeNameCache(data.senderEmail, data.senderName);
+      saveEmployeeNameCache(data.recipientEmail, data.recipientName);
       const submitResult = await ApiService.submitGratitude({
         ...data,
         cardImageBase64: cardImageBase64
@@ -320,7 +347,7 @@ class App {
       submitBtn.disabled = false;
       submitBtn.innerHTML = `
         <span class="text-xl">🔥</span>
-        <span>THẮP LỬA TRI ÂN & GỬI THIỆP NGAY</span>
+        <span>THẮP LỬA TRI ÂN NGAY</span>
       `;
     }
   }
@@ -682,6 +709,7 @@ class App {
   }
 
   applyUserSession(session) {
+    const senderNameInput = document.getElementById('sender-name');
     const senderEmailInput = document.getElementById('sender-email');
     const verifiedBadge = document.getElementById('sender-email-verified-badge');
     const userBadge = document.getElementById('user-header-badge');
@@ -699,6 +727,12 @@ class App {
         senderEmailInput.value = session.email;
         senderEmailInput.readOnly = true;
         senderEmailInput.classList.add('bg-black/50', 'border-emerald-500/40', 'text-emerald-300', 'cursor-not-allowed');
+      }
+      if (senderNameInput && !senderNameInput.value.trim()) {
+        const knownName = session.name || lookupEmployeeName(session.email);
+        if (knownName) {
+          senderNameInput.value = knownName;
+        }
       }
       if (verifiedBadge) verifiedBadge.classList.remove('hidden');
 
