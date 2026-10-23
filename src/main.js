@@ -129,7 +129,7 @@ class App {
     if (recipientName) recipientName.value = "";
     if (messageInput) {
       messageInput.value = "";
-      if (charCounter) charCounter.textContent = "0/500 ký tự";
+      if (charCounter) charCounter.textContent = "0/1000 ký tự";
     }
 
     // Input change events to update card preview immediately
@@ -168,8 +168,8 @@ class App {
     if (messageInput) {
       messageInput.addEventListener('input', () => {
         const len = messageInput.value.length;
-        charCounter.textContent = `${len}/500 ký tự`;
-        if (len > 450) {
+        charCounter.textContent = `${len}/1000 ký tự`;
+        if (len > 950) {
           charCounter.className = 'text-rose-400 font-bold';
         } else {
           charCounter.className = 'text-slate-400';
@@ -197,7 +197,7 @@ class App {
       suggestBtn.addEventListener('click', () => {
         wishIndex = (wishIndex + 1) % SAMPLE_WISHES.length;
         messageInput.value = SAMPLE_WISHES[wishIndex];
-        charCounter.textContent = `${messageInput.value.length}/500 ký tự`;
+        charCounter.textContent = `${messageInput.value.length}/1000 ký tự`;
         this.updateCardPreview();
       });
     }

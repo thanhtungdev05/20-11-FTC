@@ -58,13 +58,13 @@ export class CardGenerator {
       }
 
       // Khung bảng kính mờ cao cấp lồng ghép trên nền KV (Frosted Royal Glass Plaque)
-      const plaqueX = 85 * scale;
-      const plaqueY = 525 * scale;
-      const plaqueW = width - 170 * scale;
-      const plaqueH = 740 * scale;
+      const plaqueX = 75 * scale;
+      const plaqueY = 515 * scale;
+      const plaqueW = width - 150 * scale;
+      const plaqueH = 775 * scale;
 
       ctx.save();
-      ctx.fillStyle = 'rgba(5, 15, 42, 0.82)';
+      ctx.fillStyle = 'rgba(5, 15, 42, 0.84)';
       ctx.strokeStyle = 'rgba(255, 215, 0, 0.65)';
       ctx.lineWidth = 2 * scale;
       ctx.shadowColor = 'rgba(243, 112, 33, 0.35)';
@@ -99,10 +99,10 @@ export class CardGenerator {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffd700';
       ctx.font = `italic 600 ${20 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText('✦ TRÂN TRỌNG GỬI ĐẾN ✦', width / 2, plaqueY + 55 * scale);
+      ctx.fillText('✦ TRÂN TRỌNG GỬI ĐẾN ✦', width / 2, plaqueY + 48 * scale);
 
       // Tên Người Nhận
-      const maxNameWidth = plaqueW - 100 * scale;
+      const maxNameWidth = plaqueW - 90 * scale;
       let nameFontSize = 38 * scale;
       ctx.font = `bold ${nameFontSize}px ${FONT_PRIMARY}`;
       while (ctx.measureText(recipientName.toUpperCase()).width > maxNameWidth && nameFontSize > 22 * scale) {
@@ -113,33 +113,16 @@ export class CardGenerator {
       ctx.fillStyle = '#ffffff';
       ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
       ctx.shadowBlur = 15 * scale;
-      ctx.fillText(recipientName.toUpperCase(), width / 2, plaqueY + 108 * scale);
+      ctx.fillText(recipientName.toUpperCase(), width / 2, plaqueY + 98 * scale);
       ctx.restore();
 
-      // Vai trò Người nhận
+      // Dấu ấn của người nhận lửa (Vai trò)
       ctx.fillStyle = '#cbd5e1';
       ctx.font = `500 ${20 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText(recipientRole, width / 2, plaqueY + 145 * scale);
+      ctx.fillText(recipientRole, width / 2, plaqueY + 134 * scale);
 
-      // Badge Danh Hiệu (Tag Pill)
-      const tagText = `✦ ${tag.toUpperCase()} ✦`;
-      ctx.font = `bold ${16 * scale}px ${FONT_PRIMARY}`;
-      const tagTextWidth = ctx.measureText(tagText).width;
-      const pillW = Math.min(tagTextWidth + 40 * scale, plaqueW - 60 * scale);
-      const pillH = 32 * scale;
-      const pillY = plaqueY + 168 * scale;
-
-      ctx.save();
-      ctx.fillStyle = 'rgba(243, 112, 33, 0.22)';
-      ctx.strokeStyle = 'rgba(243, 112, 33, 0.65)';
-      ctx.lineWidth = 1.2 * scale;
-      roundRect(ctx, width / 2 - pillW / 2, pillY, pillW, pillH, 16 * scale, true, true);
-      ctx.fillStyle = '#ff9900';
-      ctx.fillText(tagText, width / 2, pillY + 22 * scale);
-      ctx.restore();
-
-      // Đường phân cách kim cương
-      const divY1 = plaqueY + 222 * scale;
+      // Đường phân cách kim cương phía trên
+      const divY1 = plaqueY + 162 * scale;
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)';
       ctx.lineWidth = 1 * scale;
@@ -151,17 +134,26 @@ export class CardGenerator {
       drawDiamond(ctx, width / 2, divY1, 6 * scale);
       ctx.restore();
 
-      // Lời chúc tri ân (Message)
-      const maxTextW = plaqueW - 100 * scale;
+      // Lời chúc tri ân (Message - hỗ trợ trọn vẹn từ 10 đến 1000 ký tự)
+      const maxTextW = plaqueW - 80 * scale;
       let msgFontSize = 23 * scale;
-      let lineHeight = 40 * scale;
+      let lineHeight = 38 * scale;
 
-      if (message.length > 250) {
-        msgFontSize = 19 * scale;
-        lineHeight = 33 * scale;
-      } else if (message.length < 100) {
+      if (message.length < 120) {
         msgFontSize = 26 * scale;
-        lineHeight = 46 * scale;
+        lineHeight = 44 * scale;
+      } else if (message.length <= 300) {
+        msgFontSize = 23 * scale;
+        lineHeight = 37 * scale;
+      } else if (message.length <= 550) {
+        msgFontSize = 20 * scale;
+        lineHeight = 31 * scale;
+      } else if (message.length <= 800) {
+        msgFontSize = 17.5 * scale;
+        lineHeight = 26 * scale;
+      } else {
+        msgFontSize = 16 * scale;
+        lineHeight = 23.5 * scale;
       }
 
       ctx.save();
@@ -170,25 +162,25 @@ export class CardGenerator {
       ctx.textAlign = 'center';
 
       let lines = getLines(ctx, `"${message}"`, maxTextW);
-      const maxMsgHeight = 280 * scale;
-      while (lines.length * lineHeight > maxMsgHeight && msgFontSize > 15 * scale) {
-        msgFontSize -= 1.5 * scale;
-        lineHeight = msgFontSize * 1.55;
+      const maxMsgHeight = 435 * scale;
+      while (lines.length * lineHeight > maxMsgHeight && msgFontSize > 13.5 * scale) {
+        msgFontSize -= 0.75 * scale;
+        lineHeight = msgFontSize * 1.44;
         ctx.font = `italic 400 ${msgFontSize}px ${FONT_PRIMARY}`;
         lines = getLines(ctx, `"${message}"`, maxTextW);
       }
 
       const totalTextH = lines.length * lineHeight;
-      const msgCenterY = plaqueY + 380 * scale;
-      const startY = msgCenterY - totalTextH / 2 + lineHeight * 0.72;
+      const msgCenterY = plaqueY + 402 * scale;
+      const startY = msgCenterY - totalTextH / 2 + lineHeight * 0.74;
 
       lines.forEach((line, index) => {
         ctx.fillText(line, width / 2, startY + index * lineHeight);
       });
       ctx.restore();
 
-      // Đường phân cách người gửi
-      const divY2 = plaqueY + 540 * scale;
+      // Đường phân cách người gửi phía dưới
+      const divY2 = plaqueY + 642 * scale;
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.lineWidth = 1 * scale;
@@ -200,16 +192,12 @@ export class CardGenerator {
 
       // Thông tin Người gửi
       ctx.fillStyle = '#94a3b8';
-      ctx.font = `500 ${17 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText('Ngọn lửa tri ân được thắp lên bởi', width / 2, plaqueY + 578 * scale);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${28 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText(senderName, width / 2, plaqueY + 620 * scale);
+      ctx.font = `500 ${18 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText('Ngọn lửa tri ân được thắp lên bởi', width / 2, plaqueY + 680 * scale);
 
       ctx.fillStyle = '#ffd700';
-      ctx.font = `600 ${19 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText(senderDept, width / 2, plaqueY + 655 * scale);
+      ctx.font = `bold ${29 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText(senderName, width / 2, plaqueY + 725 * scale);
 
       // Chân trang KV
       ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
@@ -551,25 +539,55 @@ export class CardGenerator {
 }
 
 /**
- * Helper ngắt dòng tiếng Việt chuẩn xác
+ * Helper ngắt dòng tiếng Việt chuẩn xác (Hỗ trợ cả xuống dòng \n và chuỗi dài 1000 ký tự)
  */
 function getLines(ctx, text, maxWidth) {
-  const words = text.split(' ');
+  const paragraphs = String(text || '').split(/\r?\n/);
   const lines = [];
-  let currentLine = words[0];
 
-  for (let i = 1; i < words.length; i++) {
-    const word = words[i];
-    const width = ctx.measureText(currentLine + ' ' + word).width;
-    if (width < maxWidth) {
-      currentLine += ' ' + word;
-    } else {
+  for (const para of paragraphs) {
+    const trimmedPara = para.trim();
+    if (!trimmedPara) continue;
+
+    const words = trimmedPara.split(/\s+/);
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      let word = words[i];
+
+      // Nếu một từ đơn lẻ dài hơn cả maxWidth thì ngắt theo ký tự
+      while (ctx.measureText(word).width > maxWidth && word.length > 1) {
+        let sliceLen = word.length - 1;
+        while (sliceLen > 1 && ctx.measureText(word.slice(0, sliceLen)).width > maxWidth) {
+          sliceLen--;
+        }
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+        lines.push(word.slice(0, sliceLen));
+        word = word.slice(sliceLen);
+      }
+
+      if (!currentLine) {
+        currentLine = word;
+      } else {
+        const testLine = currentLine + ' ' + word;
+        if (ctx.measureText(testLine).width <= maxWidth) {
+          currentLine = testLine;
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+    }
+
+    if (currentLine) {
       lines.push(currentLine);
-      currentLine = word;
     }
   }
-  lines.push(currentLine);
-  return lines;
+
+  return lines.length > 0 ? lines : [''];
 }
 
 /**
