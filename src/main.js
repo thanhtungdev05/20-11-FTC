@@ -484,8 +484,8 @@ class App {
     let currentEmail = '';
     let countdownInterval = null;
 
-    // Hiển thị màn hình "XÁC THỰC TRUY CẬP - Đang khôi phục phiên đăng nhập..." rồi vào thẳng trang chính
-    const showRestoringAndEnter = (sessionData, durationMs = 700) => {
+    // Hiển thị màn hình "XÁC THỰC TRUY CẬP - Đang khôi phục phiên đăng nhập..." (3.5 giây) rồi vào thẳng trang chính
+    const showRestoringAndEnter = (sessionData, durationMs = 3500) => {
       if (countdownInterval) clearInterval(countdownInterval);
       this.applyUserSession(sessionData);
 
@@ -535,10 +535,10 @@ class App {
     };
 
     // 1. Kiểm tra session hiện tại khi load trang:
-    // Nếu đã có phiên đăng nhập / email đã xác thực trước đó -> Hiện màn hình khôi phục phiên và vào thẳng!
+    // Nếu đã có phiên đăng nhập / email đã xác thực trước đó -> Hiện màn hình khôi phục phiên 3.5s và vào thẳng!
     const session = ApiService.getUserSession();
     if (session && session.email) {
-      showRestoringAndEnter(session, 700);
+      showRestoringAndEnter(session, 3500);
     } else {
       if (authBox) authBox.classList.remove('hidden');
       if (restoringBox) restoringBox.classList.add('hidden');
@@ -583,10 +583,10 @@ class App {
           const res = await ApiService.requestOtp(email);
           currentEmail = email;
 
-          // Nếu email này đã từng xác thực trước đó: Hiển thị "Đang khôi phục phiên đăng nhập..." và VÀO THẲNG (không hiện popup alert)
+          // Nếu email này đã từng xác thực trước đó: Hiển thị "Đang khôi phục phiên đăng nhập..." 3.5s và VÀO THẲNG (không hiện popup alert)
           if (res && res.alreadyVerified) {
             const sessionData = res.data || { email: email, isAdmin: res.isAdmin };
-            showRestoringAndEnter(sessionData, 650);
+            showRestoringAndEnter(sessionData, 3500);
             return;
           }
 
