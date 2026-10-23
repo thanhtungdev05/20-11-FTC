@@ -5,15 +5,18 @@ import { FireMesh } from '@wolffo/three-fire/vanilla';
  * Three.js 3D Interactive Scene:
  * "Ngọn Lửa Tri Ân - FPT Telecom 20/11 (30 Năm Tiếp Lửa)"
  *
- * Combines the iconic Key Visual S-Curve design with realistic living fire physics:
- * 1. Hybrid 3D Volumetric Core + GLSL Simplex FBM Domain-Warped S-Curve Fire Shader:
- *    - Real upward-flowing thermal convection & licking flame tongues along the S-curve
- *    - Dynamic edge erosion & blackbody temperature color ramp (White-Hot -> Imperial Gold -> Fiery Orange)
- *    - Living Sapphire-Blue Knowledge Gas Flame flickering at the torch rim
- *    - Fine ascending micro-embers rising from the licking tips
- * 2. Royal Golden Olympic Torch with fluted ribs and 3D Spiral Laurel Ribbon Sash.
- * 3. Open Book of Wisdom Base with dramatic fanning illuminated pages & stepped pedestal.
- * 4. 3D Shooting Star (Sao Băng Tri Thức) with blazing starburst head, tapering fading
+ * Multi-Directional Living 3D Olympic Torch Flame + Shooting Star System:
+ * 1. 3-Layer 3D Volumetric Raymarched Fire Plume (`FireMesh`):
+ *    - Outer FPT Fiery Orange-Gold Plume
+ *    - Inner Incandescent White-Gold Heart
+ *    - Base Sapphire-Blue Knowledge Gas Flame nestled in the golden cup mouth
+ * 2. 100% Pure Procedural GLSL Multi-Directional Silk Fire Petals & 3D Vortex Wisps:
+ *    - Zero static 2D cutout images!
+ *    - Dynamic weaving centerline that naturally alternates curves in all 3D directions
+ *    - Silky longitudinal plasma streams, dynamic licking tongues, and blackbody color ramp
+ * 3. Royal Golden Olympic Torch with fluted ribs and 3D Spiral Laurel Ribbon Sash.
+ * 4. Open Book of Wisdom Base with dramatic fanning illuminated pages & stepped pedestal.
+ * 5. 3D Shooting Star (Sao Băng Tri Thức) with blazing starburst head, tapering fading
  *    comet tail, twinkling stardust wake, and luminous floating pages.
  */
 export class Scene3D {
@@ -30,11 +33,13 @@ export class Scene3D {
         navigator.userAgent
       );
 
-    // Core 3D Groups & Flame Layers
+    // Core 3D Groups & Multi-Directional Flame Elements
     this.coreGroup = null;
     this.flameGroup = null;
-    this.flameLayers = [];
-    this.volumetricCore = null;
+    this.fireOuterVolume = null;
+    this.fireInnerVolume = null;
+    this.fireBlueVolume = null;
+    this.proceduralFlameMeshes = [];
     this.fireEmbers = null;
     this.emberMesh = null;
     this.haloSprite = null;
@@ -77,7 +82,7 @@ export class Scene3D {
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(0x040b1e, this.isMobile ? 0.014 : 0.016);
 
-    // 2. Camera: Framed so the entire Torch, Open Book, Flame, and Shooting Star are visible
+    // 2. Camera
     this.camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 1000);
     this.camera.position.set(
       0,
@@ -100,26 +105,24 @@ export class Scene3D {
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.22;
+    this.renderer.toneMappingExposure = 1.24;
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Procedural Studio Gold Environment Map (Ensures metallic gold shines brilliantly)
+    // 4. Procedural Studio Gold Environment Map
     this.scene.environment = this.createStudioEnvMap();
 
     // 5. Lights
     this.ambientLight = new THREE.AmbientLight(0x162c5a, 2.2);
     this.scene.add(this.ambientLight);
 
-    // Warm Golden-Orange Flame Light
     this.pointLight = new THREE.PointLight(
       0xff9922,
-      4.5,
+      4.6,
       this.isMobile ? 38 : 48
     );
-    this.pointLight.position.set(0, 0.5, 2.8);
+    this.pointLight.position.set(0, 0.6, 2.8);
     this.scene.add(this.pointLight);
 
-    // Torch & Book Front Key Light
     this.secondaryLight = new THREE.PointLight(
       0xffdf77,
       3.6,
@@ -128,8 +131,7 @@ export class Scene3D {
     this.secondaryLight.position.set(1.5, -4.2, 5.5);
     this.scene.add(this.secondaryLight);
 
-    // Sapphire Blue Rim Light
-    this.blueLight = new THREE.PointLight(0x38bdf8, 2.4, 22);
+    this.blueLight = new THREE.PointLight(0x38bdf8, 2.5, 22);
     this.blueLight.position.set(-2.0, -3.5, 3.5);
     this.scene.add(this.blueLight);
 
@@ -164,8 +166,7 @@ export class Scene3D {
   }
 
   /**
-   * Generates a warm gold & royal blue studio reflection map so metallic gold surfaces
-   * gleam like polished Olympic gold instead of reflecting black sky.
+   * Warm gold & royal blue studio reflection map so metallic gold surfaces gleam
    */
   createStudioEnvMap() {
     const canvas = document.createElement('canvas');
@@ -194,13 +195,13 @@ export class Scene3D {
   }
 
   /**
-   * Builds the central group: Realistic Key Visual Flame + Golden Torch + Open Book Base
+   * Builds the central group: Multi-Directional Living 3D Flame + Golden Torch + Open Book Base
    */
   buildCore() {
     this.coreGroup = new THREE.Group();
 
-    // 1. Realistic Living S-Curve Flame (Kết hợp hình dáng Key Visual & Vật lý lửa thật)
-    this.buildStylizedFlame();
+    // 1. Multi-Directional Living 3D Torch Flame
+    this.buildLiving3DFlame();
 
     // 2. Olympic Golden Torch & Open Book of Wisdom Base
     this.buildAltarBase();
@@ -209,47 +210,77 @@ export class Scene3D {
   }
 
   /**
-   * Builds the realistic living S-Curve Flame:
-   * - True 3D Volumetric Fire Core inside the cup (`FireMesh`)
-   * - Multi-layered 3D Curved Shells driven by a real-time GLSL Simplex FBM Fire Shader
-   *   that advects upward thermal currents, erodes licking flame tips, and renders
-   *   dynamic blackbody plasma streams (Sapphire-Blue base + Imperial Gold & Fiery Orange body)
-   * - Fine ascending fire micro-embers rising from the flame tongues
+   * Builds a 360-degree, multi-directional living 3D torch flame:
+   * - 3 Volumetric Raymarched `FireMesh` layers (FPT Orange Outer + White-Gold Core + Sapphire-Blue Base)
+   * - 6 Intertwined 3D Curved Petals driven by a 100% Pure Procedural GLSL Fire Shader
+   *   whose centerline dynamically weaves left, right, front, and back (never frozen in 1 direction!)
+   * - Fine ascending fire micro-embers rising and swirling in 3D
    */
-  buildStylizedFlame() {
+  buildLiving3DFlame() {
     this.flameGroup = new THREE.Group();
     this.flameGroup.position.set(0, 0.95, 0);
-    this.flameLayers = [];
+    this.proceduralFlameMeshes = [];
 
-    // A. Inner 3D Raymarched Volumetric Fire Core (Gives genuine 3D depth inside the cup)
     const textureLoader = new THREE.TextureLoader();
     const fireTex = textureLoader.load('/assets/Fire.png', (tex) => {
       tex.needsUpdate = true;
     });
 
-    this.volumetricCore = new FireMesh({
+    // --- A. 3-LAYER 3D VOLUMETRIC RAYMARCHED FIRE PLUME ---
+    // 1. Outer FPT Orange-Gold Volumetric Plume
+    this.fireOuterVolume = new FireMesh({
       fireTex: fireTex,
-      color: 0xffaa22,
-      magnitude: 1.65,
-      lacunarity: 2.1,
-      gain: 0.5,
+      color: 0xf37021,
+      magnitude: 1.55,
+      lacunarity: 2.0,
+      gain: 0.48,
+      iterations: this.isMobile ? 16 : 22,
+      octaves: 3,
+      noiseScale: [1.15, 2.6, 1.15, 0.36]
+    });
+    this.fireOuterVolume.scale.set(4.5, 10.2, 4.5);
+    this.fireOuterVolume.position.set(0, 0.75, 0);
+    this.flameGroup.add(this.fireOuterVolume);
+
+    // 2. Inner Incandescent Imperial Gold & White Heart
+    this.fireInnerVolume = new FireMesh({
+      fireTex: fireTex,
+      color: 0xffea75,
+      magnitude: 1.75,
+      lacunarity: 2.0,
+      gain: 0.48,
       iterations: this.isMobile ? 14 : 18,
       octaves: 3,
-      noiseScale: [1.3, 2.9, 1.3, 0.42]
+      noiseScale: [1.25, 2.8, 1.25, 0.4]
     });
-    this.volumetricCore.scale.set(3.4, 8.2, 3.4);
-    this.volumetricCore.position.set(0.05, -0.35, 0.0);
-    this.volumetricCore.material.blending = THREE.AdditiveBlending;
-    this.flameGroup.add(this.volumetricCore);
+    this.fireInnerVolume.scale.set(3.1, 7.6, 3.1);
+    this.fireInnerVolume.position.set(0, -0.35, 0);
+    this.fireInnerVolume.material.blending = THREE.AdditiveBlending;
+    this.flameGroup.add(this.fireInnerVolume);
 
-    // B. Atmospheric Backglow Sprites
-    // 1. Warm Golden-Orange Halo behind the flame body
+    // 3. Base Sapphire-Blue Knowledge Gas Flame (Nestled right in the golden torch cup mouth)
+    this.fireBlueVolume = new FireMesh({
+      fireTex: fireTex,
+      color: 0x38bdf8,
+      magnitude: 1.45,
+      lacunarity: 2.1,
+      gain: 0.5,
+      iterations: this.isMobile ? 12 : 16,
+      octaves: 2,
+      noiseScale: [1.4, 2.5, 1.4, 0.38]
+    });
+    this.fireBlueVolume.scale.set(3.3, 4.2, 3.3);
+    this.fireBlueVolume.position.set(0.18, -1.85, 0.15);
+    this.fireBlueVolume.material.blending = THREE.AdditiveBlending;
+    this.flameGroup.add(this.fireBlueVolume);
+
+    // --- B. ATMOSPHERIC GLOW HALOS ---
     const auraCanvas = document.createElement('canvas');
     auraCanvas.width = 128;
     auraCanvas.height = 128;
     const aCtx = auraCanvas.getContext('2d');
     const aGrad = aCtx.createRadialGradient(64, 64, 2, 64, 64, 62);
-    aGrad.addColorStop(0.0, 'rgba(255, 220, 110, 0.55)');
+    aGrad.addColorStop(0.0, 'rgba(255, 225, 120, 0.55)');
     aGrad.addColorStop(0.38, 'rgba(243, 112, 33, 0.28)');
     aGrad.addColorStop(0.72, 'rgba(243, 112, 33, 0.08)');
     aGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
@@ -264,11 +295,10 @@ export class Scene3D {
         depthWrite: false
       })
     );
-    this.auraSprite.scale.set(9.2, 10.8, 1);
-    this.auraSprite.position.set(0.0, 0.1, -0.55);
+    this.auraSprite.scale.set(9.4, 11.2, 1);
+    this.auraSprite.position.set(0, 0.25, -0.5);
     this.flameGroup.add(this.auraSprite);
 
-    // 2. Intense Cup Rim Glow at the base of the flame
     const haloCanvas = document.createElement('canvas');
     haloCanvas.width = 128;
     haloCanvas.height = 128;
@@ -293,15 +323,14 @@ export class Scene3D {
     this.haloSprite.position.set(0, -3.35, 0.15);
     this.flameGroup.add(this.haloSprite);
 
-    // 3. Sapphire-Blue Knowledge Core Glow Sprite (Right above the cup rim)
     const blueCanvas = document.createElement('canvas');
     blueCanvas.width = 128;
     blueCanvas.height = 128;
     const bCtx = blueCanvas.getContext('2d');
     const bGrad = bCtx.createRadialGradient(64, 64, 0, 64, 64, 58);
-    bGrad.addColorStop(0.0, 'rgba(224, 242, 254, 0.82)');
-    bGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.52)');
-    bGrad.addColorStop(0.7, 'rgba(29, 78, 216, 0.20)');
+    bGrad.addColorStop(0.0, 'rgba(224, 242, 254, 0.80)');
+    bGrad.addColorStop(0.38, 'rgba(56, 189, 248, 0.48)');
+    bGrad.addColorStop(0.72, 'rgba(29, 78, 216, 0.18)');
     bGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
     bCtx.fillStyle = bGrad;
     bCtx.fillRect(0, 0, 128, 128);
@@ -314,94 +343,12 @@ export class Scene3D {
         depthWrite: false
       })
     );
-    this.blueCoreSprite.scale.set(3.6, 3.4, 1);
-    this.blueCoreSprite.position.set(0.38, -2.35, 0.25);
+    this.blueCoreSprite.scale.set(4.0, 3.4, 1);
+    this.blueCoreSprite.position.set(0.15, -2.55, 0.25);
     this.flameGroup.add(this.blueCoreSprite);
 
-    // C. Soft-Feathered Density & Color Field Maps for the GLSL Simplex Fire Shader
-    const mainBodyTex = this.createMainFlameBodyTexture();
-    const goldRidgesTex = this.createGoldRidgesTexture();
-    const blueCoreTex = this.createBlueCoreFlameTexture();
-
-    const layerConfigs = [
-      {
-        tex: mainBodyTex,
-        width: 6.5,
-        height: 8.7,
-        zOffset: -0.1,
-        rotY: 0.0,
-        curveZ: 0.42,
-        phase: 0.0,
-        swayAmp: 0.18,
-        warpScale: 1.0,
-        flowSpeed: 2.8,
-        isBlue: 0.0,
-        blending: THREE.NormalBlending,
-        opacity: 0.96
-      },
-      {
-        tex: mainBodyTex,
-        width: 6.0,
-        height: 8.5,
-        zOffset: -0.02,
-        rotY: 0.44,
-        curveZ: 0.5,
-        phase: 1.7,
-        swayAmp: 0.2,
-        warpScale: 1.15,
-        flowSpeed: 3.1,
-        isBlue: 0.0,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.62
-      },
-      {
-        tex: mainBodyTex,
-        width: 6.0,
-        height: 8.5,
-        zOffset: -0.02,
-        rotY: -0.44,
-        curveZ: -0.5,
-        phase: 3.4,
-        swayAmp: 0.2,
-        warpScale: 1.15,
-        flowSpeed: 2.9,
-        isBlue: 0.0,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.52
-      },
-      {
-        tex: goldRidgesTex,
-        width: 6.4,
-        height: 8.6,
-        zOffset: 0.08,
-        rotY: 0.0,
-        curveZ: 0.3,
-        phase: 0.8,
-        swayAmp: 0.2,
-        warpScale: 1.25,
-        flowSpeed: 3.4,
-        isBlue: 0.0,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.92
-      },
-      {
-        tex: blueCoreTex,
-        width: 6.2,
-        height: 8.5,
-        zOffset: 0.22,
-        rotY: 0.0,
-        curveZ: 0.24,
-        phase: 2.1,
-        swayAmp: 0.12,
-        warpScale: 0.95,
-        flowSpeed: 3.6,
-        isBlue: 1.0,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.98
-      }
-    ];
-
-    // GLSL 2D Simplex Noise + Upward FBM Convection & Blackbody Plasma Shader
+    // --- C. 100% PURE PROCEDURAL GLSL MULTI-DIRECTIONAL SILK FIRE PETALS ---
+    // Arranged around 360 degrees so the flame dances in all directions with silky plasma ridges
     const vertexShader = `
       varying vec2 vUv;
       uniform float uTime;
@@ -413,15 +360,15 @@ export class Scene3D {
         vec3 pos = position;
 
         // Pin base inside the golden torch cup (uv.y == 0 -> h == 0)
-        float h = smoothstep(0.02, 0.98, uv.y);
-        float hPow = pow(h, 1.4);
+        float h = smoothstep(0.0, 0.98, uv.y);
+        float hPow = pow(h, 1.35);
 
-        // Organic thermal updraft sway
-        float wave1 = sin(uv.y * 4.8 - uTime * 3.2 + uPhase) * uSwayAmp * hPow;
-        float wave2 = cos(uv.y * 8.2 - uTime * 5.1 + uPhase * 1.3) * (uSwayAmp * 0.35) * hPow;
-        float waveZ = sin(uv.y * 4.2 - uTime * 2.7 + uPhase) * (uSwayAmp * 0.5) * hPow;
+        // Multi-directional 3D vortex undulation
+        float waveX = sin(uv.y * 4.5 - uTime * 3.1 + uPhase) * uSwayAmp * hPow
+                    + cos(uv.y * 7.8 - uTime * 4.8 - uPhase) * (uSwayAmp * 0.35) * hPow;
+        float waveZ = cos(uv.y * 4.2 - uTime * 2.8 + uPhase * 1.3) * (uSwayAmp * 0.65) * hPow;
 
-        pos.x += wave1 + wave2;
+        pos.x += waveX;
         pos.z += waveZ;
 
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
@@ -430,16 +377,12 @@ export class Scene3D {
 
     const fragmentShader = `
       varying vec2 vUv;
-      uniform sampler2D uMap;
       uniform float uTime;
       uniform float uPhase;
-      uniform float uWarpScale;
-      uniform float uFlowSpeed;
-      uniform float uIsBlue;
+      uniform float uColorMode;
       uniform float uOpacity;
       uniform float uBoost;
 
-      // Fast 2D Simplex Noise (Ashima Arts)
       vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
       float snoise(vec2 v) {
         const vec4 C = vec4(0.211324865405187, 0.366025403784439,
@@ -466,55 +409,156 @@ export class Scene3D {
       }
 
       void main() {
-        float h = clamp(vUv.y, 0.0, 1.0);
-        // Keep base anchored inside cup, increase fire turbulence toward upper body & tips
-        float warpMask = smoothstep(0.03, 0.85, h);
+        float h = vUv.y;
+        if (h <= 0.005 || h >= 0.995) discard;
 
-        // 3-Octave Upward-Scrolling Fire Convection (FBM)
-        float t = uTime * uFlowSpeed;
-        float n1 = snoise(vec2(vUv.x * 3.4, vUv.y * 3.8 - t * 0.85 + uPhase));
-        float n2 = snoise(vec2(vUv.x * 7.2 + n1 * 0.42, vUv.y * 7.8 - t * 1.45 + uPhase * 1.7));
-        float n3 = snoise(vec2(vUv.x * 14.5 - n2 * 0.3, vUv.y * 15.0 - t * 2.2));
+        float t = uTime * 2.5;
+
+        // 1. Dynamic Weaving Spine: Alternates smoothly between left & right curves over time!
+        float spineWave1 = sin(h * 5.0 - t * 1.2 + uPhase) * 0.14 * pow(h, 1.15);
+        float spineWave2 = cos(h * 2.8 - t * 0.78 - uPhase * 0.8) * 0.10 * pow(h, 1.35);
+        float spineNoise = snoise(vec2(h * 1.6 - t * 0.45, uPhase)) * 0.11 * pow(h, 1.2);
+        float centerX = 0.5 + spineWave1 + spineWave2 + spineNoise;
+
+        // 2. Natural Teardrop Plume Width Envelope
+        float cupBase = smoothstep(0.0, 0.11, h);
+        float tipTaper = pow(max(0.0, 1.0 - h), 0.76);
+        float halfWidth = 0.34 * cupBase * tipTaper;
+
+        float dist = abs(vUv.x - centerX) / max(halfWidth, 0.001);
+
+        // 3. Multi-Octave Upward-Convecting Fire Turbulence (FBM)
+        vec2 flowUv = vec2((vUv.x - centerX) * 3.6, h * 3.8 - t * 1.3);
+        float n1 = snoise(flowUv + vec2(uPhase, 0.0));
+        float n2 = snoise(flowUv * 2.15 + vec2(n1 * 0.45, -t * 0.65 + uPhase));
+        float n3 = snoise(flowUv * 4.4 - vec2(n2 * 0.35, t * 1.15));
         float fbm = n1 * 0.52 + n2 * 0.33 + n3 * 0.15;
 
-        // Domain-warp UV coordinates so real flame tongues lick upward along the S-curve!
-        vec2 warpedUv = vUv;
-        warpedUv.x += fbm * 0.068 * warpMask * uWarpScale;
-        warpedUv.y += (n1 * 0.042 + n2 * 0.024) * warpMask * uWarpScale;
+        // 4. Licking Flame Tongues on BOTH left and right sides
+        float density = 1.0 - dist + fbm * (0.36 + 0.34 * h);
+        float alpha = smoothstep(0.18, 0.74, density) * cupBase * smoothstep(1.0, 0.85, h);
+        if (alpha < 0.005) discard;
 
-        vec4 texSample = texture2D(uMap, clamp(warpedUv, 0.002, 0.998));
-        float baseDensity = texSample.a;
-        if (baseDensity < 0.005) discard;
+        // 5. Silky Upward Plasma Ridges (Các dải lụa lửa cuộn lên tự nhiên)
+        float streamWave = sin((vUv.x - centerX) * 24.0 + n1 * 2.6) * 0.5 + 0.5;
+        float silkRidge = smoothstep(0.25, 0.90, streamWave) * smoothstep(0.22, 0.88, density);
 
-        // Dynamic fire edge erosion: creates living licking wisps & soft plasma falloff
-        float erosionNoise = fbm * 0.5 + 0.5;
-        float erodedDensity = baseDensity + (erosionNoise - 0.46) * 0.42 * warpMask;
-        float finalAlpha = smoothstep(0.08, 0.58, erodedDensity) * baseDensity;
-        if (finalAlpha < 0.005) discard;
+        // 6. Blackbody Thermal Color Gradient
+        vec3 outerCol;
+        vec3 midCol;
+        vec3 coreCol;
 
-        // Upward-streaming incandescent plasma filaments inside the flame
-        float streamNoise = snoise(vec2(warpedUv.x * 8.5 + n1 * 0.55, warpedUv.y * 5.5 - t * 1.3 + uPhase));
-        float filament = smoothstep(0.05, 0.82, streamNoise * 0.5 + 0.5) * smoothstep(0.25, 0.9, baseDensity);
+        if (uColorMode > 1.5) {
+          // Sapphire-Blue & Cyan Gas Flame at the cup mouth
+          outerCol = vec3(0.05, 0.28, 0.90);
+          midCol   = vec3(0.18, 0.74, 1.0);
+          coreCol  = vec3(0.92, 0.98, 1.0);
+        } else {
+          // Fiery FPT Orange -> Imperial Gold -> Incandescent White-Gold
+          outerCol = vec3(0.95, 0.30, 0.04);
+          midCol   = vec3(1.0, 0.76, 0.12);
+          coreCol  = vec3(1.0, 0.98, 0.88);
+        }
 
-        vec3 col = texSample.rgb;
+        float heat = clamp(density * 0.82 + silkRidge * 0.45, 0.0, 1.0);
+        vec3 col = mix(outerCol, midCol, smoothstep(0.15, 0.56, heat));
+        col = mix(col, coreCol, smoothstep(0.56, 0.94, heat));
 
-        // Blackbody thermal color modulation:
-        // White-hot / cyan-white core filaments + rich fiery orange / deep sapphire outer rim
-        vec3 coreGlow = uIsBlue > 0.5 ? vec3(0.88, 0.97, 1.0) : vec3(1.0, 0.97, 0.82);
-        vec3 outerRim = uIsBlue > 0.5 ? vec3(0.06, 0.42, 0.96) : vec3(0.96, 0.26, 0.03);
+        // Subtle blue-cyan thermal ionization at the very bottom near the cup lip
+        if (uColorMode < 1.5) {
+          float blueLip = smoothstep(0.24, 0.02, h) * smoothstep(0.35, 0.85, 1.0 - dist);
+          col = mix(col, vec3(0.22, 0.74, 1.0), blueLip * 0.58);
+        }
 
-        float rimFactor = smoothstep(0.72, 0.12, erodedDensity);
-        col = mix(col, outerRim, rimFactor * 0.45);
-        col = mix(col, coreGlow, filament * 0.52);
-
-        // Living thermal flicker
-        float flicker = 1.0 + 0.22 * fbm + uBoost * 0.4;
-        gl_FragColor = vec4(col * flicker, finalAlpha * uOpacity);
+        float pulse = 1.05 + 0.22 * n1 + uBoost * 0.45;
+        gl_FragColor = vec4(col * pulse, alpha * uOpacity);
       }
     `;
 
-    layerConfigs.forEach((cfg) => {
-      const geo = new THREE.PlaneGeometry(cfg.width, cfg.height, 28, 56);
+    const petalConfigs = [
+      // Main multi-directional golden-orange fire petals arranged around Y-axis
+      {
+        width: 5.8,
+        height: 8.6,
+        yOffset: 0.35,
+        rotY: 0.0,
+        curveZ: 0.45,
+        phase: 0.0,
+        swayAmp: 0.22,
+        colorMode: 0.0,
+        opacity: 0.78
+      },
+      {
+        width: 5.5,
+        height: 8.3,
+        yOffset: 0.25,
+        rotY: 0.62,
+        curveZ: 0.5,
+        phase: 2.1,
+        swayAmp: 0.24,
+        colorMode: 0.0,
+        opacity: 0.65
+      },
+      {
+        width: 5.5,
+        height: 8.3,
+        yOffset: 0.25,
+        rotY: -0.62,
+        curveZ: -0.5,
+        phase: 4.2,
+        swayAmp: 0.24,
+        colorMode: 0.0,
+        opacity: 0.65
+      },
+      {
+        width: 5.0,
+        height: 7.8,
+        yOffset: 0.1,
+        rotY: 1.25,
+        curveZ: 0.45,
+        phase: 1.05,
+        swayAmp: 0.22,
+        colorMode: 0.0,
+        opacity: 0.48
+      },
+      {
+        width: 5.0,
+        height: 7.8,
+        yOffset: 0.1,
+        rotY: -1.25,
+        curveZ: -0.45,
+        phase: 3.15,
+        swayAmp: 0.22,
+        colorMode: 0.0,
+        opacity: 0.48
+      },
+      // Sapphire-Blue Knowledge Gas Flame Petals at the base inside the cup
+      {
+        width: 4.4,
+        height: 4.2,
+        yOffset: -1.8,
+        rotY: 0.18,
+        curveZ: 0.35,
+        phase: 0.7,
+        swayAmp: 0.14,
+        colorMode: 2.0,
+        opacity: 0.72
+      },
+      {
+        width: 4.2,
+        height: 4.0,
+        yOffset: -1.85,
+        rotY: -0.45,
+        curveZ: -0.35,
+        phase: 2.8,
+        swayAmp: 0.14,
+        colorMode: 2.0,
+        opacity: 0.62
+      }
+    ];
+
+    petalConfigs.forEach((cfg) => {
+      const geo = new THREE.PlaneGeometry(cfg.width, cfg.height, 24, 52);
       const pos = geo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         const px = pos.getX(i);
@@ -529,42 +573,39 @@ export class Scene3D {
 
       const mat = new THREE.ShaderMaterial({
         uniforms: {
-          uMap: { value: cfg.tex },
           uTime: { value: 0 },
           uPhase: { value: cfg.phase },
           uSwayAmp: { value: cfg.swayAmp },
-          uWarpScale: { value: cfg.warpScale },
-          uFlowSpeed: { value: cfg.flowSpeed },
-          uIsBlue: { value: cfg.isBlue },
+          uColorMode: { value: cfg.colorMode },
           uOpacity: { value: cfg.opacity },
           uBoost: { value: 0.0 }
         },
         vertexShader,
         fragmentShader,
         transparent: true,
-        blending: cfg.blending,
+        blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide
       });
 
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(0, 0.25, cfg.zOffset);
+      mesh.position.set(0, cfg.yOffset, 0);
       mesh.rotation.y = cfg.rotY;
       this.flameGroup.add(mesh);
-      this.flameLayers.push(mesh);
+      this.proceduralFlameMeshes.push(mesh);
     });
 
-    // D. Fine Ascending Fire Micro-Embers (Tàn lửa li ti bay lên từ ngọn lửa thật)
+    // --- D. FINE ASCENDING 3D FIRE MICRO-EMBERS ---
     this.buildRisingFireEmbers();
 
     this.coreGroup.add(this.flameGroup);
   }
 
   /**
-   * Builds fine, realistic glowing fire embers rising directly along the S-curve flame
+   * Builds fine, realistic glowing fire embers rising and swirling in 3D from the torch flame
    */
   buildRisingFireEmbers() {
-    const count = this.isMobile ? 24 : 44;
+    const count = this.isMobile ? 28 : 52;
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const phases = new Float32Array(count);
@@ -572,7 +613,7 @@ export class Scene3D {
 
     for (let i = 0; i < count; i++) {
       phases[i] = Math.random();
-      speeds[i] = 0.22 + Math.random() * 0.25;
+      speeds[i] = 0.22 + Math.random() * 0.26;
       this.setFireEmberPos(positions, i, phases[i], 0);
     }
 
@@ -605,301 +646,13 @@ export class Scene3D {
   }
 
   setFireEmberPos(positions, idx, t, time) {
-    // Follow the S-curve spine of the flame from cup rim (y = -3.2) to above tip (y = +4.6)
-    const y = -3.2 + t * 7.8;
-    const sCurveX =
-      Math.sin(t * Math.PI * 1.65 - 0.5) * 0.65 * (1.0 - t * 0.35);
-    const spread = (1.0 - t * 0.4) * 0.85;
-    const angle = idx * 2.399 + time * 1.8;
-    positions[idx * 3] = sCurveX + Math.cos(angle) * spread * 0.55;
+    // Swirl upward in 360 degrees from the cup rim (y = -3.2) to above the flame tip (y = +4.8)
+    const y = -3.2 + t * 8.0;
+    const radius = (1.0 - t * 0.55) * 1.15 + Math.sin(t * 6.0 + idx) * 0.25;
+    const angle = idx * 2.399 + time * 1.9 + t * 3.5;
+    positions[idx * 3] = Math.cos(angle) * radius;
     positions[idx * 3 + 1] = y;
-    positions[idx * 3 + 2] = Math.sin(angle) * spread * 0.45;
-  }
-
-  /**
-   * Draws Soft-Feathered Density & Color Field for the Main S-Curve Flame + Right Fork.
-   * Soft blurring ensures the GLSL Simplex FBM shader erodes edges into natural plasma fire!
-   */
-  createMainFlameBodyTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 1280;
-    const ctx = canvas.getContext('2d');
-
-    ctx.clearRect(0, 0, 1024, 1280);
-
-    // 1. Soft Outer Thermal Plasma Halo
-    ctx.save();
-    ctx.filter = 'blur(28px)';
-    const outerGrad = ctx.createLinearGradient(512, 1200, 512, 80);
-    outerGrad.addColorStop(0.0, 'rgba(255, 150, 30, 0.90)');
-    outerGrad.addColorStop(0.45, 'rgba(243, 112, 33, 0.88)');
-    outerGrad.addColorStop(0.85, 'rgba(255, 165, 20, 0.72)');
-    outerGrad.addColorStop(1.0, 'rgba(243, 112, 33, 0.0)');
-    ctx.fillStyle = outerGrad;
-    this.traceMainSFlamePath(ctx);
-    ctx.fill();
-    ctx.restore();
-
-    // 2. Soft-Feathered S-Curve Flame Body (Blurred 12px so there are ZERO hard vector edges!)
-    ctx.save();
-    ctx.filter = 'blur(12px)';
-    const mainGrad = ctx.createLinearGradient(350, 1210, 580, 90);
-    mainGrad.addColorStop(0.0, '#fff3b0');
-    mainGrad.addColorStop(0.18, '#ffb703');
-    mainGrad.addColorStop(0.48, '#f37021');
-    mainGrad.addColorStop(0.78, '#fbbf24');
-    mainGrad.addColorStop(0.95, '#f97316');
-    mainGrad.addColorStop(1.0, 'rgba(243, 112, 33, 0.0)');
-
-    ctx.fillStyle = mainGrad;
-    this.traceMainSFlamePath(ctx);
-    ctx.fill();
-
-    // 3. Secondary Right-Side Curling Flame Fork
-    const forkGrad = ctx.createLinearGradient(540, 1160, 740, 370);
-    forkGrad.addColorStop(0.0, '#fde047');
-    forkGrad.addColorStop(0.4, '#f59e0b');
-    forkGrad.addColorStop(0.8, '#ea580c');
-    forkGrad.addColorStop(1.0, 'rgba(254, 240, 138, 0.1)');
-
-    ctx.fillStyle = forkGrad;
-    ctx.beginPath();
-    ctx.moveTo(460, 1185);
-    ctx.bezierCurveTo(440, 960, 590, 820, 690, 650);
-    ctx.bezierCurveTo(755, 530, 745, 420, 695, 360);
-    ctx.bezierCurveTo(725, 445, 700, 540, 610, 645);
-    ctx.bezierCurveTo(510, 760, 365, 920, 360, 1185);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // 4. Inner Golden Plasma Streams (Softly feathered 8px)
-    ctx.save();
-    ctx.filter = 'blur(8px)';
-    const rib1Grad = ctx.createLinearGradient(380, 1190, 520, 120);
-    rib1Grad.addColorStop(0.0, '#ffffff');
-    rib1Grad.addColorStop(0.22, '#fef08a');
-    rib1Grad.addColorStop(0.55, '#fbbf24');
-    rib1Grad.addColorStop(0.85, '#f59e0b');
-    rib1Grad.addColorStop(1.0, 'rgba(253, 224, 71, 0.0)');
-
-    ctx.fillStyle = rib1Grad;
-    ctx.beginPath();
-    ctx.moveTo(335, 1195);
-    ctx.bezierCurveTo(215, 975, 270, 750, 465, 560);
-    ctx.bezierCurveTo(635, 395, 625, 225, 485, 105);
-    ctx.bezierCurveTo(575, 235, 565, 385, 405, 540);
-    ctx.bezierCurveTo(220, 720, 175, 955, 290, 1195);
-    ctx.closePath();
-    ctx.fill();
-
-    const rib2Grad = ctx.createLinearGradient(440, 1190, 560, 190);
-    rib2Grad.addColorStop(0.0, '#ffffff');
-    rib2Grad.addColorStop(0.35, '#fef9c3');
-    rib2Grad.addColorStop(0.7, '#fde047');
-    rib2Grad.addColorStop(1.0, 'rgba(245, 158, 11, 0.0)');
-
-    ctx.fillStyle = rib2Grad;
-    ctx.beginPath();
-    ctx.moveTo(410, 1195);
-    ctx.bezierCurveTo(295, 960, 355, 765, 535, 585);
-    ctx.bezierCurveTo(680, 440, 660, 270, 515, 155);
-    ctx.bezierCurveTo(615, 285, 610, 435, 475, 575);
-    ctx.bezierCurveTo(310, 745, 255, 950, 360, 1195);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // Smooth bottom feather into the golden cup lip
-    ctx.globalCompositeOperation = 'destination-in';
-    const maskGrad = ctx.createLinearGradient(0, 1260, 0, 0);
-    maskGrad.addColorStop(0.0, 'rgba(0,0,0,0)');
-    maskGrad.addColorStop(0.06, 'rgba(0,0,0,1)');
-    maskGrad.addColorStop(0.94, 'rgba(0,0,0,1)');
-    maskGrad.addColorStop(1.0, 'rgba(0,0,0,0)');
-    ctx.fillStyle = maskGrad;
-    ctx.fillRect(0, 0, 1024, 1280);
-    ctx.globalCompositeOperation = 'source-over';
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    return tex;
-  }
-
-  traceMainSFlamePath(ctx) {
-    ctx.beginPath();
-    ctx.moveTo(275, 1200);
-    ctx.bezierCurveTo(135, 980, 195, 725, 425, 520);
-    ctx.bezierCurveTo(615, 350, 610, 200, 465, 88);
-    ctx.bezierCurveTo(585, 165, 685, 315, 645, 495);
-    ctx.bezierCurveTo(615, 635, 495, 760, 545, 930);
-    ctx.bezierCurveTo(585, 1055, 700, 1110, 735, 1200);
-    ctx.closePath();
-  }
-
-  /**
-   * Draws Soft-Feathered White-Gold Longitudinal Plasma Streams & Cup Rim Wisps
-   */
-  createGoldRidgesTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 1280;
-    const ctx = canvas.getContext('2d');
-
-    ctx.clearRect(0, 0, 1024, 1280);
-
-    ctx.save();
-    ctx.filter = 'blur(9px)';
-
-    // 1. Primary Incandescent Silk Spine
-    const spineGrad = ctx.createLinearGradient(450, 1190, 510, 100);
-    spineGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.98)');
-    spineGrad.addColorStop(0.35, 'rgba(254, 249, 195, 0.95)');
-    spineGrad.addColorStop(0.7, 'rgba(253, 224, 71, 0.88)');
-    spineGrad.addColorStop(1.0, 'rgba(251, 191, 36, 0.0)');
-
-    ctx.fillStyle = spineGrad;
-    ctx.beginPath();
-    ctx.moveTo(355, 1195);
-    ctx.bezierCurveTo(225, 965, 290, 745, 485, 555);
-    ctx.bezierCurveTo(645, 398, 632, 220, 478, 96);
-    ctx.bezierCurveTo(598, 220, 595, 390, 445, 545);
-    ctx.bezierCurveTo(260, 735, 195, 960, 315, 1195);
-    ctx.closePath();
-    ctx.fill();
-
-    // 2. Second Inner Silk Stream
-    ctx.beginPath();
-    ctx.moveTo(435, 1195);
-    ctx.bezierCurveTo(335, 965, 405, 785, 565, 610);
-    ctx.bezierCurveTo(685, 475, 670, 310, 535, 190);
-    ctx.bezierCurveTo(635, 310, 635, 465, 520, 595);
-    ctx.bezierCurveTo(365, 770, 300, 960, 395, 1195);
-    ctx.closePath();
-    ctx.fill();
-
-    // 3. Right Branch Stream
-    const branchGrad = ctx.createLinearGradient(550, 1150, 725, 365);
-    branchGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.85)');
-    branchGrad.addColorStop(0.5, 'rgba(254, 240, 138, 0.85)');
-    branchGrad.addColorStop(1.0, 'rgba(251, 191, 36, 0.15)');
-    ctx.fillStyle = branchGrad;
-
-    ctx.beginPath();
-    ctx.moveTo(475, 1185);
-    ctx.bezierCurveTo(465, 975, 610, 825, 702, 650);
-    ctx.bezierCurveTo(758, 535, 745, 425, 695, 360);
-    ctx.bezierCurveTo(725, 435, 718, 535, 660, 645);
-    ctx.bezierCurveTo(568, 815, 435, 970, 440, 1185);
-    ctx.closePath();
-    ctx.fill();
-
-    // 4. Right Cup Rim Licking Wisp
-    const wispGrad = ctx.createLinearGradient(680, 1190, 810, 900);
-    wispGrad.addColorStop(0.0, '#ffffff');
-    wispGrad.addColorStop(0.45, '#fde047');
-    wispGrad.addColorStop(0.85, '#f97316');
-    wispGrad.addColorStop(1.0, 'rgba(243, 112, 33, 0)');
-    ctx.fillStyle = wispGrad;
-
-    ctx.beginPath();
-    ctx.moveTo(645, 1195);
-    ctx.bezierCurveTo(735, 1165, 815, 1085, 805, 965);
-    ctx.bezierCurveTo(798, 915, 765, 885, 740, 870);
-    ctx.bezierCurveTo(765, 905, 775, 955, 762, 1015);
-    ctx.bezierCurveTo(745, 1095, 675, 1150, 595, 1195);
-    ctx.closePath();
-    ctx.fill();
-
-    // 5. Left Cup Rim Licking Wisp
-    ctx.beginPath();
-    ctx.moveTo(310, 1195);
-    ctx.bezierCurveTo(225, 1150, 175, 1055, 195, 945);
-    ctx.bezierCurveTo(205, 995, 240, 1095, 345, 1195);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    return tex;
-  }
-
-  /**
-   * Draws Soft-Feathered Sapphire-Blue Gas Flame Core at the bottom-right of the flame
-   */
-  createBlueCoreFlameTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 1280;
-    const ctx = canvas.getContext('2d');
-
-    ctx.clearRect(0, 0, 1024, 1280);
-
-    // 1. Soft Sapphire Plasma Glow
-    ctx.save();
-    ctx.filter = 'blur(18px)';
-    const blueGlow = ctx.createRadialGradient(575, 1050, 15, 575, 1050, 220);
-    blueGlow.addColorStop(0.0, 'rgba(56, 189, 248, 0.90)');
-    blueGlow.addColorStop(0.5, 'rgba(37, 99, 235, 0.60)');
-    blueGlow.addColorStop(1.0, 'rgba(29, 78, 216, 0.0)');
-    ctx.fillStyle = blueGlow;
-    ctx.fillRect(330, 760, 480, 460);
-    ctx.restore();
-
-    // 2. Soft-Feathered Sapphire-Blue Curling Tongue
-    ctx.save();
-    ctx.filter = 'blur(9px)';
-    const blueBodyGrad = ctx.createLinearGradient(460, 1200, 650, 810);
-    blueBodyGrad.addColorStop(0.0, '#e0f2fe');
-    blueBodyGrad.addColorStop(0.22, '#60a5fa');
-    blueBodyGrad.addColorStop(0.55, '#2563eb');
-    blueBodyGrad.addColorStop(0.82, '#1d4ed8');
-    blueBodyGrad.addColorStop(1.0, 'rgba(186, 230, 253, 0.1)');
-
-    ctx.fillStyle = blueBodyGrad;
-    ctx.beginPath();
-    ctx.moveTo(415, 1198);
-    ctx.bezierCurveTo(435, 1075, 515, 985, 615, 915);
-    ctx.bezierCurveTo(675, 872, 688, 822, 652, 775);
-    ctx.bezierCurveTo(718, 825, 728, 915, 685, 1010);
-    ctx.bezierCurveTo(645, 1098, 585, 1165, 635, 1198);
-    ctx.closePath();
-    ctx.fill();
-
-    // 3. Luminous Ice-White & Cyan Plasma Stream inside the Blue Flame
-    const cyanRidgeGrad = ctx.createLinearGradient(480, 1198, 665, 785);
-    cyanRidgeGrad.addColorStop(0.0, '#ffffff');
-    cyanRidgeGrad.addColorStop(0.4, '#e0f2fe');
-    cyanRidgeGrad.addColorStop(0.75, '#38bdf8');
-    cyanRidgeGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0.1)');
-
-    ctx.fillStyle = cyanRidgeGrad;
-    ctx.beginPath();
-    ctx.moveTo(455, 1198);
-    ctx.bezierCurveTo(475, 1090, 548, 1005, 635, 932);
-    ctx.bezierCurveTo(682, 892, 692, 832, 655, 778);
-    ctx.bezierCurveTo(705, 835, 702, 910, 655, 978);
-    ctx.bezierCurveTo(595, 1065, 535, 1135, 555, 1198);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // Smooth bottom feather
-    ctx.globalCompositeOperation = 'destination-in';
-    const maskGrad = ctx.createLinearGradient(0, 1245, 0, 700);
-    maskGrad.addColorStop(0.0, 'rgba(0,0,0,0)');
-    maskGrad.addColorStop(0.09, 'rgba(0,0,0,1)');
-    maskGrad.addColorStop(1.0, 'rgba(0,0,0,1)');
-    ctx.fillStyle = maskGrad;
-    ctx.fillRect(0, 0, 1024, 1280);
-    ctx.globalCompositeOperation = 'source-over';
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    return tex;
+    positions[idx * 3 + 2] = Math.sin(angle) * radius;
   }
 
   /**
@@ -910,7 +663,6 @@ export class Scene3D {
     const altarGroup = new THREE.Group();
     const segments = this.isMobile ? 28 : 40;
 
-    // 1. Radiant Imperial Gold Materials
     const olympicGoldMat = new THREE.MeshStandardMaterial({
       color: 0xffd84d,
       roughness: 0.22,
@@ -938,7 +690,6 @@ export class Scene3D {
     // --- A. ROYAL GOLDEN OLYMPIC TORCH (ĐÀI ĐUỐC VÀNG HOÀNG GIA) ---
     const torchGroup = new THREE.Group();
 
-    // 1. Upper Flared Crown Rim (Miệng đài đuốc 2 tầng)
     const upperLipGeo = new THREE.TorusGeometry(2.05, 0.15, 14, segments);
     const upperLip = new THREE.Mesh(upperLipGeo, brightGoldHighlightMat);
     upperLip.rotation.x = Math.PI / 2;
@@ -961,7 +712,6 @@ export class Scene3D {
     secondLip.position.y = -2.85;
     torchGroup.add(secondLip);
 
-    // 2. Fluted Goblet Cup (Bầu đuốc chạm khắc gân nổi)
     const cupGeo = new THREE.CylinderGeometry(1.75, 1.05, 1.55, segments);
     const cupMesh = new THREE.Mesh(cupGeo, burnishedGoldMat);
     cupMesh.position.y = -3.62;
@@ -989,7 +739,6 @@ export class Scene3D {
     neckRing.position.y = -4.4;
     torchGroup.add(neckRing);
 
-    // 3. Tapered Fluted Torch Stem
     const stemGeo = new THREE.CylinderGeometry(1.02, 0.56, 3.4, segments);
     const stemMesh = new THREE.Mesh(stemGeo, olympicGoldMat);
     stemMesh.position.y = -6.1;
@@ -1007,11 +756,9 @@ export class Scene3D {
       torchGroup.add(flute);
     }
 
-    // 4. Spiral Laurel Ribbon Sash
     const sashGroup = this.buildLaurelSpiralSash();
     torchGroup.add(sashGroup);
 
-    // 5. Incandescent Ember Bed inside the Torch Cup
     const emberGeo = new THREE.CircleGeometry(1.92, segments);
     const emberCanvas = document.createElement('canvas');
     emberCanvas.width = 64;
@@ -1086,7 +833,6 @@ export class Scene3D {
       const pageDepth = 2.45;
       const pageThickness = 0.045;
 
-      // Left Wing Curved Page
       const leftGeo = new THREE.BoxGeometry(
         pageWidth,
         pageThickness,
@@ -1120,7 +866,6 @@ export class Scene3D {
       leftPage.position.set(-0.18, idx * 0.04, 0);
       bookGroup.add(leftPage);
 
-      // Right Wing Curved Page
       const rightGeo = new THREE.BoxGeometry(
         pageWidth,
         pageThickness,
@@ -1286,7 +1031,6 @@ export class Scene3D {
     this.orbitSystem.rotation.x = 0.44;
     this.orbitSystem.rotation.z = -0.26;
 
-    // 1. Primary Shooting Star & Tapering Fading Comet Tail
     this.mainComet = this.createShootingStarArc({
       orbitRadiusX: 5.5,
       orbitRadiusZ: 5.5,
@@ -1296,7 +1040,6 @@ export class Scene3D {
     });
     this.orbitSystem.add(this.mainComet.group);
 
-    // 2. Secondary Upper Golden Comet Swoosh
     this.upperComet = this.createShootingStarArc({
       orbitRadiusX: 4.3,
       orbitRadiusZ: 4.3,
@@ -1308,7 +1051,6 @@ export class Scene3D {
     this.upperComet.group.rotation.z = 0.12;
     this.orbitSystem.add(this.upperComet.group);
 
-    // 3. Luminous Floating Knowledge Pages
     const pageCanvas = document.createElement('canvas');
     pageCanvas.width = 128;
     pageCanvas.height = 160;
@@ -1665,8 +1407,14 @@ export class Scene3D {
    */
   setTyping(isTyping) {
     this.isTyping = isTyping;
-    if (this.volumetricCore) {
-      this.volumetricCore.magnitude = isTyping ? 2.05 : 1.65;
+    if (this.fireOuterVolume) {
+      this.fireOuterVolume.magnitude = isTyping ? 1.95 : 1.55;
+    }
+    if (this.fireInnerVolume) {
+      this.fireInnerVolume.magnitude = isTyping ? 2.15 : 1.75;
+    }
+    if (this.fireBlueVolume) {
+      this.fireBlueVolume.magnitude = isTyping ? 1.85 : 1.45;
     }
   }
 
@@ -1677,9 +1425,9 @@ export class Scene3D {
     if (this.isIgniting) return;
     this.isIgniting = true;
 
-    if (this.volumetricCore) {
-      this.volumetricCore.magnitude = 2.8;
-    }
+    if (this.fireOuterVolume) this.fireOuterVolume.magnitude = 2.6;
+    if (this.fireInnerVolume) this.fireInnerVolume.magnitude = 2.9;
+    if (this.fireBlueVolume) this.fireBlueVolume.magnitude = 2.4;
 
     const burstCount = this.isMobile ? 120 : 320;
     const burstGeo = new THREE.BufferGeometry();
@@ -1732,7 +1480,7 @@ export class Scene3D {
       burstMat.opacity = Math.max(0, 1 - progress);
 
       if (this.pointLight) {
-        this.pointLight.intensity = 4.5 + this.igniteBoost * 12.0;
+        this.pointLight.intensity = 4.6 + this.igniteBoost * 12.0;
       }
       if (this.flameGroup) {
         const s = 1.0 + this.igniteBoost * 0.22;
@@ -1746,10 +1494,16 @@ export class Scene3D {
         burstMat.dispose();
         this.isIgniting = false;
         this.igniteBoost = 0;
-        if (this.volumetricCore) {
-          this.volumetricCore.magnitude = this.isTyping ? 2.05 : 1.65;
+        if (this.fireOuterVolume) {
+          this.fireOuterVolume.magnitude = this.isTyping ? 1.95 : 1.55;
         }
-        if (this.pointLight) this.pointLight.intensity = 4.5;
+        if (this.fireInnerVolume) {
+          this.fireInnerVolume.magnitude = this.isTyping ? 2.15 : 1.75;
+        }
+        if (this.fireBlueVolume) {
+          this.fireBlueVolume.magnitude = this.isTyping ? 1.85 : 1.45;
+        }
+        if (this.pointLight) this.pointLight.intensity = 4.6;
         if (this.flameGroup) this.flameGroup.scale.set(1, 1, 1);
         if (onComplete) onComplete();
       }
@@ -1776,27 +1530,33 @@ export class Scene3D {
     // Gentle 3D sway of the Torch & Book
     if (this.coreGroup) {
       this.coreGroup.rotation.y =
-        Math.sin(time * 0.45) * 0.14 + this.mouse.x * 0.28;
+        Math.sin(time * 0.45) * 0.16 + this.mouse.x * 0.32;
       this.coreGroup.rotation.x =
         Math.sin(time * 0.35) * 0.03 - this.mouse.y * 0.12;
       this.coreGroup.rotation.z =
         Math.cos(time * 0.4) * 0.015 - this.mouse.x * 0.05;
     }
 
-    // 1. Update Volumetric Core & GLSL Simplex FBM Fire Shaders
+    // 1. Update 3-Layer 3D Volumetric Raymarched Fire & Multi-Directional GLSL Petals
     const speedMult = this.isTyping ? 1.45 : 1.0;
-    if (this.volumetricCore) {
-      this.volumetricCore.update(time * 1.15 * speedMult);
+    if (this.fireOuterVolume) {
+      this.fireOuterVolume.update(time * 1.05 * speedMult);
+    }
+    if (this.fireInnerVolume) {
+      this.fireInnerVolume.update(time * 1.3 * speedMult);
+    }
+    if (this.fireBlueVolume) {
+      this.fireBlueVolume.update(time * 1.55 * speedMult);
     }
 
-    for (let i = 0; i < this.flameLayers.length; i++) {
-      const layer = this.flameLayers[i];
-      layer.material.uniforms.uTime.value = time * speedMult;
-      layer.material.uniforms.uBoost.value =
+    for (let i = 0; i < this.proceduralFlameMeshes.length; i++) {
+      const mesh = this.proceduralFlameMeshes[i];
+      mesh.material.uniforms.uTime.value = time * speedMult;
+      mesh.material.uniforms.uBoost.value =
         this.igniteBoost + (this.isTyping ? 0.25 : 0.0);
     }
 
-    // Animate Rising Fire Micro-Embers along the S-curve
+    // Animate Rising 3D Fire Micro-Embers
     if (this.fireEmbers) {
       const ePos = this.fireEmbers.geometry.attributes.position.array;
       const { phases, speeds, count } = this.fireEmbers.userData;
@@ -1811,7 +1571,7 @@ export class Scene3D {
     // Pulse Blue Knowledge Core & Golden Aura
     if (this.blueCoreSprite) {
       const bluePulse = 1.0 + Math.sin(time * 4.5) * 0.09;
-      this.blueCoreSprite.scale.set(3.6 * bluePulse, 3.4 * bluePulse, 1);
+      this.blueCoreSprite.scale.set(4.0 * bluePulse, 3.4 * bluePulse, 1);
     }
     if (this.auraSprite) {
       this.auraSprite.material.opacity = 0.82 + Math.sin(time * 2.8) * 0.15;
@@ -1876,7 +1636,7 @@ export class Scene3D {
     if (this.pointLight && !this.isIgniting) {
       const flicker =
         Math.sin(time * 14.0) * 0.35 + Math.cos(time * 23.0) * 0.22;
-      this.pointLight.intensity = (this.isTyping ? 5.4 : 4.5) + flicker;
+      this.pointLight.intensity = (this.isTyping ? 5.5 : 4.6) + flicker;
     }
 
     // 6. Slow Celestial Starfield Drift
@@ -1893,14 +1653,11 @@ export class Scene3D {
     window.removeEventListener('touchmove', this.onTouchMove);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
 
-    if (this.volumetricCore) {
-      this.volumetricCore.dispose();
-    }
+    if (this.fireOuterVolume) this.fireOuterVolume.dispose();
+    if (this.fireInnerVolume) this.fireInnerVolume.dispose();
+    if (this.fireBlueVolume) this.fireBlueVolume.dispose();
 
-    this.flameLayers.forEach((mesh) => {
-      if (mesh.material.uniforms && mesh.material.uniforms.uMap.value) {
-        mesh.material.uniforms.uMap.value.dispose();
-      }
+    this.proceduralFlameMeshes.forEach((mesh) => {
       mesh.material.dispose();
       mesh.geometry.dispose();
     });
