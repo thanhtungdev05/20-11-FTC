@@ -524,7 +524,7 @@ class App {
       requestBtn.addEventListener('click', async () => {
         const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
         if (!email) {
-          alert('Vui lòng nhập email Outlook FTEL của bạn!');
+          alert('Anh Chị vui lòng nhập email FPT!');
           return;
         }
         if (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com')) {
@@ -534,7 +534,7 @@ class App {
 
         try {
           requestBtn.disabled = true;
-          requestBtn.innerHTML = '<span>Đang gửi mã vào Outlook...</span>';
+          requestBtn.innerHTML = '<span>Đang gửi mã OTP...</span>';
 
           const res = await ApiService.requestOtp(email);
           currentEmail = email;
@@ -567,7 +567,7 @@ class App {
           alert('⚠️ ' + (err.message || 'Không thể gửi mã OTP.'));
         } finally {
           requestBtn.disabled = false;
-          requestBtn.innerHTML = '<span>Nhận Mã OTP Qua Outlook</span><span>➜</span>';
+          requestBtn.innerHTML = '<span>Nhận mã OTP</span><span>➜</span>';
         }
       });
     }
