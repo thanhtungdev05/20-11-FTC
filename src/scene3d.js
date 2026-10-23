@@ -1040,7 +1040,7 @@ export class Scene3D {
 
     altarGroup.add(torchGroup);
 
-    // --- B. THE OPEN BOOK OF WISDOM (TRANG SÁCH XÒE RỘNG MÀU TRẮNG VIỀN XANH) ---
+    // --- B. THE OPEN BOOK OF WISDOM ---
     const bookGroup = new THREE.Group();
     bookGroup.position.set(0, -7.75, 0.2);
 
@@ -1048,51 +1048,43 @@ export class Scene3D {
     bookPageCanvas.width = 256;
     bookPageCanvas.height = 256;
     const bpCtx = bookPageCanvas.getContext('2d');
-
-    // Pure luminous white page surface with soft ice-blue shading & warm spine glow
     const bpGrad = bpCtx.createLinearGradient(0, 0, 256, 0);
-    bpGrad.addColorStop(0.0, '#fef08a'); // Warm golden reflection right at the torch spine
-    bpGrad.addColorStop(0.1, '#ffffff');
-    bpGrad.addColorStop(0.65, '#f8fafc');
-    bpGrad.addColorStop(0.9, '#e0f2fe');
-    bpGrad.addColorStop(1.0, '#38bdf8');
+    bpGrad.addColorStop(0.0, '#fde68a');
+    bpGrad.addColorStop(0.12, '#fffbeb');
+    bpGrad.addColorStop(0.55, '#dbeafe');
+    bpGrad.addColorStop(0.88, '#eff6ff');
+    bpGrad.addColorStop(1.0, '#fbbf24');
     bpCtx.fillStyle = bpGrad;
     bpCtx.fillRect(0, 0, 256, 256);
 
-    // Crisp sapphire-cyan blue border around each page ("màu trắng viền xanh")
-    bpCtx.strokeStyle = '#2563eb';
-    bpCtx.lineWidth = 12;
+    bpCtx.strokeStyle = '#ffd700';
+    bpCtx.lineWidth = 10;
     bpCtx.strokeRect(4, 4, 248, 248);
-
-    bpCtx.strokeStyle = '#60a5fa';
-    bpCtx.lineWidth = 5;
-    bpCtx.strokeRect(10, 10, 236, 236);
 
     const bookPageTex = new THREE.CanvasTexture(bookPageCanvas);
     const bookPageMat = new THREE.MeshStandardMaterial({
       map: bookPageTex,
       color: 0xffffff,
-      roughness: 0.22,
-      metalness: 0.1,
-      emissive: 0xbae6fd,
-      emissiveIntensity: 0.42,
+      roughness: 0.28,
+      metalness: 0.15,
+      emissive: 0x3b4d7a,
+      emissiveIntensity: 0.35,
       side: THREE.DoubleSide
     });
 
-    // Luminous Blue Edge Material for the page borders
-    const blueEdgePageMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      roughness: 0.2,
-      metalness: 0.5,
-      emissive: 0x1d4ed8,
-      emissiveIntensity: 0.65
+    const goldEdgePageMat = new THREE.MeshStandardMaterial({
+      color: 0xffd700,
+      roughness: 0.22,
+      metalness: 0.85,
+      emissive: 0x996500,
+      emissiveIntensity: 0.5
     });
 
-    const fanAngles = [0.13, 0.25, 0.38, 0.52, 0.67, 0.83];
+    const fanAngles = [0.14, 0.26, 0.39, 0.53, 0.68, 0.84];
     fanAngles.forEach((angle, idx) => {
-      const pageWidth = 3.65 - idx * 0.11;
-      const pageDepth = 2.55;
-      const pageThickness = 0.048;
+      const pageWidth = 3.55 - idx * 0.1;
+      const pageDepth = 2.45;
+      const pageThickness = 0.045;
 
       // Left Wing Curved Page
       const leftGeo = new THREE.BoxGeometry(
@@ -1109,23 +1101,23 @@ export class Scene3D {
         const distFromSpine = pageWidth * 0.5 - px;
         const t = distFromSpine / pageWidth;
         const archY =
-          Math.sin(t * Math.PI * 0.85) * 0.44 - Math.pow(t, 2.2) * 0.26;
+          Math.sin(t * Math.PI * 0.85) * 0.42 - Math.pow(t, 2.2) * 0.25;
         lPos.setX(i, -distFromSpine);
         lPos.setY(i, lPos.getY(i) + archY);
       }
       leftGeo.computeVertexNormals();
 
       const leftPage = new THREE.Mesh(leftGeo, [
-        blueEdgePageMat,
-        blueEdgePageMat,
+        goldEdgePageMat,
+        goldEdgePageMat,
         bookPageMat,
         bookPageMat,
-        blueEdgePageMat,
-        blueEdgePageMat
+        goldEdgePageMat,
+        goldEdgePageMat
       ]);
       leftPage.rotation.z = -angle;
       leftPage.rotation.y = 0.08 - idx * 0.015;
-      leftPage.position.set(-0.18, idx * 0.042, 0);
+      leftPage.position.set(-0.18, idx * 0.04, 0);
       bookGroup.add(leftPage);
 
       // Right Wing Curved Page
@@ -1143,27 +1135,27 @@ export class Scene3D {
         const distFromSpine = px + pageWidth * 0.5;
         const t = distFromSpine / pageWidth;
         const archY =
-          Math.sin(t * Math.PI * 0.85) * 0.44 - Math.pow(t, 2.2) * 0.26;
+          Math.sin(t * Math.PI * 0.85) * 0.42 - Math.pow(t, 2.2) * 0.25;
         rPos.setX(i, distFromSpine);
         rPos.setY(i, rPos.getY(i) + archY);
       }
       rightGeo.computeVertexNormals();
 
       const rightPage = new THREE.Mesh(rightGeo, [
-        blueEdgePageMat,
-        blueEdgePageMat,
+        goldEdgePageMat,
+        goldEdgePageMat,
         bookPageMat,
         bookPageMat,
-        blueEdgePageMat,
-        blueEdgePageMat
+        goldEdgePageMat,
+        goldEdgePageMat
       ]);
       rightPage.rotation.z = angle;
       rightPage.rotation.y = -0.08 + idx * 0.015;
-      rightPage.position.set(0.18, idx * 0.042, 0);
+      rightPage.position.set(0.18, idx * 0.04, 0);
       bookGroup.add(rightPage);
     });
 
-    const spineGeo = new THREE.CylinderGeometry(0.42, 0.42, 2.6, 16);
+    const spineGeo = new THREE.CylinderGeometry(0.42, 0.42, 2.55, 16);
     const spineMesh = new THREE.Mesh(spineGeo, olympicGoldMat);
     spineMesh.rotation.x = Math.PI / 2;
     spineMesh.position.set(0, -0.08, 0);
@@ -1171,391 +1163,42 @@ export class Scene3D {
 
     altarGroup.add(bookGroup);
 
-    // --- C. STEPPED MONUMENTAL PEDESTAL & RIGHT CURVED ASCENDING STAIRCASE ---
+    // --- C. STEPPED MONUMENTAL PEDESTAL ---
     const navyBlockMat = new THREE.MeshStandardMaterial({
-      color: 0x081a42,
-      roughness: 0.32,
-      metalness: 0.6,
-      emissive: 0x051230,
-      emissiveIntensity: 0.45
+      color: 0x0b1d42,
+      roughness: 0.35,
+      metalness: 0.65,
+      emissive: 0x051026,
+      emissiveIntensity: 0.4
     });
 
     const glowingGoldStripMat = new THREE.MeshBasicMaterial({
       color: 0xffd700
     });
 
-    const glowingBlueStripMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8
-    });
-
-    // Tier 1: Upper Pedestal Block under the Open Book
-    const step1Geo = new THREE.BoxGeometry(6.6, 0.65, 3.6);
+    const step1Geo = new THREE.BoxGeometry(6.8, 0.68, 3.6);
     const step1 = new THREE.Mesh(step1Geo, navyBlockMat);
-    step1.position.set(-0.2, -8.32, 0.15);
-    step1.rotation.y = -0.14;
+    step1.position.set(0, -8.35, 0.1);
+    step1.rotation.y = -0.12;
     altarGroup.add(step1);
 
-    const step1EdgeGeo = new THREE.BoxGeometry(6.64, 0.055, 3.64);
+    const step1EdgeGeo = new THREE.BoxGeometry(6.86, 0.055, 3.66);
     const step1Edge = new THREE.Mesh(step1EdgeGeo, glowingGoldStripMat);
-    step1Edge.position.set(-0.2, -7.99, 0.15);
-    step1Edge.rotation.y = -0.14;
+    step1Edge.position.set(0, -8.01, 0.1);
+    step1Edge.rotation.y = -0.12;
     altarGroup.add(step1Edge);
 
-    // Tier 2: Middle Offset Architectural Block
-    const step2Geo = new THREE.BoxGeometry(8.6, 0.82, 4.4);
+    const step2Geo = new THREE.BoxGeometry(8.8, 0.85, 4.4);
     const step2 = new THREE.Mesh(step2Geo, navyBlockMat);
-    step2.position.set(-0.35, -9.06, 0.35);
-    step2.rotation.y = -0.09;
+    step2.position.set(0, -9.12, 0.2);
+    step2.rotation.y = -0.08;
     altarGroup.add(step2);
 
-    const step2EdgeGeo = new THREE.BoxGeometry(8.65, 0.06, 4.45);
+    const step2EdgeGeo = new THREE.BoxGeometry(8.86, 0.065, 4.46);
     const step2Edge = new THREE.Mesh(step2EdgeGeo, glowingGoldStripMat);
-    step2Edge.position.set(-0.35, -8.65, 0.35);
-    step2Edge.rotation.y = -0.09;
+    step2Edge.position.set(0, -8.7, 0.2);
+    step2Edge.rotation.y = -0.08;
     altarGroup.add(step2Edge);
-
-    // Tier 3: Wide Foreground Base Block
-    const step3Geo = new THREE.BoxGeometry(10.8, 0.9, 5.2);
-    const step3 = new THREE.Mesh(step3Geo, navyBlockMat);
-    step3.position.set(0.1, -9.88, 0.6);
-    step3.rotation.y = -0.05;
-    altarGroup.add(step3);
-
-    const step3EdgeGeo = new THREE.BoxGeometry(10.85, 0.065, 5.25);
-    const step3Edge = new THREE.Mesh(step3EdgeGeo, glowingGoldStripMat);
-    step3Edge.position.set(0.1, -9.43, 0.6);
-    step3Edge.rotation.y = -0.05;
-    altarGroup.add(step3Edge);
-
-    // Right-Side Curved Ascending Staircase (Lối bậc thang uốn lượn hướng lên ở bên phải)
-    const stairsGroup = new THREE.Group();
-    const stairCount = 12;
-    const stairCurvePoints = [];
-
-    for (let s = 0; s < stairCount; s++) {
-      const t = s / (stairCount - 1); // 0 at bottom-right foreground, 1 at top near book base
-      const sx = 6.8 - t * 3.5 + Math.sin(t * Math.PI) * 0.85;
-      const sy = -9.75 + t * 1.75;
-      const sz = 2.1 - t * 2.3;
-      stairCurvePoints.push(new THREE.Vector3(sx, sy + 0.06, sz + 0.55));
-
-      const stepW = 1.65 - t * 0.35;
-      const stepH = 0.11;
-      const stepD = 0.52;
-
-      const stairStepGeo = new THREE.BoxGeometry(stepW, stepH, stepD);
-      const stairStep = new THREE.Mesh(stairStepGeo, navyBlockMat);
-      stairStep.position.set(sx, sy, sz);
-      stairStep.rotation.y = -0.35 + t * 0.55;
-      stairsGroup.add(stairStep);
-
-      // Glowing golden-amber step nosing strip on each step
-      const nosingGeo = new THREE.BoxGeometry(stepW + 0.04, 0.038, stepD + 0.04);
-      const nosing = new THREE.Mesh(nosingGeo, glowingGoldStripMat);
-      nosing.position.set(sx, sy + 0.045, sz);
-      nosing.rotation.y = stairStep.rotation.y;
-      stairsGroup.add(nosing);
-    }
-
-    // Sweeping golden light rail along the curved staircase
-    const stairCurve = new THREE.CatmullRomCurve3(stairCurvePoints);
-    const stairRailGeo = new THREE.TubeGeometry(stairCurve, 32, 0.035, 6, false);
-    const stairRail = new THREE.Mesh(stairRailGeo, glowingGoldStripMat);
-    stairsGroup.add(stairRail);
-
-    altarGroup.add(stairsGroup);
-
-    // --- D. BACKGROUND 3-LAYER 3D NAVY METROPOLIS SKYLINE & CENTRAL RADIAL SKY GLOW ---
-    const skylineGroup = new THREE.Group();
-
-    // 1. Central Radial Light Burst behind the Torch, Book & Skyline (Ánh sáng tỏa ra từ tâm)
-    const skyGlowCanvas = document.createElement('canvas');
-    skyGlowCanvas.width = 256;
-    skyGlowCanvas.height = 256;
-    const sgCtx = skyGlowCanvas.getContext('2d');
-    const sgGrad = sgCtx.createRadialGradient(128, 128, 4, 128, 128, 125);
-    sgGrad.addColorStop(0.0, 'rgba(255, 230, 150, 0.62)');
-    sgGrad.addColorStop(0.24, 'rgba(96, 165, 250, 0.58)');
-    sgGrad.addColorStop(0.58, 'rgba(37, 99, 235, 0.32)');
-    sgGrad.addColorStop(1.0, 'rgba(3, 10, 36, 0.0)');
-    sgCtx.fillStyle = sgGrad;
-    sgCtx.fillRect(0, 0, 256, 256);
-
-    const skyGlowTex = new THREE.CanvasTexture(skyGlowCanvas);
-    const centralSkyGlow = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: skyGlowTex,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      })
-    );
-    centralSkyGlow.scale.set(28.0, 24.0, 1);
-    centralSkyGlow.position.set(0, -2.6, -5.2);
-    skylineGroup.add(centralSkyGlow);
-
-    // Horizon Golden-Blue Mist Sprites on Left & Right Flanks
-    const leftHorizonGlow = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: skyGlowTex,
-        color: 0x60a5fa,
-        transparent: true,
-        opacity: 0.55,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      })
-    );
-    leftHorizonGlow.scale.set(18.0, 10.0, 1);
-    leftHorizonGlow.position.set(-8.5, -6.2, -4.5);
-    skylineGroup.add(leftHorizonGlow);
-
-    const rightHorizonGlow = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: skyGlowTex,
-        color: 0xfbbf24,
-        transparent: true,
-        opacity: 0.5,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      })
-    );
-    rightHorizonGlow.scale.set(18.0, 10.0, 1);
-    rightHorizonGlow.position.set(8.5, -6.5, -4.2);
-    skylineGroup.add(rightHorizonGlow);
-
-    // 2. Procedural Architectural Curtain-Wall Facade Textures (With Torch Rim-Lighting)
-    const createFacadeMaterial = (isLeftCluster, depthLayer) => {
-      const fCanvas = document.createElement('canvas');
-      fCanvas.width = 128;
-      fCanvas.height = 256;
-      const fCtx = fCanvas.getContext('2d');
-
-      // Vertical navy-to-sapphire architectural gradient
-      const vGrad = fCtx.createLinearGradient(0, 0, 0, 256);
-      if (depthLayer === 1) {
-        vGrad.addColorStop(0.0, '#1e40af');
-        vGrad.addColorStop(0.35, '#0f2963');
-        vGrad.addColorStop(0.8, '#07163b');
-        vGrad.addColorStop(1.0, '#040c24');
-      } else if (depthLayer === 2) {
-        vGrad.addColorStop(0.0, '#1d4ed8');
-        vGrad.addColorStop(0.45, '#0b2154');
-        vGrad.addColorStop(1.0, '#040b20');
-      } else {
-        vGrad.addColorStop(0.0, '#2563eb');
-        vGrad.addColorStop(0.5, '#0a1d4a');
-        vGrad.addColorStop(1.0, '#03091c');
-      }
-      fCtx.fillStyle = vGrad;
-      fCtx.fillRect(0, 0, 128, 256);
-
-      // Subtle vertical glass curtain-wall mullions
-      fCtx.fillStyle = 'rgba(96, 165, 250, 0.12)';
-      for (let x = 12; x < 120; x += 16) {
-        fCtx.fillRect(x, 6, 2, 244);
-      }
-
-      // Horizontal structural floor bands
-      fCtx.fillStyle = 'rgba(56, 189, 248, 0.08)';
-      for (let y = 18; y < 240; y += 22) {
-        fCtx.fillRect(4, y, 120, 1.5);
-      }
-
-      // Warm Golden & Cyan Rim-Light on the vertical edge facing the central Torch!
-      const rimX0 = isLeftCluster ? 128 : 0;
-      const rimX1 = isLeftCluster ? 76 : 52;
-      const rimGrad = fCtx.createLinearGradient(rimX0, 0, rimX1, 0);
-      rimGrad.addColorStop(0.0, 'rgba(253, 224, 71, 0.65)');
-      rimGrad.addColorStop(0.35, 'rgba(56, 189, 248, 0.32)');
-      rimGrad.addColorStop(1.0, 'rgba(15, 41, 99, 0.0)');
-      fCtx.fillStyle = rimGrad;
-      fCtx.fillRect(0, 0, 128, 256);
-
-      // Bright top roof edge highlight
-      fCtx.fillStyle = 'rgba(147, 197, 253, 0.75)';
-      fCtx.fillRect(0, 0, 128, 5);
-
-      const fTex = new THREE.CanvasTexture(fCanvas);
-      return new THREE.MeshStandardMaterial({
-        map: fTex,
-        color: 0xffffff,
-        roughness: 0.3,
-        metalness: 0.55,
-        emissive: depthLayer === 1 ? 0x0a1e4a : 0x071638,
-        emissiveIntensity: 0.55
-      });
-    };
-
-    const leftMatL1 = createFacadeMaterial(true, 1);
-    const leftMatL2 = createFacadeMaterial(true, 2);
-    const leftMatL3 = createFacadeMaterial(true, 3);
-    const rightMatL1 = createFacadeMaterial(false, 1);
-    const rightMatL2 = createFacadeMaterial(false, 2);
-    const rightMatL3 = createFacadeMaterial(false, 3);
-
-    const towerEdgeCyanMat = new THREE.LineBasicMaterial({
-      color: 0x60a5fa,
-      transparent: true,
-      opacity: 0.52
-    });
-
-    const towerEdgeGoldMat = new THREE.LineBasicMaterial({
-      color: 0xfbbf24,
-      transparent: true,
-      opacity: 0.45
-    });
-
-    // 3. 38 Tightly-Clustered 3D Metropolis Towers in 3 Depth Layers (V-Shape Amphitheater)
-    // Format: [x, height, width, depth, z, rotY, layer, hasCrown]
-    const towerSpecs = [
-      // --- LAYER 1: FOREGROUND SKYLINE (z = -2.8 to -3.8) ---
-      // Left Wing Layer 1
-      [-2.8, 5.2, 1.35, 1.25, -3.1, 0.08, 1, false],
-      [-3.95, 6.4, 1.45, 1.35, -2.9, 0.1, 1, true],
-      [-5.25, 5.8, 1.4, 1.3, -3.2, 0.06, 1, false],
-      [-6.55, 7.5, 1.6, 1.45, -2.85, 0.12, 1, true],
-      [-8.05, 6.9, 1.55, 1.4, -3.15, 0.08, 1, false],
-      [-9.55, 8.6, 1.7, 1.5, -3.0, 0.1, 1, true],
-      [-11.2, 7.8, 1.65, 1.45, -3.3, 0.07, 1, false],
-      [-12.9, 9.4, 1.8, 1.55, -3.1, 0.09, 1, true],
-      // Right Wing Layer 1
-      [2.85, 5.1, 1.35, 1.25, -3.1, -0.08, 1, false],
-      [4.0, 6.2, 1.45, 1.35, -2.95, -0.1, 1, false],
-      [5.3, 5.7, 1.4, 1.3, -3.2, -0.06, 1, true],
-      [6.65, 7.7, 1.6, 1.45, -2.9, -0.11, 1, true],
-      [8.15, 8.9, 1.7, 1.5, -3.1, -0.08, 1, true],
-      [9.7, 7.4, 1.55, 1.4, -3.3, -0.1, 1, false],
-      [11.3, 9.2, 1.75, 1.5, -3.05, -0.07, 1, true],
-      [13.0, 8.3, 1.7, 1.45, -3.35, -0.09, 1, false],
-
-      // --- LAYER 2: MIDGROUND INTERLOCKING HIGH-RISES (z = -4.2 to -5.6) ---
-      // Left Wing Layer 2 (Staggered to fill all gaps!)
-      [-2.2, 6.1, 1.4, 1.3, -4.4, 0.05, 2, false],
-      [-3.4, 7.8, 1.6, 1.45, -4.6, 0.07, 2, true],
-      [-4.65, 8.7, 1.65, 1.5, -4.3, 0.04, 2, true],
-      [-6.0, 9.6, 1.75, 1.55, -4.7, 0.08, 2, true],
-      [-7.4, 10.5, 1.8, 1.6, -4.5, 0.06, 2, true],
-      [-8.85, 9.8, 1.75, 1.55, -4.8, 0.05, 2, false],
-      [-10.4, 11.4, 1.9, 1.65, -4.6, 0.07, 2, true],
-      [-12.1, 10.8, 1.85, 1.6, -4.9, 0.06, 2, false],
-      [-13.9, 12.2, 2.0, 1.7, -4.7, 0.08, 2, true],
-      // Right Wing Layer 2
-      [2.25, 6.0, 1.4, 1.3, -4.4, -0.05, 2, false],
-      [3.45, 7.6, 1.6, 1.45, -4.6, -0.07, 2, true],
-      [4.7, 8.5, 1.65, 1.5, -4.35, -0.04, 2, false],
-      [6.05, 9.8, 1.75, 1.55, -4.7, -0.08, 2, true],
-      [7.45, 10.9, 1.85, 1.6, -4.5, -0.06, 2, true],
-      [8.95, 10.2, 1.75, 1.55, -4.85, -0.05, 2, false],
-      [10.5, 11.8, 1.9, 1.65, -4.6, -0.07, 2, true],
-      [12.2, 11.0, 1.85, 1.6, -4.9, -0.06, 2, false],
-      [14.0, 12.6, 2.0, 1.7, -4.7, -0.08, 2, true],
-
-      // --- LAYER 3: DISTANT SOARING SKYSCRAPER SILHOUETTES (z = -6.2 to -8.0) ---
-      [-5.2, 11.5, 2.1, 1.8, -6.5, 0.03, 3, true],
-      [-8.2, 13.2, 2.2, 1.9, -6.8, 0.04, 3, true],
-      [-11.5, 14.2, 2.3, 2.0, -7.0, 0.05, 3, true],
-      [-15.2, 13.6, 2.4, 2.0, -6.6, 0.06, 3, false],
-      [5.2, 11.6, 2.1, 1.8, -6.5, -0.03, 3, true],
-      [8.3, 13.5, 2.2, 1.9, -6.8, -0.04, 3, true],
-      [11.6, 14.5, 2.3, 2.0, -7.0, -0.05, 3, true],
-      [15.3, 13.8, 2.4, 2.0, -6.6, -0.06, 3, false]
-    ];
-
-    towerSpecs.forEach(([tx, th, tw, td, tz, troty, layer, hasCrown], idx) => {
-      const isLeft = tx < 0;
-      const mat = isLeft
-        ? layer === 1
-          ? leftMatL1
-          : layer === 2
-          ? leftMatL2
-          : leftMatL3
-        : layer === 1
-        ? rightMatL1
-        : layer === 2
-        ? rightMatL2
-        : rightMatL3;
-
-      const tGeo = new THREE.BoxGeometry(tw, th, td);
-      const tMesh = new THREE.Mesh(tGeo, mat);
-      const baseY = -9.6;
-      const ty = baseY + th * 0.5;
-      tMesh.position.set(tx, ty, tz);
-      tMesh.rotation.y = troty;
-      skylineGroup.add(tMesh);
-
-      // Luminous architectural edge lines
-      const edgesGeo = new THREE.EdgesGeometry(tGeo);
-      const edgeMat =
-        idx % 3 === 0 ? towerEdgeGoldMat : towerEdgeCyanMat;
-      const edgeLines = new THREE.LineSegments(edgesGeo, edgeMat);
-      edgeLines.position.copy(tMesh.position);
-      edgeLines.rotation.copy(tMesh.rotation);
-      skylineGroup.add(edgeLines);
-
-      // Glowing rooftop rim
-      const roofRimGeo = new THREE.BoxGeometry(tw + 0.03, 0.045, td + 0.03);
-      const roofRim = new THREE.Mesh(
-        roofRimGeo,
-        idx % 3 === 0 ? glowingGoldStripMat : glowingBlueStripMat
-      );
-      roofRim.position.set(tx, baseY + th, tz);
-      roofRim.rotation.y = troty;
-      skylineGroup.add(roofRim);
-
-      // Stepped Crown Penthouse on major towers
-      if (hasCrown) {
-        const crownW = tw * 0.68;
-        const crownH = 0.55 + (layer * 0.15);
-        const crownD = td * 0.68;
-        const crownGeo = new THREE.BoxGeometry(crownW, crownH, crownD);
-        const crownMesh = new THREE.Mesh(crownGeo, mat);
-        crownMesh.position.set(tx, baseY + th + crownH * 0.5, tz);
-        crownMesh.rotation.y = troty;
-        skylineGroup.add(crownMesh);
-
-        const crownRimGeo = new THREE.BoxGeometry(
-          crownW + 0.03,
-          0.04,
-          crownD + 0.03
-        );
-        const crownRim = new THREE.Mesh(crownRimGeo, glowingBlueStripMat);
-        crownRim.position.set(tx, baseY + th + crownH, tz);
-        crownRim.rotation.y = troty;
-        skylineGroup.add(crownRim);
-      }
-    });
-
-    // 4. Warm Golden City Bokeh Orbs near the base of the Skyline & Stairway (Như góc phải ảnh Key Visual)
-    const bokehPositions = [
-      [5.8, -6.2, -2.2, 0.55],
-      [7.2, -7.1, -1.8, 0.72],
-      [8.4, -5.8, -2.5, 0.48],
-      [9.1, -7.8, -1.2, 0.85],
-      [6.4, -8.3, 0.4, 0.62],
-      [10.5, -6.5, -2.6, 0.68],
-      [-5.6, -6.8, -2.3, 0.52],
-      [-7.5, -7.4, -2.0, 0.65],
-      [-9.2, -6.2, -2.6, 0.58],
-      [-6.2, -8.2, -1.2, 0.48]
-    ];
-
-    bokehPositions.forEach(([bx, by, bz, bScale]) => {
-      const bokeh = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: this.haloSprite.material.map,
-          color: 0xffd700,
-          transparent: true,
-          opacity: 0.78,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
-        })
-      );
-      bokeh.scale.set(bScale, bScale, 1);
-      bokeh.position.set(bx, by, bz);
-      skylineGroup.add(bokeh);
-    });
-
-    altarGroup.add(skylineGroup);
 
     this.coreGroup.add(altarGroup);
   }

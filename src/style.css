@@ -54,7 +54,7 @@ body {
   height: 100dvh;
   z-index: 0;
   pointer-events: auto;
-  background: radial-gradient(circle at 50% 52%, #1d4ed8 0%, #0d2a75 30%, #061540 62%, #02081a 100%);
+  background: radial-gradient(circle at 50% 35%, #0f2868 0%, #06143c 50%, #030818 100%);
 }
 
 /* 3. Lớp UI đè lên 3D Canvas (Cho phép tương tác click/xoay 3D qua khoảng trống) */
