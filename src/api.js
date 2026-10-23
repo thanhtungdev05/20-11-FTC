@@ -388,6 +388,9 @@ export class ApiService {
     try {
       localStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
       sessionStorage.setItem('ftel_user_session', JSON.stringify(sessionData));
+      localStorage.setItem('ftel_remembered_email', normalizedEmail);
+      sessionStorage.removeItem('ftel_just_logged_out');
+      document.cookie = `ftel_user_email=${encodeURIComponent(normalizedEmail)}; path=/; max-age=31536000; SameSite=Lax`;
 
       // Ghi nhớ vĩnh viễn email đã xác thực (chỉ cần xác thực OTP 1 lần duy nhất)
       const verifiedList = JSON.parse(localStorage.getItem('ftel_verified_emails') || '[]');
@@ -469,17 +472,70 @@ export class ApiService {
   }
 
   /**
-   * Lấy phiên đăng nhập hiện tại (Ghi nhớ vĩnh viễn trên trình duyệt thiết bị này)
+   * Lấy phiên đăng nhập hiện tại (Ghi nhớ vĩnh viễn & tự động khôi phục trên trình duyệt thiết bị này)
    */
   static getUserSession() {
     try {
       const saved = localStorage.getItem('ftel_user_session') || sessionStorage.getItem('ftel_user_session');
-      if (!saved) return null;
-      const data = JSON.parse(saved);
-      if (data && data.email && this.isSuperAdminEmail(data.email)) {
-        data.isAdmin = true;
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data && data.email) {
+          if (this.isSuperAdminEmail(data.email)) data.isAdmin = true;
+          return data;
+        }
       }
-      return data;
+
+      // Nếu người dùng vừa chủ động bấm nút Đăng xuất/Đổi email ở lượt load này thì cho phép hiện bảng nhập email
+      if (sessionStorage.getItem('ftel_just_logged_out') === '1') {
+        sessionStorage.removeItem('ftel_just_logged_out');
+        return null;
+      }
+
+      // Tự động khôi phục phiên từ email đã xác thực trước đó trên thiết bị này
+      let fallbackEmail = (localStorage.getItem('ftel_remembered_email') || '').trim().toLowerCase();
+
+      if (!fallbackEmail) {
+        try {
+          const verifiedList = JSON.parse(localStorage.getItem('ftel_verified_emails') || '[]');
+          if (Array.isArray(verifiedList) && verifiedList.length > 0) {
+            fallbackEmail = String(verifiedList[verifiedList.length - 1] || '').trim().toLowerCase();
+          }
+        } catch (e) {}
+      }
+
+      if (!fallbackEmail && typeof document !== 'undefined' && document.cookie) {
+        const match = document.cookie.match(/(?:^|;\s*)ftel_user_email=([^;]+)/);
+        if (match && match[1]) {
+          fallbackEmail = decodeURIComponent(match[1]).trim().toLowerCase();
+        }
+      }
+
+      if (!fallbackEmail) {
+        try {
+          const subs = JSON.parse(localStorage.getItem('ftel_tribute_submissions_v1') || '[]');
+          if (Array.isArray(subs)) {
+            for (const item of subs) {
+              const em = String(item?.senderEmail || '').trim().toLowerCase();
+              if (em && (em.endsWith('@fpt.com') || em.endsWith('@fpt.net'))) {
+                fallbackEmail = em;
+                break;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (fallbackEmail && (fallbackEmail.endsWith('@fpt.com') || fallbackEmail.endsWith('@fpt.net'))) {
+        const restoredSession = {
+          email: fallbackEmail,
+          isAdmin: this.isSuperAdminEmail(fallbackEmail),
+          verifiedAt: Date.now()
+        };
+        this.setUserSession(restoredSession);
+        return restoredSession;
+      }
+
+      return null;
     } catch (e) {
       return null;
     }
@@ -493,6 +549,7 @@ export class ApiService {
     localStorage.removeItem('ftel_admin_session');
     sessionStorage.removeItem('ftel_user_session');
     sessionStorage.removeItem('ftel_admin_session');
+    sessionStorage.setItem('ftel_just_logged_out', '1');
   }
 
   /**

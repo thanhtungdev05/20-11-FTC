@@ -467,6 +467,8 @@ class App {
 
   setupAuthAndOtp() {
     const modal = document.getElementById('otp-login-modal');
+    const authBox = document.getElementById('otp-auth-box');
+    const restoringBox = document.getElementById('otp-restoring-box');
     const step1 = document.getElementById('otp-step-1');
     const step2 = document.getElementById('otp-step-2');
     const emailInput = document.getElementById('otp-email-input');
@@ -481,6 +483,26 @@ class App {
 
     let currentEmail = '';
     let countdownInterval = null;
+
+    // Hiển thị màn hình "XÁC THỰC TRUY CẬP - Đang khôi phục phiên đăng nhập..." rồi vào thẳng trang chính
+    const showRestoringAndEnter = (sessionData, durationMs = 700) => {
+      if (countdownInterval) clearInterval(countdownInterval);
+      this.applyUserSession(sessionData);
+
+      if (modal && authBox && restoringBox) {
+        authBox.classList.add('hidden');
+        restoringBox.classList.remove('hidden');
+        modal.classList.remove('hidden');
+
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          restoringBox.classList.add('hidden');
+          authBox.classList.remove('hidden');
+        }, durationMs);
+      } else if (modal) {
+        modal.classList.add('hidden');
+      }
+    };
 
     const startTimer = () => {
       let timeLeft = 600; // 10 phút (600 giây)
@@ -512,12 +534,33 @@ class App {
       }, 1000);
     };
 
-    // 1. Kiểm tra session hiện tại
+    // 1. Kiểm tra session hiện tại khi load trang:
+    // Nếu đã có phiên đăng nhập / email đã xác thực trước đó -> Hiện màn hình khôi phục phiên và vào thẳng!
     const session = ApiService.getUserSession();
     if (session && session.email) {
-      this.applyUserSession(session);
+      showRestoringAndEnter(session, 700);
     } else {
+      if (authBox) authBox.classList.remove('hidden');
+      if (restoringBox) restoringBox.classList.add('hidden');
       if (modal) modal.classList.remove('hidden');
+    }
+
+    // Hỗ trợ nhấn phím Enter khi nhập email hoặc mã OTP
+    if (emailInput && requestBtn) {
+      emailInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          requestBtn.click();
+        }
+      });
+    }
+    if (codeInput && verifyBtn) {
+      codeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          verifyBtn.click();
+        }
+      });
     }
 
     // 2. Nút Gửi mã OTP vào Outlook siêu tốc
@@ -540,18 +583,10 @@ class App {
           const res = await ApiService.requestOtp(email);
           currentEmail = email;
 
-          // Nếu email này đã từng xác thực trước đó trên thiết bị khác: ĐĂNG NHẬP THẲNG LUÔN!
+          // Nếu email này đã từng xác thực trước đó: Hiển thị "Đang khôi phục phiên đăng nhập..." và VÀO THẲNG (không hiện popup alert)
           if (res && res.alreadyVerified) {
-            if (countdownInterval) clearInterval(countdownInterval);
-            if (modal) modal.classList.add('hidden');
             const sessionData = res.data || { email: email, isAdmin: res.isAdmin };
-            this.applyUserSession(sessionData);
-            confetti({
-              particleCount: 90,
-              spread: 70,
-              origin: { y: 0.6 }
-            });
-            alert('🎉 Chào mừng bạn quay trở lại! Email ' + email + ' đã được kích hoạt chính chủ trước đó. Bạn không cần nhập lại mã OTP nữa!');
+            showRestoringAndEnter(sessionData, 650);
             return;
           }
 
