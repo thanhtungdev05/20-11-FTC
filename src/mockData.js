@@ -58,6 +58,8 @@ export const EMPLOYEE_DIRECTORY = {
   "tungdt101@fpt.net": { name: "Đặng Thanh Tùng", dept: "Trung tâm Đào tạo FTEL (FTC)" },
   "duyennnt3@fpt.com": { name: "Nguyễn Ngọc Thảo Duyên", dept: "Trung tâm Đào tạo FTEL (FTC)" },
   "duyennnt3@fpt.net": { name: "Nguyễn Ngọc Thảo Duyên", dept: "Trung tâm Đào tạo FTEL (FTC)" },
+  "nhanlh10@fpt.com": { name: "Lê Hoàng Nhân", dept: "Trung tâm Đào tạo FTEL (FTC)" },
+  "nhanlh10@fpt.net": { name: "Lê Hoàng Nhân", dept: "Trung tâm Đào tạo FTEL (FTC)" },
   "hungnv@fpt.net": { name: "Nguyễn Văn Hùng", dept: "Trung tâm Đào tạo FTEL (FTC)" },
   "anhtm@fpt.net": { name: "Trần Mai Anh", dept: "NOC - Trung tâm Vận hành Mạng" },
   "phuclh@fpt.net": { name: "Lê Hoàng Phúc", dept: "FTI - Khách hàng Doanh nghiệp" },
@@ -74,7 +76,11 @@ export const EMPLOYEE_DIRECTORY = {
 export function lookupEmployeeInfo(email) {
   if (!email) return { name: "", dept: "FPT Telecom", avatar: "" };
   const normalized = String(email).trim().toLowerCase();
-  const entry = EMPLOYEE_DIRECTORY[normalized];
+  const localPart = normalized.split("@")[0];
+
+  const entry =
+    EMPLOYEE_DIRECTORY[normalized] ||
+    (localPart ? EMPLOYEE_DIRECTORY[`${localPart}@fpt.com`] || EMPLOYEE_DIRECTORY[`${localPart}@fpt.net`] : null);
   if (entry) {
     return typeof entry === "string"
       ? { name: entry, dept: "FPT Telecom", avatar: "" }
@@ -82,8 +88,10 @@ export function lookupEmployeeInfo(email) {
   }
   try {
     const cachedDir = JSON.parse(localStorage.getItem("ftel_employee_dir_cache") || "{}");
-    if (cachedDir && cachedDir[normalized]) {
-      const c = cachedDir[normalized];
+    const c =
+      cachedDir[normalized] ||
+      (localPart ? cachedDir[`${localPart}@fpt.com`] || cachedDir[`${localPart}@fpt.net`] : null);
+    if (c) {
       return typeof c === "string"
         ? { name: c, dept: "FPT Telecom", avatar: "" }
         : { name: c.name || "", dept: c.dept || "FPT Telecom", avatar: c.avatar || "" };

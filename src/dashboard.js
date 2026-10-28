@@ -18,6 +18,8 @@ export class DashboardModule {
     // Trạng thái Tìm kiếm Nhân sự trong DS Nhân sự
     this.hrSearchQuery = '';
     this.hrUnitFilter = 'ALL';
+    this.showHrSyncPanel = false;
+    this.hrSyncStatusMsg = '';
 
     // Trạng thái mở chi tiết Đơn vị ở Khu vực D
     this.expandedUnit = 'Trung tâm Đào tạo FTEL (FTC)'; // Mở sẵn đơn vị dẫn đầu để người dùng thấy ngay chi tiết, có thể đóng/mở bất kỳ đơn vị nào
@@ -69,6 +71,16 @@ export class DashboardModule {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
+  normalizeText(str) {
+    if (!str) return '';
+    return String(str)
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd');
+  }
+
   renderInline() {
     if (!this.container || !this.data) return;
 
@@ -104,18 +116,32 @@ export class DashboardModule {
       ? unitSpread
       : unitSpread.filter(u => u.unit === this.selectedUnitFilter);
 
-    // Lọc Danh sách Nhân sự (Tra cứu DS Nhân sự gid=1084168011)
+    // Lọc Danh sách Nhân sự (Tra cứu DS Nhân sự gid=1084168011 - hỗ trợ tìm không dấu, hoa/thường, cả @fpt.com & @fpt.net)
     const filteredHrList = hrDirectory.filter(emp => {
       const matchUnit = this.hrUnitFilter === 'ALL' || emp.dept === this.hrUnitFilter;
       if (!matchUnit) return false;
       if (!this.hrSearchQuery.trim()) return true;
-      const q = this.hrSearchQuery.trim().toLowerCase();
+      const rawQ = this.hrSearchQuery.trim().toLowerCase();
+      const normQ = this.normalizeText(rawQ);
+      const qAccount = rawQ.split('@')[0];
+
+      const empName = String(emp.name || '').toLowerCase();
+      const empNormName = this.normalizeText(empName);
+      const empEmail = String(emp.email || '').toLowerCase();
+      const empAccount = empEmail.split('@')[0];
+      const empDept = String(emp.dept || '').toLowerCase();
+      const empNormDept = this.normalizeText(empDept);
+
       return (
-        String(emp.name || '').toLowerCase().includes(q) ||
-        String(emp.email || '').toLowerCase().includes(q) ||
-        String(emp.dept || '').toLowerCase().includes(q)
+        empName.includes(rawQ) ||
+        empNormName.includes(normQ) ||
+        empEmail.includes(rawQ) ||
+        (qAccount && empAccount.includes(qAccount)) ||
+        empDept.includes(rawQ) ||
+        empNormDept.includes(normQ)
       );
     });
+    const maxHrDisplay = this.hrSearchQuery.trim() ? 90 : 30;
 
     // Tách Top 3 và Hạng 4 - 30 cho Bảng "30 NGƯỜI TIẾP LỬA TRI THỨC"
     const top1 = filteredTop30[0] || null;
@@ -222,7 +248,7 @@ export class DashboardModule {
                   type="text" 
                   id="hr-directory-search-input" 
                   value="${this.hrSearchQuery}"
-                  placeholder="🔍 Nhập tên, email (@fpt.com) hoặc đơn vị..." 
+                  placeholder="🔍 Nhập tên, email (VD: Nhanlh10@fpt.com)..." 
                   class="custom-input rounded-xl px-4 py-2.5 text-xs sm:text-sm sm:w-72 border-amber-500/40"
                 />
               </div>
@@ -232,17 +258,77 @@ export class DashboardModule {
                   <option value="${u}" ${this.hrUnitFilter === u ? 'selected' : ''}>${u}</option>
                 `).join('')}
               </select>
+              <button
+                type="button"
+                id="hr-toggle-sync-panel-btn"
+                class="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+                title="Đồng bộ hoặc Dán nhanh toàn bộ dữ liệu từ tab DS nhân sự (gid=1084168011)"
+              >
+                <span>📥 Đồng bộ DS Nhân sự</span>
+              </button>
             </div>
           </div>
 
+          ${this.showHrSyncPanel ? `
+            <div class="mb-5 p-4 rounded-2xl bg-slate-950/90 border border-amber-400/50 space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 class="text-xs sm:text-sm font-extrabold text-amber-300">
+                    ⚡ ĐỒNG BỘ TRỰC TIẾP HOẶC DÁN NHANH TAB "DS NHÂN SỰ" (GID=1084168011)
+                  </h3>
+                  <p class="text-[11px] text-slate-300 mt-0.5">
+                    Nếu Google Sheet đang để chế độ Riêng tư (Restricted), bạn chỉ cần mở <a href="${GOOGLE_HR_SHEET_URL}" target="_blank" class="text-amber-400 underline font-bold">Sheet DS nhân sự (gid=1084168011)</a>, bấm <strong>Ctrl + A</strong> ➔ <strong>Ctrl + C</strong> rồi dán (<strong>Ctrl + V</strong>) vào ô bên dưới:
+                  </p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    id="hr-direct-gviz-sync-btn"
+                    class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 text-xs font-bold cursor-pointer"
+                  >
+                    🔄 Tải tự động từ Google Sheet
+                  </button>
+                  <a
+                    href="${GOOGLE_HR_SHEET_URL}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-xs font-semibold"
+                  >
+                    ↗ Mở Sheet gid=1084168011
+                  </a>
+                </div>
+              </div>
+
+              <textarea
+                id="hr-paste-textarea"
+                rows="4"
+                placeholder="Dán (Ctrl+V) các dòng copy từ Sheet DS nhân sự vào đây (Tự động nhận diện cột Email, Họ và tên, Đơn vị)..."
+                class="custom-input w-full rounded-xl p-3 text-xs font-mono"
+              ></textarea>
+
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span id="hr-sync-feedback" class="text-xs font-semibold text-emerald-300">${this.hrSyncStatusMsg || ''}</span>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    id="hr-import-paste-btn"
+                    class="btn-flame px-4 py-2 rounded-xl text-xs font-extrabold cursor-pointer"
+                  >
+                    ✅ Nạp & Cập nhật DS Nhân sự ngay
+                  </button>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
           <div class="flex items-center justify-between text-xs text-slate-400 mb-3">
-            <span>Hiển thị <strong class="text-amber-300">${Math.min(filteredHrList.length, 24)}</strong> / <strong class="text-white">${filteredHrList.length}</strong> nhân sự phù hợp</span>
+            <span>Hiển thị <strong class="text-amber-300">${Math.min(filteredHrList.length, maxHrDisplay)}</strong> / <strong class="text-white">${filteredHrList.length}</strong> nhân sự phù hợp</span>
             <span class="text-[11px] text-slate-400">💡 Bấm vào Email để copy nhanh khi điền Google Form</span>
           </div>
 
           ${filteredHrList.length > 0 ? `
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
-              ${filteredHrList.slice(0, 24).map(emp => `
+              ${filteredHrList.slice(0, maxHrDisplay).map(emp => `
                 <div class="p-3.5 rounded-2xl bg-slate-950/75 border border-white/10 hover:border-amber-500/40 transition-all flex flex-col justify-between gap-2.5">
                   <div class="flex items-start gap-3">
                     <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500/30 to-amber-400/20 border border-amber-400/40 flex items-center justify-center text-xs font-black text-amber-300 shrink-0">
@@ -280,8 +366,17 @@ export class DashboardModule {
               `).join('')}
             </div>
           ` : `
-            <div class="py-8 text-center text-slate-400 text-xs">
-              Không tìm thấy nhân sự nào khớp với từ khóa "<strong>${this.hrSearchQuery}</strong>".
+            <div class="py-8 text-center text-slate-300 text-xs space-y-3">
+              <div>Không tìm thấy nhân sự nào khớp với từ khóa "<strong>${this.hrSearchQuery}</strong>" trong bộ nhớ hiện tại.</div>
+              <div class="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  id="hr-empty-open-sync-btn"
+                  class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-extrabold cursor-pointer"
+                >
+                  📥 Bấm để Đồng bộ / Dán nhanh DS Nhân sự từ Sheet (gid=1084168011)
+                </button>
+              </div>
             </div>
           `}
         </section>
@@ -748,6 +843,58 @@ export class DashboardModule {
       hrUnitSelect.addEventListener('change', (e) => {
         this.hrUnitFilter = e.target.value;
         this.renderInline();
+      });
+    }
+
+    // Nút đóng/mở khung Đồng bộ / Dán nhanh DS Nhân sự (gid=1084168011)
+    const toggleSyncBtn = this.container.querySelector('#hr-toggle-sync-panel-btn');
+    if (toggleSyncBtn) {
+      toggleSyncBtn.addEventListener('click', () => {
+        this.showHrSyncPanel = !this.showHrSyncPanel;
+        this.renderInline();
+      });
+    }
+
+    const emptyOpenSyncBtn = this.container.querySelector('#hr-empty-open-sync-btn');
+    if (emptyOpenSyncBtn) {
+      emptyOpenSyncBtn.addEventListener('click', () => {
+        this.showHrSyncPanel = true;
+        this.renderInline();
+      });
+    }
+
+    // Nút tải tự động trực tiếp từ Google Sheet (gid=1084168011) qua GVIZ JSONP
+    const directGvizBtn = this.container.querySelector('#hr-direct-gviz-sync-btn');
+    if (directGvizBtn) {
+      directGvizBtn.addEventListener('click', async () => {
+        directGvizBtn.disabled = true;
+        directGvizBtn.textContent = '⏳ Đang kết nối Sheet gid=1084168011...';
+        const res = await ApiService.syncHrDirectoryFromGoogleSheet();
+        if (res.success && res.count > 0) {
+          this.hrSyncStatusMsg = `✅ Đã đồng bộ tự động ${res.count} nhân sự từ Google Sheet (gid=1084168011)!`;
+          await this.refreshData();
+        } else {
+          this.hrSyncStatusMsg = '⚠️ Sheet đang bật khóa Riêng tư (Restricted). Hãy mở quyền Xem hoặc Ctrl+A -> Ctrl+C từ Sheet dán vào ô bên dưới!';
+          this.renderInline();
+        }
+      });
+    }
+
+    // Nút Nạp nhanh dữ liệu Copy-Paste từ Sheet DS nhân sự
+    const importPasteBtn = this.container.querySelector('#hr-import-paste-btn');
+    if (importPasteBtn) {
+      importPasteBtn.addEventListener('click', async () => {
+        const textarea = this.container.querySelector('#hr-paste-textarea');
+        const rawText = textarea ? textarea.value : '';
+        try {
+          const res = await ApiService.importHrDirectoryFromText(rawText);
+          this.hrSyncStatusMsg = `✅ Đã nạp thành công ${res.importedCount} nhân sự (Tổng danh bạ: ${res.totalCount} CBNV)!`;
+          await this.refreshData();
+        } catch (err) {
+          this.hrSyncStatusMsg = `⚠️ ${err.message}`;
+          const fb = this.container.querySelector('#hr-sync-feedback');
+          if (fb) fb.textContent = this.hrSyncStatusMsg;
+        }
       });
     }
 

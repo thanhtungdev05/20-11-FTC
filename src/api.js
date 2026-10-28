@@ -1,4 +1,15 @@
-import { MOCK_LEADERBOARD, MOCK_EARLY_100, MOCK_UNIT_SPREAD, MOCK_HR_DIRECTORY, cleanAndCorrectVietnameseText, lookupEmployeeInfo } from './mockData.js';
+import {
+  GOOGLE_SHEET_ID,
+  GOOGLE_SHEET_GID,
+  GOOGLE_HR_SHEET_GID,
+  MOCK_LEADERBOARD,
+  MOCK_EARLY_100,
+  MOCK_UNIT_SPREAD,
+  MOCK_HR_DIRECTORY,
+  cleanAndCorrectVietnameseText,
+  lookupEmployeeInfo,
+  saveEmployeeNameCache
+} from './mockData.js';
 
 /**
  * ==============================================================================
@@ -41,6 +52,224 @@ async function fetchAppsScript(rawUrl, options = {}) {
 // Storage keys
 const STORAGE_KEY_SUBMISSIONS = "ftel_20_11_submissions";
 const STORAGE_KEY_LAST_SUBMIT = "ftel_20_11_last_submit_time";
+const STORAGE_KEY_CUSTOM_HR = "ftel_custom_hr_list";
+
+/**
+ * Đọc trực tiếp dữ liệu từ tab bất kỳ của Google Sheet thông qua Google Visualization JSONP (không bị chặn CORS)
+ */
+function loadSheetViaGvizJsonp(sheetId, gid, timeoutMs = 4500) {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined") {
+      resolve(null);
+      return;
+    }
+    const cbName = "__ftelGvizCb_" + gid + "_" + Math.floor(Math.random() * 1000000);
+    let settled = false;
+    const script = document.createElement("script");
+
+    const cleanup = () => {
+      try {
+        delete window[cbName];
+      } catch (e) {
+        window[cbName] = undefined;
+      }
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        resolve(null);
+      }
+    }, timeoutMs);
+
+    window[cbName] = (response) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+      if (!response || response.status !== "ok" || !response.table) {
+        resolve(null);
+        return;
+      }
+      const cols = (response.table.cols || []).map(c => String(c?.label || "").trim());
+      const rows = (response.table.rows || []).map(r =>
+        (r?.c || []).map(cell => (cell && cell.f ? String(cell.f).trim() : cell && cell.v !== null && typeof cell.v !== "undefined" ? String(cell.v).trim() : ""))
+      );
+      const allRows = cols.some(Boolean) ? [cols, ...rows] : rows;
+      resolve(allRows);
+    };
+
+    script.onerror = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${gid}&tqx=out:json;responseHandler:${cbName}&_ts=${Date.now()}`;
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Tự động nhận diện cột Email/Account, Họ tên, Đơn vị từ bảng 2 chiều của Sheet DS Nhân sự (gid=1084168011)
+ */
+export function parseRowsIntoHrDirectory(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const firstRow = rows[0].map(c => String(c || "").trim().toLowerCase());
+  const hasHeader = firstRow.some(h =>
+    h.includes("email") || h.includes("mail") || h.includes("họ") || h.includes("tên") || h.includes("name") || h.includes("đơn vị") || h.includes("phòng") || h.includes("account") || h.includes("stt") || h.includes("mã")
+  );
+
+  let emailCol = -1;
+  let nameCol = -1;
+  let deptCol = -1;
+  let roleCol = -1;
+
+  if (hasHeader) {
+    for (let c = 0; c < firstRow.length; c++) {
+      const h = firstRow[c];
+      if (emailCol === -1 && (h.includes("email") || h.includes("mail") || h.includes("account") || h.includes("tài khoản"))) {
+        emailCol = c;
+      } else if (nameCol === -1 && (h.includes("họ và tên") || h.includes("họ tên") || h.includes("tên") || h.includes("name") || h.includes("nhân sự") || h.includes("cbnv"))) {
+        nameCol = c;
+      } else if (deptCol === -1 && (h.includes("đơn vị") || h.includes("phòng ban") || h.includes("bộ phận") || h.includes("chi nhánh") || h.includes("trung tâm") || h.includes("khối") || h.includes("ban") || h.includes("vùng") || h.includes("dept") || h.includes("unit"))) {
+        deptCol = c;
+      } else if (roleCol === -1 && (h.includes("chức danh") || h.includes("vị trí") || h.includes("vai trò") || h.includes("role"))) {
+        roleCol = c;
+      }
+    }
+  }
+
+  const startIdx = hasHeader ? 1 : 0;
+
+  // Quét tự động cột chứa "@" nếu chưa nhận diện được cột Email
+  if (emailCol === -1 && rows.length > startIdx) {
+    for (let r = startIdx; r < Math.min(rows.length, startIdx + 10); r++) {
+      for (let c = 0; c < rows[r].length; c++) {
+        if (String(rows[r][c] || "").includes("@")) {
+          emailCol = c;
+          break;
+        }
+      }
+      if (emailCol !== -1) break;
+    }
+  }
+
+  if (emailCol === -1) emailCol = 0;
+  if (nameCol === -1) nameCol = emailCol === 0 ? 1 : 0;
+  if (deptCol === -1) deptCol = Math.max(emailCol, nameCol) + 1;
+
+  const list = [];
+  const seenEmails = new Set();
+
+  for (let r = startIdx; r < rows.length; r++) {
+    const row = rows[r];
+    if (!Array.isArray(row) || row.every(cell => !String(cell || "").trim())) continue;
+
+    // Tìm ô có chứa '@' nếu dòng có cấu trúc lệch cột
+    let rawEmail = String(row[emailCol] || "").trim().toLowerCase();
+    if (!rawEmail.includes("@")) {
+      const foundAtIdx = row.findIndex(cell => String(cell || "").includes("@"));
+      if (foundAtIdx !== -1) {
+        rawEmail = String(row[foundAtIdx]).trim().toLowerCase();
+      }
+    }
+
+    let fullName = String(row[nameCol] || "").trim();
+    const deptName = (deptCol < row.length ? String(row[deptCol] || "").trim() : "") || "FPT Telecom";
+    const roleName = (roleCol !== -1 && roleCol < row.length ? String(row[roleCol] || "").trim() : "") || "CBNV FPT Telecom";
+
+    if (!rawEmail && !fullName) continue;
+    const email = rawEmail.includes("@") ? rawEmail : (rawEmail ? `${rawEmail}@fpt.com` : "");
+    if (!email || seenEmails.has(email)) continue;
+    seenEmails.add(email);
+
+    if (!fullName) {
+      fullName = email.split("@")[0].toUpperCase();
+    }
+
+    saveEmployeeNameCache(email, fullName, deptName);
+    const localPart = email.split("@")[0];
+    if (localPart) {
+      saveEmployeeNameCache(`${localPart}@fpt.com`, fullName, deptName);
+      saveEmployeeNameCache(`${localPart}@fpt.net`, fullName, deptName);
+    }
+
+    list.push({
+      name: fullName,
+      email: email,
+      dept: deptName,
+      role: roleName,
+      sentCount: 0,
+      receivedCount: 0
+    });
+  }
+
+  return list;
+}
+
+/**
+ * Gọi Google Apps Script thông qua thẻ <script> JSONP (hỗ trợ cả /a/macros/fpt.com/s/... khi có cookie đăng nhập)
+ */
+function loadAppsScriptViaJsonp(rawUrl, action = "get_dashboard", timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined" || !rawUrl) {
+      resolve(null);
+      return;
+    }
+    const cbName = "__ftelGasCb_" + Math.floor(Math.random() * 1000000);
+    let settled = false;
+    const script = document.createElement("script");
+
+    const cleanup = () => {
+      try {
+        delete window[cbName];
+      } catch (e) {
+        window[cbName] = undefined;
+      }
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        resolve(null);
+      }
+    }, timeoutMs);
+
+    window[cbName] = (res) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+      resolve(res || null);
+    };
+
+    script.onerror = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    const delimiter = rawUrl.includes("?") ? "&" : "?";
+    script.src = `${rawUrl}${delimiter}action=${encodeURIComponent(action)}&callback=${cbName}&_ts=${Date.now()}`;
+    document.head.appendChild(script);
+  });
+}
 
 export class ApiService {
   /**
@@ -249,15 +478,214 @@ export class ApiService {
   }
 
   /**
+   * Lấy danh sách nhân sự đã được đồng bộ / dán từ Sheet DS nhân sự (gid=1084168011)
+   */
+  static getStoredCustomHrList() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_HR) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * Đồng bộ trực tiếp từ Sheet DS Nhân sự (gid=1084168011) thông qua Google Visualization JSONP
+   */
+  static async syncHrDirectoryFromGoogleSheet() {
+    try {
+      const rows = await loadSheetViaGvizJsonp(GOOGLE_SHEET_ID, GOOGLE_HR_SHEET_GID, 4500);
+      if (Array.isArray(rows) && rows.length > 0) {
+        const parsedList = parseRowsIntoHrDirectory(rows);
+        if (parsedList.length > 0) {
+          localStorage.setItem(STORAGE_KEY_CUSTOM_HR, JSON.stringify(parsedList));
+          return { success: true, count: parsedList.length, list: parsedList, source: "google_sheet_gviz" };
+        }
+      }
+    } catch (e) {
+      console.warn("GVIZ sync warning:", e);
+    }
+    return { success: false, count: 0, list: [] };
+  }
+
+  /**
+   * Nhập nhanh danh sách nhân sự khi người dùng Copy & Paste từ Sheet DS Nhân sự (gid=1084168011) hoặc file CSV/TSV
+   */
+  static async importHrDirectoryFromText(rawText) {
+    if (!rawText || !String(rawText).trim()) {
+      throw new Error("Vui lòng dán nội dung từ Sheet DS Nhân sự (Ctrl+A -> Ctrl+C rồi Ctrl+V vào ô)!");
+    }
+    const lines = String(rawText)
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    const rows = lines.map(line => {
+      if (line.includes("\t")) {
+        return line.split("\t").map(c => c.trim());
+      }
+      if (line.includes(";")) {
+        return line.split(";").map(c => c.trim());
+      }
+      return line.split(",").map(c => c.trim().replace(/^["']|["']$/g, ""));
+    });
+
+    const parsedList = parseRowsIntoHrDirectory(rows);
+    if (parsedList.length === 0) {
+      throw new Error("Không nhận diện được dòng nhân sự hợp lệ. Hãy đảm bảo dữ liệu có chứa cột Email (@fpt.com / @fpt.net) và Họ tên!");
+    }
+
+    // Gộp với danh sách đã lưu trước đó (ưu tiên thông tin mới nhất)
+    const existing = this.getStoredCustomHrList();
+    const mergedMap = new Map();
+    [...existing, ...parsedList].forEach(emp => {
+      if (!emp || !emp.email) return;
+      const key = String(emp.email).trim().toLowerCase();
+      mergedMap.set(key, emp);
+    });
+
+    const finalList = Array.from(mergedMap.values());
+    localStorage.setItem(STORAGE_KEY_CUSTOM_HR, JSON.stringify(finalList));
+
+    // Đồng bộ ngầm lên Google Apps Script nếu có kết nối
+    if (!this.isMockMode()) {
+      const scriptUrl = getEffectiveScriptUrl();
+      fetchAppsScript(scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "upload_hr_directory",
+          employees: parsedList
+        })
+      }).catch(() => {});
+    }
+
+    return {
+      success: true,
+      importedCount: parsedList.length,
+      totalCount: finalList.length,
+      list: finalList
+    };
+  }
+
+  /**
+   * Hợp nhất Danh sách Nhân sự (từ Sheet gid=1084168011, Local Cache & Mock) và cập nhật lại Thống kê Đơn vị
+   */
+  static mergeHrDirectoryIntoDashboard(baseData, extraHrLists = []) {
+    const empByAccount = new Map();
+    const addEmp = (emp, isPriority = false) => {
+      if (!emp || (!emp.email && !emp.name)) return;
+      const cleanEmail = String(emp.email || "").trim().toLowerCase();
+      const localPart = cleanEmail.split("@")[0] || String(emp.name || "").trim().toLowerCase();
+      if (!localPart) return;
+
+      const existing = empByAccount.get(localPart);
+      if (!existing) {
+        empByAccount.set(localPart, {
+          name: emp.name || localPart.toUpperCase(),
+          email: cleanEmail || `${localPart}@fpt.com`,
+          dept: emp.dept || "FPT Telecom",
+          role: emp.role || "CBNV FPT Telecom",
+          avatar: emp.avatar || "",
+          sentCount: Number(emp.sentCount || 0),
+          receivedCount: Number(emp.receivedCount || 0)
+        });
+      } else {
+        if (isPriority && emp.name) existing.name = emp.name;
+        if (isPriority && emp.dept && emp.dept !== "FPT Telecom") existing.dept = emp.dept;
+        if (isPriority && cleanEmail) existing.email = cleanEmail;
+        if (emp.avatar && !existing.avatar) existing.avatar = emp.avatar;
+        existing.sentCount = Math.max(existing.sentCount || 0, Number(emp.sentCount || 0));
+        existing.receivedCount = Math.max(existing.receivedCount || 0, Number(emp.receivedCount || 0));
+      }
+    };
+
+    // 1. Nạp danh sách nền
+    (baseData.hrDirectory || MOCK_HR_DIRECTORY).forEach(e => addEmp(e, false));
+    // 2. Nạp danh sách từ Sheet gid=1084168011 / người dùng đồng bộ (ghi đè chính xác Họ tên & Đơn vị)
+    extraHrLists.forEach(list => {
+      if (Array.isArray(list)) {
+        list.forEach(e => addEmp(e, true));
+      }
+    });
+
+    const mergedHrDirectory = Array.from(empByAccount.values());
+
+    // Cập nhật lại membersList của từng Đơn vị trong unitSpread theo đúng DS Nhân sự đã hợp nhất
+    const unitMap = new Map();
+    (baseData.unitSpread || MOCK_UNIT_SPREAD).forEach(u => {
+      unitMap.set(u.unit, {
+        ...u,
+        flamesList: Array.isArray(u.flamesList) ? [...u.flamesList] : [],
+        sendersList: Array.isArray(u.sendersList) ? [...u.sendersList] : [],
+        recipientsList: Array.isArray(u.recipientsList) ? [...u.recipientsList] : [],
+        membersList: Array.isArray(u.membersList) ? [...u.membersList] : []
+      });
+    });
+
+    mergedHrDirectory.forEach(emp => {
+      const unitName = emp.dept || "FPT Telecom";
+      if (!unitMap.has(unitName)) {
+        unitMap.set(unitName, {
+          unit: unitName,
+          totalFlames: emp.receivedCount || 0,
+          senderCount: emp.sentCount > 0 ? 1 : 0,
+          recipientCount: emp.receivedCount > 0 ? 1 : 0,
+          memberCount: 0,
+          flamesList: [],
+          sendersList: [],
+          recipientsList: [],
+          membersList: []
+        });
+      }
+      const uObj = unitMap.get(unitName);
+      const localKey = emp.email.split("@")[0];
+      const alreadyInUnit = uObj.membersList.some(m => String(m.email || "").toLowerCase().split("@")[0] === localKey);
+      if (!alreadyInUnit) {
+        uObj.membersList.push(emp);
+      }
+      uObj.memberCount = uObj.membersList.length;
+    });
+
+    const finalUnits = Array.from(unitMap.values()).sort(
+      (a, b) => (b.totalFlames || 0) - (a.totalFlames || 0) || (b.memberCount || 0) - (a.memberCount || 0)
+    );
+
+    return {
+      ...baseData,
+      uniqueUnits: Math.max(baseData.uniqueUnits || 0, finalUnits.length),
+      unitSpread: finalUnits,
+      hrDirectory: mergedHrDirectory
+    };
+  }
+
+  /**
    * Lấy toàn bộ dữ liệu Live Dashboard (Khu vực B - C - D) từ Google Sheet (hoặc Mock kết hợp Local)
    */
   static async getFullDashboardData() {
+    // 1. Thử đồng bộ trực tiếp tab DS Nhân sự (gid=1084168011) qua Google Visualization JSONP (không bị chặn CORS)
+    const gvizHrSync = await this.syncHrDirectoryFromGoogleSheet();
+    const customHrList = this.getStoredCustomHrList();
+
     if (!this.isMockMode()) {
       try {
         const scriptUrl = getEffectiveScriptUrl();
         const delimiter = scriptUrl.includes('?') ? '&' : '?';
-        const response = await fetchAppsScript(`${scriptUrl}${delimiter}action=get_dashboard`);
-        const result = await response.json();
+        let result = null;
+        try {
+          const response = await fetchAppsScript(`${scriptUrl}${delimiter}action=get_dashboard`);
+          const text = await response.text();
+          if (text && text.trim().startsWith("{")) {
+            result = JSON.parse(text);
+          }
+        } catch (fetchErr) {
+          // Nếu fetch bị chặn CORS bởi domain /a/macros/fpt.com, thử gọi qua thẻ <script> JSONP
+        }
+
+        if (!result) {
+          result = await loadAppsScriptViaJsonp(scriptUrl, "get_dashboard", 4000);
+        }
+
         if (result && result.success && result.data) {
           const d = result.data;
           if (typeof d.totalFlames !== 'undefined' && Array.isArray(d.top30Recipients)) {
@@ -277,7 +705,7 @@ export class ApiService {
                 membersList: Array.isArray(u.membersList) && u.membersList.length > 0 ? u.membersList : (fallbackMock.membersList || [])
               };
             });
-            return {
+            const liveBase = {
               overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
               totalFlames,
               uniqueRecipients,
@@ -288,8 +716,10 @@ export class ApiService {
               unitSpread: enrichedUnitSpread,
               hrDirectory: Array.isArray(d.hrDirectory) && d.hrDirectory.length > 0 ? d.hrDirectory : MOCK_HR_DIRECTORY,
               pendingRender: d.pendingRender || [],
-              isLiveSheet: true
+              isLiveSheet: true,
+              hrSyncSource: gvizHrSync.success ? "google_sheet_gviz" : "apps_script"
             };
+            return this.mergeHrDirectoryIntoDashboard(liveBase, [d.hrDirectory || [], gvizHrSync.list, customHrList]);
           }
         }
       } catch (err) {
@@ -319,7 +749,7 @@ export class ApiService {
     const uniqueSenders = 227 + submissions.length;
     const uniqueUnits = MOCK_UNIT_SPREAD.length;
 
-    return {
+    const fallbackBase = {
       overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
       totalFlames,
       uniqueRecipients,
@@ -330,8 +760,10 @@ export class ApiService {
       unitSpread: MOCK_UNIT_SPREAD,
       hrDirectory: MOCK_HR_DIRECTORY,
       pendingRender: [],
-      isLiveSheet: false
+      isLiveSheet: gvizHrSync.success,
+      hrSyncSource: gvizHrSync.success ? "google_sheet_gviz" : (customHrList.length > 0 ? "custom_imported" : "baseline")
     };
+    return this.mergeHrDirectoryIntoDashboard(fallbackBase, [gvizHrSync.list, customHrList]);
   }
 
   /**

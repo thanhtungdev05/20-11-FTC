@@ -895,8 +895,9 @@ function sendDuplicateWarningEmail(params) {
  * ==============================================================================
  */
 function doGet(e) {
+  const params = (e && e.parameter) || {};
+  const callback = params.callback || "";
   try {
-    const params = (e && e.parameter) || {};
     const action = params.action || "get_dashboard";
 
     if (action === "get_dashboard" || action === "get_stats" || action === "get_leaderboard") {
@@ -904,7 +905,7 @@ function doGet(e) {
       return createJsonResponse({
         success: true,
         data: data
-      });
+      }, callback);
     }
 
     if (action === "get_pending_renders") {
@@ -912,18 +913,18 @@ function doGet(e) {
       return createJsonResponse({
         success: true,
         data: syncInfo.pendingRender || []
-      });
+      }, callback);
     }
 
     return createJsonResponse({
       success: true,
       message: "FTEL 20/11 Google Form & Live Dashboard API is active."
-    });
+    }, callback);
   } catch (err) {
     return createJsonResponse({
       success: false,
       message: err.toString()
-    });
+    }, callback);
   }
 }
 
@@ -1304,9 +1305,15 @@ function formatTimestamp(ts) {
   return String(ts);
 }
 
-function createJsonResponse(obj) {
+function createJsonResponse(obj, callback) {
+  const jsonStr = JSON.stringify(obj);
+  if (callback && /^[a-zA-Z0-9_$]+$/.test(callback)) {
+    return ContentService
+      .createTextOutput(callback + "(" + jsonStr + ");")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
   return ContentService
-    .createTextOutput(JSON.stringify(obj))
+    .createTextOutput(jsonStr)
     .setMimeType(ContentService.MimeType.JSON);
 }
 
