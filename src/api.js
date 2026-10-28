@@ -20,12 +20,12 @@ import {
  * Sau khi triển khai Google Apps Script (xem file google-apps-script/README.md),
  * hãy dán Web App URL vào biến APPS_SCRIPT_URL dưới đây.
  */
-export const APPS_SCRIPT_URL = "https://script.google.com/a/macros/fpt.com/s/AKfycbyZFhemceOkrfDr5ZyWshtTWzi3oQ3X2kn9PcZpAkqkxtp2iX62IXM3fjHC-KVTeM1C_w/exec";
+export const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzhPtayvctOYFFZwSmBVE9DIuQuXS9tPFxqx7vZiFAomeAafqj2TP7Rcish_3b_yKGg5g/exec";
 
 export function getEffectiveScriptUrl() {
   const custom = localStorage.getItem('ftel_custom_script_url');
   // Tự động xóa các link cũ từng triển khai trước đây để luôn dùng link chuẩn mới nhất
-  if (custom && (custom.includes('AKfycbzKGQrt') || custom.includes('AKfycbzJVQuU') || custom.includes('AKfycbzTaNIL'))) {
+  if (custom && (custom.includes('AKfycbzKGQrt') || custom.includes('AKfycbzJVQuU') || custom.includes('AKfycbzTaNIL') || custom.includes('AKfycbyZFhem'))) {
     localStorage.removeItem('ftel_custom_script_url');
     return APPS_SCRIPT_URL;
   }
@@ -1331,7 +1331,7 @@ export class ApiService {
 
     const cardImageBase64 = CardGenerator ? CardGenerator.getCardDataUrl(testCardData, { width: 1080, height: 1440 }) : "";
     const scriptUrl = getEffectiveScriptUrl();
-    const testMailRelayUrl = "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec";
+    const testMailRelayUrl = "https://script.google.com/macros/s/AKfycbzhPtayvctOYFFZwSmBVE9DIuQuXS9tPFxqx7vZiFAomeAafqj2TP7Rcish_3b_yKGg5g/exec";
 
     // 1. Gửi qua kênh Mail Relay độc lập (KHÔNG ghi vào Google Sheet chính thức 1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g)
     let fetchDelivered = false;
