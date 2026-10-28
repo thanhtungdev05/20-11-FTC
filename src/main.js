@@ -1,16 +1,9 @@
-import confetti from 'canvas-confetti';
 import { Scene3D } from './scene3d.js';
 import { CardGenerator, fptLogoImg, keyVisualImg } from './cardGenerator.js';
 import { ApiService, APPS_SCRIPT_URL } from './api.js';
 import { DashboardModule } from './dashboard.js';
 import {
-  DEPARTMENTS,
-  ROLES,
-  TRIBUTE_TAGS,
-  SAMPLE_WISHES,
   lookupEmployeeName,
-  lookupEmployeeInfo,
-  saveEmployeeNameCache,
   cleanAndCorrectVietnameseText
 } from './mockData.js';
 
@@ -18,96 +11,65 @@ class App {
   constructor() {
     this.scene3d = null;
     this.dashboard = new DashboardModule();
-    this.selectedTag = TRIBUTE_TAGS[0].name;
-    this.selectedCardStyle = 'kv';
-    this.lastCardData = null;
+    this.isSyncing = false;
 
     this.init();
   }
 
   async init() {
-    // 1. Initialize 3D WebGL Background Scene
+    // 1. Initialize 3D WebGL Background Scene (Ngọn lửa 3D trung tâm)
     const container = document.getElementById('webgl-canvas-container');
     if (container) {
       this.scene3d = new Scene3D(container);
     }
 
-    // 2. Populate Dropdowns & Tags
-    this.populateSelects();
-    this.renderTags();
-
-    // 3. Setup Live Card Preview & Form Listeners
-    this.setupFormListeners();
-    this.setupCard3DTilt();
-
-    // 4. Initial Render of E-Card Preview
-    this.updateCardPreview();
-    if (fptLogoImg) {
-      if (fptLogoImg.complete) {
-        this.updateCardPreview();
-      } else {
-        fptLogoImg.onload = () => this.updateCardPreview();
-      }
-    }
-    if (keyVisualImg) {
-      if (keyVisualImg.complete) {
-        this.updateCardPreview();
-      } else {
-        keyVisualImg.onload = () => this.updateCardPreview();
-      }
-    }
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => {
-        this.updateCardPreview();
-      });
-    }
-
-    // 5. Setup Action Modals, Campaign Bar & Live Dashboard (Khu vực A - B - C - D)
+    // 2. Setup Config & Admin Portal Modals
     this.setupModals();
-    this.setupCampaignActionBar();
-    this.dashboard.initInlineDashboard('live-campaign-dashboard');
-
-    // 6. Setup Auth OTP & Admin Portal
-    this.setupAuthAndOtp();
     this.setupAdminPortal();
 
-    // 7. Update Counter in Header & Background Sync Pending Google Form Rows
-    this.updateHeaderCounter();
-    this.runBackgroundGoogleFormSync();
+    // 3. Setup Campaign Action Bar & Initialize Live Dashboard (Khu vực A - B - C - D)
+    this.setupCampaignActionBar();
+    await this.dashboard.initInlineDashboard('live-campaign-dashboard');
+    await this.updateHeaderCounter();
+
+    // 4. Đảm bảo phôi thiệp trống 1080x1440 & bộ font chữ đã sẵn sàng, sau đó kích hoạt Auto-Worker ngầm
+    const startAutoWorker = () => {
+      this.runBackgroundGoogleFormSync();
+      // Tự động quét Google Sheet mỗi 15 giây để lọc chính tả, xuất thiệp 1080x1440 và bắn mail tự động
+      setInterval(() => {
+        this.runBackgroundGoogleFormSync();
+      }, 15000);
+    };
+
+    if (keyVisualImg && !keyVisualImg.complete) {
+      keyVisualImg.onload = () => startAutoWorker();
+    } else {
+      startAutoWorker();
+    }
   }
 
   setupCampaignActionBar() {
-    const scrollToDashboard = () => {
-      const dashEl = document.getElementById('live-campaign-dashboard');
-      if (dashEl) {
-        dashEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    };
-
-    const navDashBtn = document.getElementById('open-leaderboard-btn');
-    const heroDashBtn = document.getElementById('scroll-to-dashboard-btn');
-    if (navDashBtn) navDashBtn.addEventListener('click', scrollToDashboard);
-    if (heroDashBtn) heroDashBtn.addEventListener('click', scrollToDashboard);
-
     const syncFormBtn = document.getElementById('sync-google-form-btn');
     const adminSyncFormBtn = document.getElementById('admin-sync-form-btn');
     const statusBanner = document.getElementById('google-sync-status-banner');
 
     const handleManualSync = async (btnEl) => {
+      if (this.isSyncing) return;
+      this.isSyncing = true;
       const origHtml = btnEl ? btnEl.innerHTML : '';
       try {
         if (btnEl) {
           btnEl.disabled = true;
-          btnEl.innerHTML = `<span class="animate-spin">⚙️</span><span>Đang đồng bộ & xuất thiệp...</span>`;
+          btnEl.innerHTML = `<span class="animate-spin">⚙️</span><span>Đang lọc chính tả & xuất thiệp gửi mail...</span>`;
         }
         if (statusBanner) {
           statusBanner.classList.remove('hidden');
           statusBanner.className = 'mt-3 max-w-2xl mx-auto px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-amber-500/40 text-xs text-amber-300 font-medium shadow-xl backdrop-blur-md';
-          statusBanner.innerHTML = '⏳ Đang kiểm tra câu trả lời mới từ Google Sheet, check trùng 3 trường, tra cứu danh bạ nhân sự, sửa lỗi chính tả và xuất E-Card 1080x1440...';
+          statusBanner.innerHTML = '⏳ Đang kiểm tra câu trả lời mới từ Google Form, lọc trùng lặp, sửa lỗi chính tả và xuất E-Card 1080x1440 gửi tới Người nhận & Người gửi...';
         }
 
         const res = await ApiService.syncAndRenderGoogleFormRows(CardGenerator);
-        await this.dashboard.refresh();
+        await this.dashboard.refreshData();
         await this.updateHeaderCounter();
         if (this.cachedSubmissions) {
           await this.loadSubmissionsList();
@@ -117,9 +79,9 @@ class App {
         if (statusBanner) {
           statusBanner.className = 'mt-3 max-w-2xl mx-auto px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-emerald-500/40 text-xs text-emerald-300 font-medium shadow-xl backdrop-blur-md';
           if (processedCount > 0) {
-            statusBanner.innerHTML = `✅ Đã xử lý & xuất thành công <strong>${processedCount}</strong> thiệp E-Card 1080x1440 mới từ Google Form, lưu Google Drive và gửi email tới người nhận (CC người gửi)!`;
+            statusBanner.innerHTML = `✅ Đã tự động lọc chính tả, xuất <strong>${processedCount}</strong> thiệp E-Card 1080x1440 mới từ Google Form, lưu Google Drive và gửi thẳng email cho Người nhận & Người gửi!`;
           } else {
-            statusBanner.innerHTML = `✅ Đã đồng bộ dữ liệu mới nhất từ Google Sheet! Tất cả các câu trả lời hợp lệ đều đã được xuất thiệp E-Card và cập nhật lên Dashboard.`;
+            statusBanner.innerHTML = `✅ Hệ thống đang đồng bộ thời gian thực! Mọi câu trả lời hợp lệ từ Google Form đều đã được lọc chính tả và gửi thiệp E-Card tới Người nhận & Người gửi.`;
           }
         }
       } catch (err) {
@@ -128,6 +90,7 @@ class App {
           statusBanner.innerHTML = `⚠️ Thông báo đồng bộ: ${err.message || 'Vui lòng kiểm tra kết nối Google Apps Script.'}`;
         }
       } finally {
+        this.isSyncing = false;
         if (btnEl) {
           btnEl.disabled = false;
           btnEl.innerHTML = origHtml;
@@ -144,424 +107,22 @@ class App {
   }
 
   async runBackgroundGoogleFormSync() {
+    if (this.isSyncing) return;
+    this.isSyncing = true;
     try {
       const res = await ApiService.syncAndRenderGoogleFormRows(CardGenerator);
       if (res && res.processed > 0) {
-        await this.dashboard.refresh();
+        await this.dashboard.refreshData();
         await this.updateHeaderCounter();
       }
     } catch (e) {
       // Silent in background
-    }
-  }
-
-  populateSelects() {
-    const deptSelect = document.getElementById('sender-dept');
-    if (deptSelect) {
-      DEPARTMENTS.forEach(dept => {
-        const opt = document.createElement('option');
-        opt.value = dept;
-        opt.textContent = dept;
-        deptSelect.appendChild(opt);
-      });
-      deptSelect.value = DEPARTMENTS[0];
-    }
-
-    const roleSelect = document.getElementById('recipient-role');
-    if (roleSelect) {
-      ROLES.forEach(role => {
-        const opt = document.createElement('option');
-        opt.value = role;
-        opt.textContent = role;
-        roleSelect.appendChild(opt);
-      });
-      roleSelect.value = '';
-    }
-  }
-
-  renderTags() {
-    const container = document.getElementById('tags-container');
-    if (!container) return;
-
-    container.innerHTML = '';
-    TRIBUTE_TAGS.forEach((tag, index) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      const isSelected = index === 0;
-      btn.className = `px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-        isSelected
-          ? 'bg-gradient-to-r ' + tag.color + ' text-slate-950 border-amber-300 shadow-md shadow-orange-500/20'
-          : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
-      }`;
-      btn.textContent = tag.name;
-      btn.addEventListener('click', () => {
-        this.selectedTag = tag.name;
-        container.querySelectorAll('button').forEach(b => {
-          b.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer bg-white/5 hover:bg-white/10 text-slate-300 border-white/10';
-        });
-        btn.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer bg-gradient-to-r ' + tag.color + ' text-slate-950 border-amber-300 shadow-md shadow-orange-500/20';
-        this.updateCardPreview();
-      });
-      container.appendChild(btn);
-    });
-  }
-
-  setupFormListeners() {
-    const form = document.getElementById('tribute-form');
-    const senderName = document.getElementById('sender-name');
-    const senderEmail = document.getElementById('sender-email');
-    const senderDept = document.getElementById('sender-dept');
-    const recipientName = document.getElementById('recipient-name');
-    const recipientEmail = document.getElementById('recipient-email');
-    const recipientRole = document.getElementById('recipient-role');
-    const messageInput = document.getElementById('tribute-message');
-    const charCounter = document.getElementById('char-counter');
-    const styleRadios = document.querySelectorAll('input[name="card-style"]');
-    const suggestBtn = document.getElementById('suggest-wish-btn');
-    const spellcheckBtn = document.getElementById('spellcheck-wish-btn');
-
-    // Start with clean empty inputs
-    if (senderName) senderName.value = "";
-    if (senderEmail) senderEmail.value = "";
-    if (recipientName) recipientName.value = "";
-    if (messageInput) {
-      messageInput.value = "";
-      if (charCounter) charCounter.textContent = "0/1000 ký tự";
-    }
-
-    // Input change events to update card preview immediately
-    const updateEvents = ['input', 'change'];
-    [senderName, senderDept, recipientName, recipientRole].forEach(el => {
-      if (el) {
-        updateEvents.forEach(evt => el.addEventListener(evt, () => this.updateCardPreview()));
-      }
-    });
-
-    // Tự động điền Họ tên khi nhập Email (tra cứu từ Danh sách nhân sự)
-    if (senderEmail && senderName) {
-      ['input', 'change', 'blur'].forEach(evt => {
-        senderEmail.addEventListener(evt, () => {
-          const foundName = lookupEmployeeName(senderEmail.value);
-          if (foundName && !senderName.value.trim()) {
-            senderName.value = foundName;
-            this.updateCardPreview();
-          }
-        });
-      });
-    }
-    if (recipientEmail && recipientName) {
-      ['input', 'change', 'blur'].forEach(evt => {
-        recipientEmail.addEventListener(evt, () => {
-          const foundName = lookupEmployeeName(recipientEmail.value);
-          if (foundName && !recipientName.value.trim()) {
-            recipientName.value = foundName;
-            this.updateCardPreview();
-          }
-        });
-      });
-    }
-
-    // Message input + character counter + 3D typing pulse
-    if (messageInput) {
-      messageInput.addEventListener('input', () => {
-        const len = messageInput.value.length;
-        charCounter.textContent = `${len}/1000 ký tự`;
-        if (len > 950) {
-          charCounter.className = 'text-rose-400 font-bold';
-        } else {
-          charCounter.className = 'text-slate-400';
-        }
-        if (this.scene3d) this.scene3d.setTyping(true);
-        this.updateCardPreview();
-      });
-
-      messageInput.addEventListener('blur', () => {
-        if (this.scene3d) this.scene3d.setTyping(false);
-      });
-    }
-
-    // Nút Chuẩn hóa chính tả tiếng Việt tức thì
-    if (spellcheckBtn && messageInput) {
-      spellcheckBtn.addEventListener('click', () => {
-        const raw = messageInput.value;
-        if (!raw.trim()) return;
-        const cleaned = cleanAndCorrectVietnameseText(raw);
-        messageInput.value = cleaned;
-        if (charCounter) charCounter.textContent = `${cleaned.length}/1000 ký tự`;
-        this.updateCardPreview();
-      });
-    }
-
-    // Style switch
-    styleRadios.forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        this.selectedCardStyle = e.target.value;
-        this.updateCardPreview();
-      });
-    });
-
-    // Suggest wish button
-    let wishIndex = 0;
-    if (suggestBtn) {
-      suggestBtn.addEventListener('click', () => {
-        wishIndex = (wishIndex + 1) % SAMPLE_WISHES.length;
-        messageInput.value = SAMPLE_WISHES[wishIndex];
-        charCounter.textContent = `${messageInput.value.length}/1000 ký tự`;
-        this.updateCardPreview();
-      });
-    }
-
-    // Quick download preview card / Zoom Card
-    const quickDownloadBtn = document.getElementById('quick-download-btn');
-    if (quickDownloadBtn) {
-      quickDownloadBtn.addEventListener('click', () => {
-        if (this.lastCardData) {
-          CardGenerator.downloadCard(this.lastCardData);
-        }
-      });
-    }
-
-    // Form submit
-    if (form) {
-      form.addEventListener('submit', (e) => this.handleSubmit(e));
-    }
-  }
-
-  getCurrentFormData(isForPreview = true) {
-    const sName = document.getElementById('sender-name')?.value?.trim() || '';
-    const sEmail = document.getElementById('sender-email')?.value?.trim() || '';
-    const sInfo = lookupEmployeeInfo(sEmail);
-    const sDept = document.getElementById('sender-dept')?.value || sInfo.unit || 'FPT Telecom';
-    const sCode = document.getElementById('sender-code')?.value?.trim() || '';
-    const rName = document.getElementById('recipient-name')?.value?.trim() || '';
-    const rEmail = document.getElementById('recipient-email')?.value?.trim() || '';
-    const rInfo = lookupEmployeeInfo(rEmail);
-    const rRole = document.getElementById('recipient-role')?.value || '';
-    const rawMsg = document.getElementById('tribute-message')?.value?.trim() || '';
-
-    if (!isForPreview) {
-      const cleanedMsg = cleanAndCorrectVietnameseText(rawMsg);
-      return {
-        senderName: sName || sInfo.name || 'Đồng nghiệp FTEL',
-        senderEmail: sEmail,
-        senderDept: sDept,
-        senderCode: sCode,
-        recipientName: rName || rInfo.name || 'Người Thầy FTEL',
-        recipientEmail: rEmail,
-        recipientDept: rInfo.unit || 'FPT Telecom',
-        recipientRole: rRole,
-        tag: this.selectedTag,
-        message: cleanedMsg,
-        cardStyle: this.selectedCardStyle
-      };
-    }
-
-    return {
-      senderName: sName || 'Đồng nghiệp FTEL',
-      senderEmail: sEmail || 'dongnghiep@fpt.net',
-      senderDept: sDept || 'FPT Telecom',
-      senderCode: sCode,
-      recipientName: rName || 'Người Thầy / Mentor FTEL',
-      recipientEmail: rEmail || 'mentor@fpt.net',
-      recipientRole: rRole || 'Giảng viên – Người truyền tri thức',
-      tag: this.selectedTag,
-      message: rawMsg || 'Cảm ơn Anh/Chị đã luôn tận tâm truyền lửa và thắp sáng tri thức!',
-      cardStyle: this.selectedCardStyle
-    };
-  }
-
-  updateCardPreview() {
-    const canvas = document.getElementById('card-preview-canvas');
-    if (!canvas) return;
-
-    const data = this.getCurrentFormData(true);
-    this.lastCardData = data;
-
-    // Render on preview canvas (chuẩn tỷ lệ 1080x1440 sắc nét)
-    CardGenerator.renderToCanvas(canvas, data);
-
-    // Cập nhật cả modal phóng to nếu đang mở
-    const zoomModal = document.getElementById('card-zoom-modal');
-    const zoomCanvas = document.getElementById('zoom-card-canvas');
-    if (zoomModal && !zoomModal.classList.contains('hidden') && zoomCanvas) {
-      CardGenerator.renderToCanvas(zoomCanvas, data);
-    }
-  }
-
-  setupCard3DTilt() {
-    const card = document.getElementById('card-3d-wrapper');
-    if (!card) return;
-
-    card.addEventListener('mousemove', (e) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-      
-      const rotateX = ((y - centerY) / centerY) * -12;
-      const rotateY = ((x - centerX) / centerX) * 12;
-
-      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
-    });
-
-    card.addEventListener('mouseleave', () => {
-      card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
-    });
-  }
-
-  async handleSubmit(e) {
-    e.preventDefault();
-    const submitBtn = document.getElementById('submit-tribute-btn');
-    if (submitBtn.disabled) return;
-
-    const data = this.getCurrentFormData(false);
-
-    // Cập nhật lại ô thông điệp trên giao diện sau khi đã chuẩn hóa chính tả
-    const messageInput = document.getElementById('tribute-message');
-    if (messageInput && data.message) {
-      messageInput.value = data.message;
-      this.updateCardPreview();
-    }
-
-    try {
-      // 1. Loading state on button
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = `
-        <span class="inline-block animate-spin mr-2">⚙️</span>
-        <span>ĐANG THẮP SÁNG NGỌN LỬA TRI ÂN...</span>
-      `;
-
-      // 2. Generate high-res base64 image of the E-Card (1080x1440)
-      const cardImageBase64 = CardGenerator.getCardDataUrl(data, { width: 1080, height: 1440 });
-
-      // 3. Trigger 3D ignite animation in the background
-      if (this.scene3d) {
-        this.scene3d.triggerIgnite();
-      }
-
-      // 4. Submit to Google Apps Script API (check trùng 3 trường + lưu Google Drive + gửi mail)
-      saveEmployeeNameCache(data.senderEmail, data.senderName);
-      saveEmployeeNameCache(data.recipientEmail, data.recipientName);
-      const submitResult = await ApiService.submitGratitude({
-        ...data,
-        cardImageBase64: cardImageBase64
-      });
-
-      // 5. Fire celebratory Confetti
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#f37021', '#ffd700', '#ffffff', '#00c6ff']
-      });
-
-      // 6. Show Success Celebration Modal & Refresh Live Dashboard
-      this.showSuccessModal(data, submitResult);
-      this.updateHeaderCounter();
-      if (this.dashboard) {
-        this.dashboard.refresh();
-      }
-
-    } catch (err) {
-      alert("⚠️ " + (err.message || "Đã có lỗi xảy ra khi gửi. Vui lòng kiểm tra lại!"));
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = `
-        <span class="text-xl">🔥</span>
-        <span>THẮP LỬA TRI ÂN NGAY</span>
-      `;
-    }
-  }
-
-  showSuccessModal(data, submitResult = null) {
-    const modal = document.getElementById('success-modal');
-    const recipientNameEl = document.getElementById('success-recipient-name');
-    const canvas = document.getElementById('success-card-canvas');
-    const syncStatusEl = document.getElementById('success-sync-status');
-
-    if (recipientNameEl) recipientNameEl.textContent = data.recipientName;
-    if (canvas) {
-      CardGenerator.renderToCanvas(canvas, data);
-    }
-
-    if (syncStatusEl) {
-      if (submitResult && submitResult.isCloudSaved) {
-        const driveHtml = submitResult.driveCardUrl
-          ? ` • <a href="${submitResult.driveCardUrl}" target="_blank" class="underline font-bold text-amber-300">Xem thiệp trên Google Drive</a>`
-          : '';
-        syncStatusEl.className = "mb-5 text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300";
-        syncStatusEl.innerHTML = `<span>✅</span><span>Đã lưu vào <strong>Google Sheet</strong>, gửi mail <strong>"MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN"</strong> (CC người gửi)${driveHtml}!</span>`;
-      } else {
-        syncStatusEl.className = "mb-5 text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-2 bg-amber-500/15 border border-amber-500/30 text-amber-300";
-        syncStatusEl.innerHTML = `<span>✅</span><span>Đã kiểm tra hợp lệ, xuất thiệp 1080x1440 và cập nhật trực tiếp lên Bảng Vinh Danh!</span>`;
-      }
-    }
-
-    if (modal) {
-      modal.classList.remove('hidden');
-    }
-
-    // Download button inside modal
-    const downloadBtn = document.getElementById('download-success-card-btn');
-    if (downloadBtn) {
-      downloadBtn.onclick = () => {
-        CardGenerator.downloadCard(data);
-      };
-    }
-
-    // Send another button
-    const anotherBtn = document.getElementById('send-another-btn');
-    if (anotherBtn) {
-      anotherBtn.onclick = () => {
-        modal.classList.add('hidden');
-        const msg = document.getElementById('tribute-message');
-        if (msg) msg.value = '';
-        const rec = document.getElementById('recipient-name');
-        if (rec) rec.value = '';
-        const recMail = document.getElementById('recipient-email');
-        if (recMail) recMail.value = '';
-        this.updateCardPreview();
-      };
+      this.isSyncing = false;
     }
   }
 
   setupModals() {
-    // Zoom Card Modal (Phóng to xem thiệp chi tiết & siêu nét)
-    const zoomBtn = document.getElementById('zoom-card-btn');
-    const cardWrapper = document.getElementById('card-3d-wrapper');
-    const zoomModal = document.getElementById('card-zoom-modal');
-    const closeZoomBtn = document.getElementById('close-zoom-modal-btn');
-    const closeZoomBtn2 = document.getElementById('close-zoom-modal-btn-2');
-    const zoomCanvas = document.getElementById('zoom-card-canvas');
-    const zoomDownloadBtn = document.getElementById('zoom-download-btn');
-
-    const openZoom = () => {
-      if (!zoomModal || !zoomCanvas) return;
-      const data = this.getCurrentFormData(true);
-      CardGenerator.renderToCanvas(zoomCanvas, data);
-      zoomModal.classList.remove('hidden');
-    };
-
-    const closeZoom = () => {
-      if (zoomModal) zoomModal.classList.add('hidden');
-    };
-
-    zoomBtn?.addEventListener('click', openZoom);
-    cardWrapper?.addEventListener('click', openZoom);
-    closeZoomBtn?.addEventListener('click', closeZoom);
-    closeZoomBtn2?.addEventListener('click', closeZoom);
-    zoomModal?.addEventListener('click', (e) => {
-      if (e.target === zoomModal) closeZoom();
-    });
-
-    zoomDownloadBtn?.addEventListener('click', () => {
-      const data = this.getCurrentFormData(true);
-      CardGenerator.downloadCard(data);
-    });
-
-    // Config Google Sheets modal
     const configBtn = document.getElementById('open-config-btn');
     const configModal = document.getElementById('config-modal');
     const closeConfigBtn = document.getElementById('close-config-modal-btn');
@@ -602,279 +163,10 @@ class App {
     if (counterEl) {
       try {
         const full = await ApiService.getFullDashboardData();
-        counterEl.textContent = (full?.overview?.totalFlames || 265) + '+';
+        counterEl.textContent = (full?.totalFlames || full?.overview?.totalFlames || 265) + '+';
       } catch (e) {
         console.error(e);
       }
-    }
-  }
-
-  setupAuthAndOtp() {
-    const modal = document.getElementById('otp-login-modal');
-    const authBox = document.getElementById('otp-auth-box');
-    const restoringBox = document.getElementById('otp-restoring-box');
-    const step1 = document.getElementById('otp-step-1');
-    const step2 = document.getElementById('otp-step-2');
-    const emailInput = document.getElementById('otp-email-input');
-    const codeInput = document.getElementById('otp-code-input');
-    const requestBtn = document.getElementById('request-otp-btn');
-    const verifyBtn = document.getElementById('verify-otp-btn');
-    const backBtn = document.getElementById('back-to-step1-btn');
-    const resendBtn = document.getElementById('resend-otp-btn');
-    const sentToEl = document.getElementById('otp-sent-to-email');
-    const timerDisplay = document.getElementById('otp-timer-display');
-    const logoutBtn = document.getElementById('user-logout-btn');
-
-    let currentEmail = '';
-    let countdownInterval = null;
-
-    // Hiển thị màn hình "XÁC THỰC TRUY CẬP - Đang khôi phục phiên đăng nhập..." (3.5 giây) rồi vào thẳng trang chính
-    const showRestoringAndEnter = (sessionData, durationMs = 3500) => {
-      if (countdownInterval) clearInterval(countdownInterval);
-      this.applyUserSession(sessionData);
-
-      if (modal && authBox && restoringBox) {
-        authBox.classList.add('hidden');
-        restoringBox.classList.remove('hidden');
-        modal.classList.remove('hidden');
-
-        setTimeout(() => {
-          modal.classList.add('hidden');
-          restoringBox.classList.add('hidden');
-          authBox.classList.remove('hidden');
-        }, durationMs);
-      } else if (modal) {
-        modal.classList.add('hidden');
-      }
-    };
-
-    const startTimer = () => {
-      let timeLeft = 600;
-      let resendCooldown = 15;
-      if (timerDisplay) timerDisplay.textContent = 'Hiệu lực: 10:00';
-      if (resendBtn) {
-        resendBtn.disabled = true;
-        resendBtn.textContent = `Gửi lại (${resendCooldown}s)`;
-      }
-
-      if (countdownInterval) clearInterval(countdownInterval);
-      countdownInterval = setInterval(() => {
-        timeLeft--;
-        if (resendCooldown > 0) {
-          resendCooldown--;
-          if (resendBtn) resendBtn.textContent = resendCooldown > 0 ? `Gửi lại (${resendCooldown}s)` : 'Gửi lại mã';
-          if (resendCooldown === 0 && resendBtn) resendBtn.disabled = false;
-        }
-
-        if (timeLeft <= 0) {
-          clearInterval(countdownInterval);
-          if (timerDisplay) timerDisplay.textContent = 'Mã OTP đã hết hạn';
-          if (resendBtn) resendBtn.disabled = false;
-        } else {
-          const m = String(Math.floor(timeLeft / 60)).padStart(2, '0');
-          const s = String(timeLeft % 60).padStart(2, '0');
-          if (timerDisplay) timerDisplay.textContent = 'Hiệu lực: ' + m + ':' + s;
-        }
-      }, 1000);
-    };
-
-    // 1. Kiểm tra session hiện tại khi load trang:
-    const session = ApiService.getUserSession();
-    if (session && session.email) {
-      showRestoringAndEnter(session, 3500);
-    } else {
-      if (authBox) authBox.classList.remove('hidden');
-      if (restoringBox) restoringBox.classList.add('hidden');
-      if (modal) modal.classList.remove('hidden');
-    }
-
-    if (emailInput && requestBtn) {
-      emailInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          requestBtn.click();
-        }
-      });
-    }
-    if (codeInput && verifyBtn) {
-      codeInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          verifyBtn.click();
-        }
-      });
-    }
-
-    // 2. Nút Gửi mã OTP vào Outlook siêu tốc
-    if (requestBtn) {
-      requestBtn.addEventListener('click', async () => {
-        const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
-        if (!email) {
-          alert('Anh Chị vui lòng nhập email FPT!');
-          return;
-        }
-        if (!email.endsWith('@fpt.net') && !email.endsWith('@fpt.com')) {
-          alert('Email phải có đuôi @fpt.net hoặc @fpt.com!');
-          return;
-        }
-
-        try {
-          requestBtn.disabled = true;
-          requestBtn.innerHTML = '<span>Đang gửi mã OTP...</span>';
-
-          const res = await ApiService.requestOtp(email);
-          currentEmail = email;
-
-          if (res && res.alreadyVerified) {
-            const sessionData = res.data || { email: email, isAdmin: res.isAdmin };
-            showRestoringAndEnter(sessionData, 3500);
-            return;
-          }
-
-          if (sentToEl) sentToEl.textContent = email;
-          if (step1) step1.classList.add('hidden');
-          if (step2) step2.classList.remove('hidden');
-          if (codeInput) {
-            codeInput.value = '';
-            codeInput.focus();
-          }
-          startTimer();
-
-        } catch (err) {
-          alert('⚠️ ' + (err.message || 'Không thể gửi mã OTP.'));
-        } finally {
-          requestBtn.disabled = false;
-          requestBtn.innerHTML = '<span>Nhận mã OTP</span><span>➜</span>';
-        }
-      });
-    }
-
-    // 3. Quay lại bước 1
-    if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        if (countdownInterval) clearInterval(countdownInterval);
-        if (step2) step2.classList.add('hidden');
-        if (step1) step1.classList.remove('hidden');
-      });
-    }
-
-    // 4. Gửi lại mã OTP
-    if (resendBtn) {
-      resendBtn.addEventListener('click', async () => {
-        if (!currentEmail) return;
-        try {
-          resendBtn.disabled = true;
-          resendBtn.textContent = 'Đang gửi...';
-          await ApiService.requestOtp(currentEmail);
-          alert('✅ Đã gửi mã OTP mới vào hộp thư Outlook của bạn!');
-          startTimer();
-        } catch (err) {
-          alert('⚠️ ' + (err.message || 'Chưa thể gửi lại mã lúc này.'));
-          resendBtn.disabled = false;
-          resendBtn.textContent = 'Gửi lại mã';
-        }
-      });
-    }
-
-    // 5. Nút Xác thực OTP
-    if (verifyBtn) {
-      verifyBtn.addEventListener('click', async () => {
-        const otp = codeInput ? codeInput.value.trim() : '';
-        if (!otp || otp.length < 6) {
-          alert('Vui lòng nhập đúng mã OTP 6 chữ số!');
-          return;
-        }
-
-        try {
-          verifyBtn.disabled = true;
-          verifyBtn.innerHTML = '<span>Đang xác thực...</span>';
-
-          const sessionData = await ApiService.verifyOtp(currentEmail, otp);
-          if (countdownInterval) clearInterval(countdownInterval);
-
-          if (modal) modal.classList.add('hidden');
-          this.applyUserSession(sessionData);
-
-          confetti({
-            particleCount: 90,
-            spread: 70,
-            origin: { y: 0.6 }
-          });
-
-        } catch (err) {
-          alert('⚠️ ' + (err.message || 'Mã OTP không chính xác.'));
-        } finally {
-          verifyBtn.disabled = false;
-          verifyBtn.innerHTML = '<span>Xác Nhận & Vào Thắp Lửa</span><span>🔥</span>';
-        }
-      });
-    }
-
-    // 6. Đăng xuất (Cả desktop và mobile)
-    const handleLogout = () => {
-      if (confirm('Bạn có chắc muốn đăng xuất khỏi phiên làm việc này?')) {
-        ApiService.logout();
-        window.location.reload();
-      }
-    };
-    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
-    const mobileLogoutBtn = document.getElementById('user-mobile-logout-btn');
-    if (mobileLogoutBtn) mobileLogoutBtn.addEventListener('click', handleLogout);
-  }
-
-  applyUserSession(session) {
-    const senderNameInput = document.getElementById('sender-name');
-    const senderEmailInput = document.getElementById('sender-email');
-    const verifiedBadge = document.getElementById('sender-email-verified-badge');
-    const userBadge = document.getElementById('user-header-badge');
-    const displayEmail = document.getElementById('user-display-email');
-    const adminHeaderBtn = document.getElementById('open-admin-panel-btn');
-    const openConfigBtn = document.getElementById('open-config-btn');
-
-    // Mobile strip elements
-    const mobileBar = document.getElementById('user-mobile-bar');
-    const mobileEmail = document.getElementById('user-mobile-email');
-    const mobileAdminTag = document.getElementById('user-mobile-admin-tag');
-
-    if (session && session.email) {
-      if (senderEmailInput) {
-        senderEmailInput.value = session.email;
-        senderEmailInput.readOnly = true;
-        senderEmailInput.classList.add('bg-black/50', 'border-emerald-500/40', 'text-emerald-300', 'cursor-not-allowed');
-      }
-      if (senderNameInput && !senderNameInput.value.trim()) {
-        const knownName = session.name || lookupEmployeeName(session.email);
-        if (knownName) {
-          senderNameInput.value = knownName;
-        }
-      }
-      if (verifiedBadge) verifiedBadge.classList.remove('hidden');
-
-      if (userBadge) {
-        userBadge.classList.remove('hidden');
-        userBadge.classList.add('flex');
-      }
-      if (displayEmail) displayEmail.textContent = session.email;
-
-      if (mobileBar) {
-        mobileBar.classList.remove('hidden');
-        mobileBar.classList.add('flex');
-      }
-      if (mobileEmail) mobileEmail.textContent = session.email;
-      if (mobileAdminTag) {
-        if (session.isAdmin) mobileAdminTag.classList.remove('hidden');
-        else mobileAdminTag.classList.add('hidden');
-      }
-
-      if (session.isAdmin) {
-        if (adminHeaderBtn) {
-          adminHeaderBtn.classList.remove('hidden');
-          adminHeaderBtn.classList.add('flex');
-        }
-        if (openConfigBtn) openConfigBtn.classList.remove('hidden');
-      }
-
-      this.updateCardPreview();
     }
   }
 
@@ -907,52 +199,7 @@ class App {
     const refreshSubmissionsBtn = document.getElementById('admin-refresh-submissions-btn');
     const searchSubmissionsInput = document.getElementById('admin-search-submissions-input');
 
-    const adminBtnModeDirect = document.getElementById('admin-btn-mode-direct');
-    const adminBtnModeOtp = document.getElementById('admin-btn-mode-otp');
-    const adminAuthModeBadge = document.getElementById('admin-auth-mode-badge');
-
-    const refreshAdminAuthModeUI = (mode) => {
-      const isDirect = mode === 'direct';
-      if (adminAuthModeBadge) {
-        adminAuthModeBadge.textContent = isDirect ? '⚡ Siêu Tốc (0.1s)' : '🔐 OTP Outlook';
-        adminAuthModeBadge.className = isDirect
-          ? 'px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-          : 'px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
-      }
-      if (adminBtnModeDirect) {
-        adminBtnModeDirect.className = isDirect
-          ? 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-amber-500/20 border-amber-500 text-white shadow-md'
-          : 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10';
-      }
-      if (adminBtnModeOtp) {
-        adminBtnModeOtp.className = !isDirect
-          ? 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-amber-500/20 border-amber-500 text-white shadow-md'
-          : 'p-3 rounded-xl border text-left cursor-pointer transition-all bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10';
-      }
-    };
-
-    if (adminBtnModeDirect) {
-      adminBtnModeDirect.addEventListener('click', async () => {
-        adminBtnModeDirect.disabled = true;
-        await ApiService.adminToggleAuthMode('direct');
-        refreshAdminAuthModeUI('direct');
-        alert('⚡ Đã chuyển sang chế độ: Xác thực nhanh tức thì (0.1s, không cần mã OTP)!');
-        window.location.reload();
-      });
-    }
-
-    if (adminBtnModeOtp) {
-      adminBtnModeOtp.addEventListener('click', async () => {
-        adminBtnModeOtp.disabled = true;
-        await ApiService.adminToggleAuthMode('otp');
-        refreshAdminAuthModeUI('otp');
-        alert('🔐 Đã chuyển sang chế độ: Bắt buộc gửi mã OTP qua Outlook!');
-        window.location.reload();
-      });
-    }
-
     const openAdminDashboard = () => {
-      refreshAdminAuthModeUI(ApiService.getAuthMode());
       if (adminUrlInput) adminUrlInput.value = localStorage.getItem('ftel_custom_script_url') || APPS_SCRIPT_URL;
       if (adminPanelModal) adminPanelModal.classList.remove('hidden');
       selectTab(tabSubmissions, viewSubmissions);
@@ -1225,7 +472,7 @@ class App {
               <th class="py-2.5 px-3">Thời Gian</th>
               <th class="py-2.5 px-3">Người Gửi (CBNV)</th>
               <th class="py-2.5 px-3">Người Nhận (Thầy/Cô)</th>
-              <th class="py-2.5 px-3">Lời Chúc (Đã Chuẩn Hóa)</th>
+              <th class="py-2.5 px-3">Lời Chúc (Đã Lọc Chính Tả)</th>
               <th class="py-2.5 px-3 text-center">Thao Tác</th>
             </tr>
           </thead>
@@ -1272,8 +519,8 @@ class App {
           if (res.success) {
             alert('✅ ' + (res.message || 'Đã xóa lời tri ân thành công!'));
             await this.loadSubmissionsList();
-            if (this.dashboard && this.dashboard.refresh) {
-              this.dashboard.refresh();
+            if (this.dashboard && this.dashboard.refreshData) {
+              this.dashboard.refreshData();
             }
           } else {
             alert('⚠️ Không thể xóa: ' + (res.message || 'Lỗi không xác định'));
@@ -1365,7 +612,6 @@ class App {
     link.click();
     URL.revokeObjectURL(url);
   }
-
 }
 
 // Start application when DOM is ready

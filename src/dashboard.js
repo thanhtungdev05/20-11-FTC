@@ -33,6 +33,10 @@ export class DashboardModule {
     }
   }
 
+  async refresh() {
+    return this.refreshData();
+  }
+
   open() {
     const dashEl = document.getElementById('live-campaign-dashboard');
     if (dashEl) {

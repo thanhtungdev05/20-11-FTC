@@ -25,7 +25,7 @@ const CONFIG = {
   FORM_RESPONSE_GID: 1557167031,
 
   // Link Google Form chính thức
-  GOOGLE_FORM_URL: "https://docs.google.com/forms/d/1ot14yO0FsBI0jVeySVhs1v4s_QX30e3iNiJg0WveJUI/viewform",
+  GOOGLE_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform",
 
   // Tên tab Danh sách nhân sự (để tự động tra cứu Họ tên & Đơn vị từ Email)
   HR_SHEET_NAME: "DS_NhanSu",

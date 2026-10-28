@@ -8,12 +8,12 @@ import { MOCK_LEADERBOARD, MOCK_EARLY_100, MOCK_UNIT_SPREAD, cleanAndCorrectViet
  * Sau khi triển khai Google Apps Script (xem file google-apps-script/README.md),
  * hãy dán Web App URL vào biến APPS_SCRIPT_URL dưới đây.
  */
-export const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec";
+export const APPS_SCRIPT_URL = "https://script.google.com/a/macros/fpt.com/s/AKfycbyZFhemceOkrfDr5ZyWshtTWzi3oQ3X2kn9PcZpAkqkxtp2iX62IXM3fjHC-KVTeM1C_w/exec";
 
 export function getEffectiveScriptUrl() {
   const custom = localStorage.getItem('ftel_custom_script_url');
-  // Tự động xóa các link cũ từng lỗi trước đây để luôn dùng link chuẩn mới nhất
-  if (custom && (custom.includes('AKfycbzKGQrt') || custom.includes('AKfycbzJVQuU'))) {
+  // Tự động xóa các link cũ từng triển khai trước đây để luôn dùng link chuẩn mới nhất
+  if (custom && (custom.includes('AKfycbzKGQrt') || custom.includes('AKfycbzJVQuU') || custom.includes('AKfycbzTaNIL'))) {
     localStorage.removeItem('ftel_custom_script_url');
     return APPS_SCRIPT_URL;
   }
@@ -21,6 +21,21 @@ export function getEffectiveScriptUrl() {
     return custom;
   }
   return APPS_SCRIPT_URL;
+}
+
+/**
+ * Tự động chuẩn hóa URL Google Apps Script (hỗ trợ cả /a/macros/fpt.com/s/... và /macros/s/...)
+ * để gọi API trình duyệt mượt mà không bị lỗi CORS domain redirect
+ */
+async function fetchAppsScript(rawUrl, options = {}) {
+  const publicUrl = rawUrl.replace('/a/macros/fpt.com/s/', '/macros/s/');
+  try {
+    const res = await fetch(publicUrl, options);
+    if (res.ok) return res;
+  } catch (e) {
+    // Fallback sang rawUrl nếu publicUrl gặp lỗi mạng
+  }
+  return fetch(rawUrl, options);
 }
 
 // Storage keys
@@ -241,17 +256,21 @@ export class ApiService {
       try {
         const scriptUrl = getEffectiveScriptUrl();
         const delimiter = scriptUrl.includes('?') ? '&' : '?';
-        const response = await fetch(`${scriptUrl}${delimiter}action=get_dashboard`);
+        const response = await fetchAppsScript(`${scriptUrl}${delimiter}action=get_dashboard`);
         const result = await response.json();
         if (result && result.success && result.data) {
           const d = result.data;
-          // Nếu Sheet thực tế đã có dữ liệu hoặc có danh sách trả về
           if (typeof d.totalFlames !== 'undefined' && Array.isArray(d.top30Recipients)) {
+            const totalFlames = d.totalFlames || d.totalSubmissions || 0;
+            const uniqueRecipients = d.uniqueRecipients || 0;
+            const uniqueSenders = d.uniqueSenders || 0;
+            const uniqueUnits = d.uniqueUnits || 0;
             return {
-              totalFlames: d.totalFlames || d.totalSubmissions || 0,
-              uniqueRecipients: d.uniqueRecipients || 0,
-              uniqueSenders: d.uniqueSenders || 0,
-              uniqueUnits: d.uniqueUnits || 0,
+              overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
+              totalFlames,
+              uniqueRecipients,
+              uniqueSenders,
+              uniqueUnits,
               top30Recipients: d.top30Recipients.length > 0 ? d.top30Recipients : MOCK_LEADERBOARD,
               early100Senders: Array.isArray(d.early100Senders) && d.early100Senders.length > 0 ? d.early100Senders : MOCK_EARLY_100,
               unitSpread: Array.isArray(d.unitSpread) && d.unitSpread.length > 0 ? d.unitSpread : MOCK_UNIT_SPREAD,
@@ -282,11 +301,17 @@ export class ApiService {
       }
     });
 
+    const totalFlames = 313 + submissions.length;
+    const uniqueRecipients = board.length;
+    const uniqueSenders = 227 + submissions.length;
+    const uniqueUnits = MOCK_UNIT_SPREAD.length;
+
     return {
-      totalFlames: 313 + submissions.length,
-      uniqueRecipients: board.length,
-      uniqueSenders: 227 + submissions.length,
-      uniqueUnits: MOCK_UNIT_SPREAD.length,
+      overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
+      totalFlames,
+      uniqueRecipients,
+      uniqueSenders,
+      uniqueUnits,
       top30Recipients: board.slice(0, 30),
       early100Senders: earlyList.slice(0, 100),
       unitSpread: MOCK_UNIT_SPREAD,
@@ -296,52 +321,61 @@ export class ApiService {
   }
 
   /**
-   * Tự động quét các dòng mới từ Google Form trên Google Sheet, xuất ảnh E-Card 1080x1440,
-   * lưu vào Google Drive, gắn link vào Sheet và gửi email cho người nhận (CC người gửi)
+   * Tự động quét các dòng mới từ Google Form trên Google Sheet, lọc chính tả,
+   * xuất ảnh E-Card 1080x1440, lưu vào Google Drive, gắn link vào Sheet
+   * và gửi thẳng email cho người nhận & người gửi (CC)
    */
   static async syncAndRenderGoogleFormRows(CardGenerator) {
-    if (this.isMockMode() || !CardGenerator) return { synced: 0 };
+    if (this.isMockMode() || !CardGenerator) return { synced: 0, processed: 0 };
     try {
       const scriptUrl = getEffectiveScriptUrl();
-      const response = await fetch(scriptUrl, {
+      const response = await fetchAppsScript(scriptUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "sync_form_rows" })
       });
-      if (!response.ok) return { synced: 0 };
+      if (!response.ok) return { synced: 0, processed: 0 };
       const res = await response.json();
       const pendingList = res?.data?.pendingRender || [];
       let completedCount = 0;
 
       for (const item of pendingList) {
+        const senderHr = lookupEmployeeInfo(item.senderEmail);
+        const recipientHr = lookupEmployeeInfo(item.recipientEmail);
+        const cleanedMessage = cleanAndCorrectVietnameseText(item.message || "");
+
         const cardData = {
-          senderName: item.senderName,
+          senderName: item.senderName || senderHr.name || "Đồng nghiệp FTEL",
           senderEmail: item.senderEmail,
-          senderDept: item.senderDept,
-          recipientName: item.recipientName,
+          senderDept: item.senderDept || senderHr.unit || "FPT Telecom",
+          recipientName: item.recipientName || recipientHr.name || "Người Thầy FTEL",
           recipientEmail: item.recipientEmail,
-          recipientRole: item.recipientRole,
-          message: item.message,
+          recipientRole: item.recipientRole || "Giảng viên – Người truyền tri thức",
+          message: cleanedMessage,
           cardStyle: "kv"
         };
         const cardImageBase64 = CardGenerator.getCardDataUrl(cardData, { width: 1080, height: 1440 });
-        await fetch(scriptUrl, {
+        await fetchAppsScript(scriptUrl, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             action: "complete_ecard_and_send_mail",
             rowNumber: item.rowNumber,
             cardImageBase64: cardImageBase64,
-            ...item
+            ...item,
+            senderName: cardData.senderName,
+            senderDept: cardData.senderDept,
+            recipientName: cardData.recipientName,
+            message: cleanedMessage
           })
         });
         completedCount++;
       }
 
-      return { synced: completedCount, totalPending: pendingList.length };
+      return { synced: completedCount, processed: completedCount, totalPending: pendingList.length };
     } catch (e) {
       console.warn("Auto-sync Google Form rows warning:", e);
-      return { synced: 0 };
+      return { synced: 0, processed: 0 };
     }
   }
   static async getDashboardStats() {
