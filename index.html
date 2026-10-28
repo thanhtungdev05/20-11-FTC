@@ -7,7 +7,7 @@
     <meta name="description" content="Chương trình gửi lời tri ân đến Giảng viên, Mentor, Coach và người chia sẻ tri thức tại FPT Telecom nhân dịp 20/11" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
+    <meta name="Expires" content="0" />
     <link rel="icon" type="image/png" href="/assets/logoFPT.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,7 +39,7 @@
 
     <!-- Main Content Layer -->
     <div class="ui-container">
-      <!-- Navigation Bar -->
+      <!-- KHU VỰC A: HEADER CHƯƠNG TRÌNH & THANH ĐIỀU HƯỚNG -->
       <header class="glass-header w-full sticky top-0 z-40 transition-all">
         <div class="max-w-7xl mx-auto px-2.5 sm:px-6 h-13 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-4">
           <!-- Logo & Title -->
@@ -71,13 +71,14 @@
               <span class="text-slate-400">ngọn lửa</span>
             </div>
 
-            <!-- Leaderboard Button (Hidden per request) -->
+            <!-- Quick Jump to Live Dashboard Button -->
             <button 
               id="open-leaderboard-btn" 
-              class="hidden px-2 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-semibold items-center gap-1 sm:gap-1.5 shadow-md shadow-amber-500/10 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              type="button"
+              class="flex px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-semibold items-center gap-1 sm:gap-1.5 shadow-md shadow-amber-500/10 transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
-              <span>🏆</span>
-              <span class="hidden sm:inline">Top 30</span>
+              <span>📊</span>
+              <span class="hidden sm:inline">Dashboard</span>
             </button>
 
             <!-- User Session Badge (Desktop only: hidden on mobile via CSS #user-header-badge) -->
@@ -126,7 +127,7 @@
       <!-- Main Body Container -->
       <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 flex flex-col justify-center">
         <!-- Hero Tagline (Điểm nhấn ngọn lửa ở khu vực tiêu đề, hiển thị đầy đủ dấu tiếng Việt) -->
-        <div class="text-center max-w-5xl w-full mx-auto mb-5 sm:mb-8 px-1 pt-1">
+        <div class="text-center max-w-5xl w-full mx-auto mb-5 sm:mb-7 px-1 pt-1">
           <h1 class="hero-main-title text-2xl sm:text-4xl lg:text-5xl font-black text-gradient-gold tracking-wide uppercase mb-3">
             LAN TỎA NGỌN LỬA TRI ÂN
           </h1>
@@ -136,10 +137,55 @@
               Mỗi dòng chia sẻ chân thành của bạn là một tia sáng thắp lên ngọn lửa tôn vinh những người Thầy, Mentor, Coach và người dẫn đường thầm lặng tại FPT Telecom.
             </p>
           </div>
+
+          <!-- KHU VỰC A: THANH TÁC VỤ LIÊN KẾT GOOGLE FORM & GOOGLE SHEET & DASHBOARD -->
+          <div class="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            <a 
+              href="https://docs.google.com/forms/d/1ot14yO0FsBI0jVeySVhs1v4s_QX30e3iNiJg0WveJUI/viewform" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-orange-500/25 hover:brightness-110 transition-all flex items-center gap-1.5"
+            >
+              <span>📝</span>
+              <span>Điền Google Form Tri Ân</span>
+            </a>
+
+            <button 
+              type="button"
+              id="scroll-to-dashboard-btn"
+              class="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-bold text-xs sm:text-sm shadow-lg backdrop-blur-md transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>📊</span>
+              <span>Bảng Vinh Danh & Thống Kê</span>
+            </button>
+
+            <button 
+              type="button"
+              id="sync-google-form-btn"
+              class="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs sm:text-sm shadow-lg backdrop-blur-md transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Đồng bộ câu trả lời mới từ Google Sheet, kiểm tra trùng lặp, tra cứu danh bạ nhân sự, sửa lỗi chính tả, xuất thiệp 1080x1440 lưu Google Drive và gửi mail"
+            >
+              <span>⚡</span>
+              <span>Đồng Bộ & Xuất Thiệp Từ Google Sheet</span>
+            </button>
+
+            <a 
+              href="https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit?gid=1557167031#gid=1557167031" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 font-semibold text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-1.5"
+            >
+              <span>📗</span>
+              <span>Mở Google Sheet</span>
+            </a>
+          </div>
+
+          <!-- Status Banner cho tiến trình Đồng bộ Google Form -->
+          <div id="google-sync-status-banner" class="hidden mt-3 max-w-2xl mx-auto px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-emerald-500/40 text-xs text-emerald-300 font-medium shadow-xl backdrop-blur-md"></div>
         </div>
 
         <!-- 2-Column Workspace: Form & 3D Interactive Card Preview -->
-        <div class="workspace-content-area grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-start">
+        <div id="ecard-studio-section" class="workspace-content-area grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-start">
           
           <!-- LEFT COLUMN: Form Thắp Lửa (7 cols) -->
           <div class="lg:col-span-7 glass-card-glow rounded-3xl p-3.5 sm:p-7">
@@ -227,17 +273,27 @@
 
               <!-- Section 3: Lời cảm ơn tâm huyết (Message) -->
               <div>
-                <div class="flex items-center justify-between mb-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                   <label class="text-xs font-bold uppercase tracking-wider text-slate-200">
                     3. LỜI CẢM ƠN TÂM HUYẾT <span class="text-rose-400">*</span>
                   </label>
-                  <button 
-                    type="button" 
-                    id="suggest-wish-btn" 
-                    class="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium underline transition-colors cursor-pointer"
-                  >
-                    💡 Gợi ý câu chúc ý nghĩa
-                  </button>
+                  <div class="flex items-center gap-3">
+                    <button 
+                      type="button" 
+                      id="spellcheck-wish-btn" 
+                      class="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-medium underline transition-colors cursor-pointer"
+                      title="Tự động rà soát và sửa lỗi chính tả tiếng Việt, dấu câu"
+                    >
+                      ✨ Chuẩn hóa chính tả
+                    </button>
+                    <button 
+                      type="button" 
+                      id="suggest-wish-btn" 
+                      class="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium underline transition-colors cursor-pointer"
+                    >
+                      💡 Gợi ý câu chúc ý nghĩa
+                    </button>
+                  </div>
                 </div>
                 <textarea 
                   id="tribute-message" 
@@ -249,7 +305,7 @@
                   class="custom-input w-full rounded-2xl p-3.5 placeholder-slate-500 resize-none leading-relaxed"
                 ></textarea>
                 <div class="flex justify-between items-center text-[11px] text-slate-400 mt-1">
-                  <span>Tối thiểu 10 ký tự</span>
+                  <span>Tối thiểu 10 ký tự • Tự động chuẩn hóa chính tả khi xuất thiệp</span>
                   <span id="char-counter">0/1000 ký tự</span>
                 </div>
               </div>
@@ -276,7 +332,7 @@
                   <span class="text-amber-400 text-sm">✦</span>
                   <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Xem Trước Thiệp 3D</h3>
                 </div>
-                <span class="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="text-[10px] sm:text-xs text-slate-400 flex items-center gap-1.5">
                   <span>Tự động cập nhật</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-orange-400 animate-ping"></span>
                 </span>
@@ -310,6 +366,9 @@
           </div>
 
         </div>
+
+        <!-- LIVE CAMPAIGN DASHBOARD: KHU VỰC B (TỔNG QUAN) - KHU VỰC C (BẢNG XẾP HẠNG TOP 30 & 100 SỚM NHẤT) - KHU VỰC D (LAN TỎA THEO ĐƠN VỊ) -->
+        <section id="live-campaign-dashboard" class="w-full mt-10 sm:mt-14 scroll-mt-20"></section>
       </main>
 
       <!-- Footer -->
@@ -320,7 +379,7 @@
             <p>© 2026 Trung tâm Đào tạo FTEL (FTC) - FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11</p>
           </div>
           <div class="flex items-center gap-2">
-            <p>Hệ thống tự động hóa E-Card & Tổng hợp số liệu giải "30 Tiếp Lửa Bền Bỉ"</p>
+            <p>Hệ thống tự động hóa E-Card & Tổng hợp số liệu giải "30 Người Tiếp Lửa Tri Thức"</p>
             <button id="footer-admin-link" class="text-slate-500 hover:text-amber-400 transition-colors text-xs cursor-pointer ml-2">🔒 Quản trị</button>
           </div>
         </div>
@@ -338,7 +397,7 @@
           Ngọn lửa tri ân đầy ấm áp của bạn đã được gửi tới <strong id="success-recipient-name" class="text-white"></strong>.
         </p>
         <p class="text-xs sm:text-sm text-amber-300 font-medium mb-4 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/25">
-          Ngay sau khi gửi, E-Card cá nhân hóa sẽ được tự động gửi trực tiếp đến hộp thư người nhận.
+          Ngay sau khi gửi, E-Card cá nhân hóa (1080x1440) được lưu vào Google Drive và tự động gửi email tiêu đề <strong>"MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN"</strong> tới người nhận (CC người gửi).
         </p>
 
         <!-- Status badge Google Sheets sync -->
@@ -412,7 +471,7 @@
           <button id="close-config-modal-btn" class="text-slate-400 hover:text-white">✕</button>
         </div>
         <p class="text-xs text-slate-400 mb-4 leading-relaxed">
-          Dán URL Web App triển khai từ Google Apps Script (chế độ Restricted) để kết nối lưu trữ trực tiếp vào Google Sheets.
+          Dán URL Web App triển khai từ Google Apps Script để kết nối đồng bộ trực tiếp với Google Sheets (ID: <code class="text-amber-300">1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g</code>).
         </p>
         <div class="space-y-3">
           <div>
@@ -584,7 +643,7 @@
               <div class="flex items-center gap-2">
                 <h3 class="text-base sm:text-lg font-bold text-amber-400">Trung Tâm Quản Trị Hệ Thống FTC</h3>
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Restricted Mode
+                  Google Sheet Sync
                 </span>
               </div>
               <p class="text-xs text-slate-400">Dành riêng cho Super Admin (<span class="text-amber-300 font-mono">tungdt101@fpt.com</span>) & Cán bộ Quản trị</p>
@@ -597,7 +656,7 @@
         <div class="flex gap-2 border-b border-white/10 pb-3 mb-4 text-xs font-semibold overflow-x-auto">
           <button id="admin-tab-submissions" class="px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
             <span>💌</span>
-            <span>Quản Lý Lời Chúc (Xóa / Xem)</span>
+            <span>Quản Lý Lời Chúc & Xuất Thiệp</span>
           </button>
           <button id="admin-tab-users" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
             <span>👥</span>
@@ -625,11 +684,19 @@
                 class="custom-input w-full px-3.5 py-2 text-xs placeholder-slate-400"
               />
             </div>
-            <div class="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
               <div class="text-xs text-slate-300 flex items-center gap-1.5">
-                <span>Tổng số lời chúc:</span>
+                <span>Tổng số bản ghi:</span>
                 <strong id="admin-submissions-count" class="text-amber-400 font-bold px-2.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">0</strong>
               </div>
+              <button 
+                id="admin-sync-form-btn" 
+                type="button" 
+                class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span>⚡</span>
+                <span>Đồng bộ Google Form</span>
+              </button>
               <button 
                 id="admin-refresh-submissions-btn" 
                 type="button" 
@@ -703,8 +770,8 @@
             <p class="text-[11px] text-slate-400 mt-1">Chỉ Admin mới có quyền xem và cập nhật đường dẫn này.</p>
           </div>
           <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
-            <strong>Trạng thái kết nối Google Sheet:</strong>
-            <span class="text-emerald-400 font-bold ml-1">Đang hoạt động trực tiếp (Restricted Mode)</span>
+            <strong>Google Sheet câu trả lời chính thức:</strong>
+            <a href="https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit?gid=1557167031#gid=1557167031" target="_blank" class="text-amber-300 underline ml-1 font-mono">1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g (gid=1557167031)</a>
           </div>
           <button id="admin-save-url-btn" class="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-colors cursor-pointer">
             Lưu Cấu Hình Mới

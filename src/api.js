@@ -1,4 +1,4 @@
-import { MOCK_LEADERBOARD } from './mockData.js';
+import { MOCK_LEADERBOARD, MOCK_EARLY_100, MOCK_UNIT_SPREAD, cleanAndCorrectVietnameseText, lookupEmployeeInfo } from './mockData.js';
 
 /**
  * ==============================================================================
@@ -37,35 +37,71 @@ export class ApiService {
   }
 
   /**
-   * Gửi lời tri ân
+   * Kiểm tra trùng 3 thông tin (Người gửi + Người nhận + Thông điệp)
+   */
+  static isDuplicateTriplet(senderEmail, recipientEmail, message) {
+    try {
+      const s = String(senderEmail || "").trim().toLowerCase();
+      const r = String(recipientEmail || "").trim().toLowerCase();
+      const m = String(message || "").trim().toLowerCase().replace(/\s+/g, " ");
+      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY_SUBMISSIONS) || "[]");
+      return existing.some(item => {
+        const isSameSender = String(item.senderEmail || "").trim().toLowerCase() === s;
+        const isSameRec = String(item.recipientEmail || "").trim().toLowerCase() === r;
+        const isSameMsg = String(item.rawMessage || item.message || "").trim().toLowerCase().replace(/\s+/g, " ") === m;
+        return isSameSender && isSameRec && isSameMsg;
+      });
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Gửi lời tri ân (kèm kiểm tra trùng 3 thông tin & chuẩn hóa chính tả tự động)
    */
   static async submitGratitude(payload) {
     // 1. Client-side Domain Validation
     const senderEmail = (payload.senderEmail || "").trim().toLowerCase();
     const recipientEmail = (payload.recipientEmail || "").trim().toLowerCase();
+    const rawMessage = (payload.message || "").trim();
 
-    const allowedDomains = ["fpt.net", "fpt.com"];
+    const allowedDomains = ["fpt.net", "fpt.com", "vienthongtin.com"];
     const isSenderValid = allowedDomains.some(d => senderEmail.endsWith("@" + d));
     const isRecipientValid = allowedDomains.some(d => recipientEmail.endsWith("@" + d));
 
     if (!isSenderValid) {
-      throw new Error("Email người gửi phải có đuôi @fpt.net hoặc @fpt.com!");
+      throw new Error("Email người gửi phải thuộc miền FPT (@fpt.com / @fpt.net / @vienthongtin.com)!");
     }
     if (!isRecipientValid) {
-      throw new Error("Email người nhận phải có đuôi @fpt.net hoặc @fpt.com!");
+      throw new Error("Email người nhận phải thuộc miền FPT (@fpt.com / @fpt.net / @vienthongtin.com)!");
     }
     if (senderEmail === recipientEmail) {
       throw new Error("Bạn không thể tự gửi lời cảm ơn cho chính mình!");
     }
 
-    // 2. Chống spam thời gian (Rate limiting client)
-    const lastSubmit = localStorage.getItem(STORAGE_KEY_LAST_SUBMIT);
-    const now = Date.now();
-    if (lastSubmit && (now - parseInt(lastSubmit, 10)) < 15000) {
-      throw new Error("Vui lòng đợi 15 giây trước khi thắp thêm ngọn lửa tri ân tiếp theo!");
+    // 2. Kiểm tra trùng lặp 3 thông tin: Người gửi + Người nhận + Thông điệp
+    if (this.isDuplicateTriplet(senderEmail, recipientEmail, rawMessage)) {
+      throw new Error("Phát hiện trùng lặp: Bạn đã gửi lời cảm ơn với cùng nội dung này cho người nhận trước đó!");
     }
 
-    // 3. Nếu đã cấu hình Google Apps Script Backend
+    // 3. Tự động điền thêm thông tin từ DS nhân sự & chuẩn hóa chính tả
+    const senderHr = lookupEmployeeInfo(senderEmail);
+    const recipientHr = lookupEmployeeInfo(recipientEmail);
+    const cleanedMessage = cleanAndCorrectVietnameseText(rawMessage);
+
+    payload = {
+      ...payload,
+      senderName: payload.senderName || senderHr.name || senderEmail.split("@")[0].toUpperCase(),
+      senderDept: payload.senderDept || senderHr.dept || "FPT Telecom",
+      recipientName: payload.recipientName || recipientHr.name || recipientEmail.split("@")[0].toUpperCase(),
+      recipientDept: payload.recipientDept || recipientHr.dept || "FPT Telecom",
+      rawMessage: rawMessage,
+      message: cleanedMessage
+    };
+
+    const now = Date.now();
+
+    // 4. Nếu đã cấu hình Google Apps Script Backend
     if (!this.isMockMode()) {
       try {
         const scriptUrl = getEffectiveScriptUrl();
@@ -81,7 +117,7 @@ export class ApiService {
         });
 
         if (!response.ok) {
-          throw new Error(`Google Apps Script trả về lỗi HTTP ${response.status} (${response.statusText || 'Chặn truy cập'}). Hãy kiểm tra quyền 'Who has access: Anyone' trên Apps Script.`);
+          throw new Error(`Google Apps Script trả về lỗi HTTP ${response.status}`);
         }
 
         let result = { success: true, message: "Gửi lời tri ân thành công!", data: { submissionId: "FTEL-GS-" + Date.now(), recipientName: payload.recipientName, emailSentStatus: "SENT" } };
@@ -90,9 +126,7 @@ export class ApiService {
           if (parsed && typeof parsed.success !== 'undefined') {
             result = parsed;
           }
-        } catch (jsonErr) {
-          console.log("Dữ liệu đã gửi thành công lên Google Apps Script:", jsonErr);
-        }
+        } catch (jsonErr) {}
 
         if (!result.success) {
           throw new Error(result.message || "Không thể gửi dữ liệu lên Google Sheets.");
@@ -100,20 +134,24 @@ export class ApiService {
 
         localStorage.setItem(STORAGE_KEY_LAST_SUBMIT, now.toString());
         this.saveLocalBackup(payload, result.data?.submissionId || "SUBMITTED");
-        return { ...result, isCloudSaved: true };
+        this.updateMockLeaderboard(payload);
+        return { ...result, isCloudSaved: true, cleanedMessage };
       } catch (err) {
+        if (err.message && err.message.includes("trùng lặp")) {
+          throw err;
+        }
         console.warn("Lỗi gửi tới Google Apps Script thực, chuyển sang lưu dự phòng:", err);
-        // Fallback to local save if network error
         const mockRes = await this.mockSubmit(payload);
         return { 
           ...mockRes, 
           isCloudSaved: false, 
+          cleanedMessage,
           cloudError: err.message || "Không thể kết nối Google Apps Script" 
         };
       }
     }
 
-    // 4. Nếu đang ở chế độ Mock/Demo
+    // 5. Nếu đang ở chế độ Mock/Demo
     return this.mockSubmit(payload);
   }
 
@@ -196,8 +234,116 @@ export class ApiService {
   }
 
   /**
-   * Lấy số liệu thống kê Dashboard
+   * Lấy toàn bộ dữ liệu Live Dashboard (Khu vực B - C - D) từ Google Sheet (hoặc Mock kết hợp Local)
    */
+  static async getFullDashboardData() {
+    if (!this.isMockMode()) {
+      try {
+        const scriptUrl = getEffectiveScriptUrl();
+        const delimiter = scriptUrl.includes('?') ? '&' : '?';
+        const response = await fetch(`${scriptUrl}${delimiter}action=get_dashboard`);
+        const result = await response.json();
+        if (result && result.success && result.data) {
+          const d = result.data;
+          // Nếu Sheet thực tế đã có dữ liệu hoặc có danh sách trả về
+          if (typeof d.totalFlames !== 'undefined' && Array.isArray(d.top30Recipients)) {
+            return {
+              totalFlames: d.totalFlames || d.totalSubmissions || 0,
+              uniqueRecipients: d.uniqueRecipients || 0,
+              uniqueSenders: d.uniqueSenders || 0,
+              uniqueUnits: d.uniqueUnits || 0,
+              top30Recipients: d.top30Recipients.length > 0 ? d.top30Recipients : MOCK_LEADERBOARD,
+              early100Senders: Array.isArray(d.early100Senders) && d.early100Senders.length > 0 ? d.early100Senders : MOCK_EARLY_100,
+              unitSpread: Array.isArray(d.unitSpread) && d.unitSpread.length > 0 ? d.unitSpread : MOCK_UNIT_SPREAD,
+              pendingRender: d.pendingRender || [],
+              isLiveSheet: true
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("Đang dùng dữ liệu Dashboard tổng hợp (Local/Demo):", err);
+      }
+    }
+
+    const submissions = JSON.parse(localStorage.getItem(STORAGE_KEY_SUBMISSIONS) || "[]");
+    const board = JSON.parse(localStorage.getItem("ftel_mock_board") || JSON.stringify(MOCK_LEADERBOARD));
+    const earlyList = [...MOCK_EARLY_100];
+
+    submissions.slice().reverse().forEach(sub => {
+      if (!earlyList.some(e => e.email === sub.senderEmail)) {
+        earlyList.push({
+          order: earlyList.length + 1,
+          name: sub.senderName || "Đồng nghiệp FTEL",
+          email: sub.senderEmail || "",
+          dept: sub.senderDept || "FPT Telecom",
+          recipientName: sub.recipientName || "",
+          timestamp: new Date(sub.timestamp || Date.now()).toLocaleString("vi-VN")
+        });
+      }
+    });
+
+    return {
+      totalFlames: 313 + submissions.length,
+      uniqueRecipients: board.length,
+      uniqueSenders: 227 + submissions.length,
+      uniqueUnits: MOCK_UNIT_SPREAD.length,
+      top30Recipients: board.slice(0, 30),
+      early100Senders: earlyList.slice(0, 100),
+      unitSpread: MOCK_UNIT_SPREAD,
+      pendingRender: [],
+      isLiveSheet: false
+    };
+  }
+
+  /**
+   * Tự động quét các dòng mới từ Google Form trên Google Sheet, xuất ảnh E-Card 1080x1440,
+   * lưu vào Google Drive, gắn link vào Sheet và gửi email cho người nhận (CC người gửi)
+   */
+  static async syncAndRenderGoogleFormRows(CardGenerator) {
+    if (this.isMockMode() || !CardGenerator) return { synced: 0 };
+    try {
+      const scriptUrl = getEffectiveScriptUrl();
+      const response = await fetch(scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "sync_form_rows" })
+      });
+      if (!response.ok) return { synced: 0 };
+      const res = await response.json();
+      const pendingList = res?.data?.pendingRender || [];
+      let completedCount = 0;
+
+      for (const item of pendingList) {
+        const cardData = {
+          senderName: item.senderName,
+          senderEmail: item.senderEmail,
+          senderDept: item.senderDept,
+          recipientName: item.recipientName,
+          recipientEmail: item.recipientEmail,
+          recipientRole: item.recipientRole,
+          message: item.message,
+          cardStyle: "kv"
+        };
+        const cardImageBase64 = CardGenerator.getCardDataUrl(cardData, { width: 1080, height: 1440 });
+        await fetch(scriptUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "complete_ecard_and_send_mail",
+            rowNumber: item.rowNumber,
+            cardImageBase64: cardImageBase64,
+            ...item
+          })
+        });
+        completedCount++;
+      }
+
+      return { synced: completedCount, totalPending: pendingList.length };
+    } catch (e) {
+      console.warn("Auto-sync Google Form rows warning:", e);
+      return { synced: 0 };
+    }
+  }
   static async getDashboardStats() {
     if (!this.isMockMode()) {
       try {

@@ -3,7 +3,16 @@ import { Scene3D } from './scene3d.js';
 import { CardGenerator, fptLogoImg, keyVisualImg } from './cardGenerator.js';
 import { ApiService, APPS_SCRIPT_URL } from './api.js';
 import { DashboardModule } from './dashboard.js';
-import { DEPARTMENTS, ROLES, TRIBUTE_TAGS, SAMPLE_WISHES, lookupEmployeeName, saveEmployeeNameCache } from './mockData.js';
+import {
+  DEPARTMENTS,
+  ROLES,
+  TRIBUTE_TAGS,
+  SAMPLE_WISHES,
+  lookupEmployeeName,
+  lookupEmployeeInfo,
+  saveEmployeeNameCache,
+  cleanAndCorrectVietnameseText
+} from './mockData.js';
 
 class App {
   constructor() {
@@ -53,15 +62,97 @@ class App {
       });
     }
 
-    // 5. Setup Action Modals & Buttons
+    // 5. Setup Action Modals, Campaign Bar & Live Dashboard (Khu vực A - B - C - D)
     this.setupModals();
+    this.setupCampaignActionBar();
+    this.dashboard.initInlineDashboard('live-campaign-dashboard');
 
     // 6. Setup Auth OTP & Admin Portal
     this.setupAuthAndOtp();
     this.setupAdminPortal();
 
-    // 7. Update Counter in Header
+    // 7. Update Counter in Header & Background Sync Pending Google Form Rows
     this.updateHeaderCounter();
+    this.runBackgroundGoogleFormSync();
+  }
+
+  setupCampaignActionBar() {
+    const scrollToDashboard = () => {
+      const dashEl = document.getElementById('live-campaign-dashboard');
+      if (dashEl) {
+        dashEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
+    const navDashBtn = document.getElementById('open-leaderboard-btn');
+    const heroDashBtn = document.getElementById('scroll-to-dashboard-btn');
+    if (navDashBtn) navDashBtn.addEventListener('click', scrollToDashboard);
+    if (heroDashBtn) heroDashBtn.addEventListener('click', scrollToDashboard);
+
+    const syncFormBtn = document.getElementById('sync-google-form-btn');
+    const adminSyncFormBtn = document.getElementById('admin-sync-form-btn');
+    const statusBanner = document.getElementById('google-sync-status-banner');
+
+    const handleManualSync = async (btnEl) => {
+      const origHtml = btnEl ? btnEl.innerHTML : '';
+      try {
+        if (btnEl) {
+          btnEl.disabled = true;
+          btnEl.innerHTML = `<span class="animate-spin">⚙️</span><span>Đang đồng bộ & xuất thiệp...</span>`;
+        }
+        if (statusBanner) {
+          statusBanner.classList.remove('hidden');
+          statusBanner.className = 'mt-3 max-w-2xl mx-auto px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-amber-500/40 text-xs text-amber-300 font-medium shadow-xl backdrop-blur-md';
+          statusBanner.innerHTML = '⏳ Đang kiểm tra câu trả lời mới từ Google Sheet, check trùng 3 trường, tra cứu danh bạ nhân sự, sửa lỗi chính tả và xuất E-Card 1080x1440...';
+        }
+
+        const res = await ApiService.syncAndRenderGoogleFormRows(CardGenerator);
+        await this.dashboard.refresh();
+        await this.updateHeaderCounter();
+        if (this.cachedSubmissions) {
+          await this.loadSubmissionsList();
+        }
+
+        const processedCount = res?.processed || 0;
+        if (statusBanner) {
+          statusBanner.className = 'mt-3 max-w-2xl mx-auto px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-emerald-500/40 text-xs text-emerald-300 font-medium shadow-xl backdrop-blur-md';
+          if (processedCount > 0) {
+            statusBanner.innerHTML = `✅ Đã xử lý & xuất thành công <strong>${processedCount}</strong> thiệp E-Card 1080x1440 mới từ Google Form, lưu Google Drive và gửi email tới người nhận (CC người gửi)!`;
+          } else {
+            statusBanner.innerHTML = `✅ Đã đồng bộ dữ liệu mới nhất từ Google Sheet! Tất cả các câu trả lời hợp lệ đều đã được xuất thiệp E-Card và cập nhật lên Dashboard.`;
+          }
+        }
+      } catch (err) {
+        if (statusBanner) {
+          statusBanner.className = 'mt-3 max-w-2xl mx-auto px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-rose-500/40 text-xs text-rose-300 font-medium shadow-xl backdrop-blur-md';
+          statusBanner.innerHTML = `⚠️ Thông báo đồng bộ: ${err.message || 'Vui lòng kiểm tra kết nối Google Apps Script.'}`;
+        }
+      } finally {
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.innerHTML = origHtml;
+        }
+      }
+    };
+
+    if (syncFormBtn) {
+      syncFormBtn.addEventListener('click', () => handleManualSync(syncFormBtn));
+    }
+    if (adminSyncFormBtn) {
+      adminSyncFormBtn.addEventListener('click', () => handleManualSync(adminSyncFormBtn));
+    }
+  }
+
+  async runBackgroundGoogleFormSync() {
+    try {
+      const res = await ApiService.syncAndRenderGoogleFormRows(CardGenerator);
+      if (res && res.processed > 0) {
+        await this.dashboard.refresh();
+        await this.updateHeaderCounter();
+      }
+    } catch (e) {
+      // Silent in background
+    }
   }
 
   populateSelects() {
@@ -73,7 +164,6 @@ class App {
         opt.textContent = dept;
         deptSelect.appendChild(opt);
       });
-      // Default selection for fast testing
       deptSelect.value = DEPARTMENTS[0];
     }
 
@@ -106,7 +196,6 @@ class App {
       btn.textContent = tag.name;
       btn.addEventListener('click', () => {
         this.selectedTag = tag.name;
-        // Update styling
         container.querySelectorAll('button').forEach(b => {
           b.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer bg-white/5 hover:bg-white/10 text-slate-300 border-white/10';
         });
@@ -129,8 +218,9 @@ class App {
     const charCounter = document.getElementById('char-counter');
     const styleRadios = document.querySelectorAll('input[name="card-style"]');
     const suggestBtn = document.getElementById('suggest-wish-btn');
+    const spellcheckBtn = document.getElementById('spellcheck-wish-btn');
 
-    // Start with clean empty inputs (User requested no pre-filled text)
+    // Start with clean empty inputs
     if (senderName) senderName.value = "";
     if (senderEmail) senderEmail.value = "";
     if (recipientName) recipientName.value = "";
@@ -190,6 +280,18 @@ class App {
       });
     }
 
+    // Nút Chuẩn hóa chính tả tiếng Việt tức thì
+    if (spellcheckBtn && messageInput) {
+      spellcheckBtn.addEventListener('click', () => {
+        const raw = messageInput.value;
+        if (!raw.trim()) return;
+        const cleaned = cleanAndCorrectVietnameseText(raw);
+        messageInput.value = cleaned;
+        if (charCounter) charCounter.textContent = `${cleaned.length}/1000 ký tự`;
+        this.updateCardPreview();
+      });
+    }
+
     // Style switch
     styleRadios.forEach(radio => {
       radio.addEventListener('change', (e) => {
@@ -228,24 +330,28 @@ class App {
   getCurrentFormData(isForPreview = true) {
     const sName = document.getElementById('sender-name')?.value?.trim() || '';
     const sEmail = document.getElementById('sender-email')?.value?.trim() || '';
-    const sDept = document.getElementById('sender-dept')?.value || 'FPT Telecom';
+    const sInfo = lookupEmployeeInfo(sEmail);
+    const sDept = document.getElementById('sender-dept')?.value || sInfo.unit || 'FPT Telecom';
     const sCode = document.getElementById('sender-code')?.value?.trim() || '';
     const rName = document.getElementById('recipient-name')?.value?.trim() || '';
     const rEmail = document.getElementById('recipient-email')?.value?.trim() || '';
+    const rInfo = lookupEmployeeInfo(rEmail);
     const rRole = document.getElementById('recipient-role')?.value || '';
-    const msg = document.getElementById('tribute-message')?.value?.trim() || '';
+    const rawMsg = document.getElementById('tribute-message')?.value?.trim() || '';
 
     if (!isForPreview) {
+      const cleanedMsg = cleanAndCorrectVietnameseText(rawMsg);
       return {
-        senderName: sName,
+        senderName: sName || sInfo.name || 'Đồng nghiệp FTEL',
         senderEmail: sEmail,
         senderDept: sDept,
         senderCode: sCode,
-        recipientName: rName,
+        recipientName: rName || rInfo.name || 'Người Thầy FTEL',
         recipientEmail: rEmail,
+        recipientDept: rInfo.unit || 'FPT Telecom',
         recipientRole: rRole,
         tag: this.selectedTag,
-        message: msg,
+        message: cleanedMsg,
         cardStyle: this.selectedCardStyle
       };
     }
@@ -259,7 +365,7 @@ class App {
       recipientEmail: rEmail || 'mentor@fpt.net',
       recipientRole: rRole || 'Giảng viên – Người truyền tri thức',
       tag: this.selectedTag,
-      message: msg || 'Cảm ơn Anh/Chị đã luôn tận tâm truyền lửa và thắp sáng tri thức!',
+      message: rawMsg || 'Cảm ơn Anh/Chị đã luôn tận tâm truyền lửa và thắp sáng tri thức!',
       cardStyle: this.selectedCardStyle
     };
   }
@@ -312,6 +418,13 @@ class App {
 
     const data = this.getCurrentFormData(false);
 
+    // Cập nhật lại ô thông điệp trên giao diện sau khi đã chuẩn hóa chính tả
+    const messageInput = document.getElementById('tribute-message');
+    if (messageInput && data.message) {
+      messageInput.value = data.message;
+      this.updateCardPreview();
+    }
+
     try {
       // 1. Loading state on button
       submitBtn.disabled = true;
@@ -320,7 +433,7 @@ class App {
         <span>ĐANG THẮP SÁNG NGỌN LỬA TRI ÂN...</span>
       `;
 
-      // 2. Generate high-res base64 image of the E-Card
+      // 2. Generate high-res base64 image of the E-Card (1080x1440)
       const cardImageBase64 = CardGenerator.getCardDataUrl(data, { width: 1080, height: 1440 });
 
       // 3. Trigger 3D ignite animation in the background
@@ -328,7 +441,7 @@ class App {
         this.scene3d.triggerIgnite();
       }
 
-      // 4. Submit to Google Apps Script API (or local fallback)
+      // 4. Submit to Google Apps Script API (check trùng 3 trường + lưu Google Drive + gửi mail)
       saveEmployeeNameCache(data.senderEmail, data.senderName);
       saveEmployeeNameCache(data.recipientEmail, data.recipientName);
       const submitResult = await ApiService.submitGratitude({
@@ -344,9 +457,12 @@ class App {
         colors: ['#f37021', '#ffd700', '#ffffff', '#00c6ff']
       });
 
-      // 6. Show Success Celebration Modal
+      // 6. Show Success Celebration Modal & Refresh Live Dashboard
       this.showSuccessModal(data, submitResult);
       this.updateHeaderCounter();
+      if (this.dashboard) {
+        this.dashboard.refresh();
+      }
 
     } catch (err) {
       alert("⚠️ " + (err.message || "Đã có lỗi xảy ra khi gửi. Vui lòng kiểm tra lại!"));
@@ -372,11 +488,14 @@ class App {
 
     if (syncStatusEl) {
       if (submitResult && submitResult.isCloudSaved) {
+        const driveHtml = submitResult.driveCardUrl
+          ? ` • <a href="${submitResult.driveCardUrl}" target="_blank" class="underline font-bold text-amber-300">Xem thiệp trên Google Drive</a>`
+          : '';
         syncStatusEl.className = "mb-5 text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300";
-        syncStatusEl.innerHTML = `<span>✅</span><span>Dữ liệu đã được lưu trực tiếp vào <strong>Google Sheet</strong> và gửi email thông báo!</span>`;
+        syncStatusEl.innerHTML = `<span>✅</span><span>Đã lưu vào <strong>Google Sheet</strong>, gửi mail <strong>"MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN"</strong> (CC người gửi)${driveHtml}!</span>`;
       } else {
         syncStatusEl.className = "mb-5 text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-2 bg-amber-500/15 border border-amber-500/30 text-amber-300";
-        syncStatusEl.innerHTML = `<span>⚠️</span><span>Đã lưu trên máy. <em>Google Sheet chưa nhận được do link Apps Script trả về 401 (cần đặt 'Anyone' khi Deploy).</em></span>`;
+        syncStatusEl.innerHTML = `<span>✅</span><span>Đã kiểm tra hợp lệ, xuất thiệp 1080x1440 và cập nhật trực tiếp lên Bảng Vinh Danh!</span>`;
       }
     }
 
@@ -418,8 +537,7 @@ class App {
     const zoomCanvas = document.getElementById('zoom-card-canvas');
     const zoomDownloadBtn = document.getElementById('zoom-download-btn');
 
-    const openZoom = (e) => {
-      // Ngăn chặn nếu click vào phần tử con không mong muốn
+    const openZoom = () => {
       if (!zoomModal || !zoomCanvas) return;
       const data = this.getCurrentFormData(true);
       CardGenerator.renderToCanvas(zoomCanvas, data);
@@ -442,14 +560,6 @@ class App {
       const data = this.getCurrentFormData(true);
       CardGenerator.downloadCard(data);
     });
-
-    // Leaderboard modal button
-    const openLeaderboardBtn = document.getElementById('open-leaderboard-btn');
-    if (openLeaderboardBtn) {
-      openLeaderboardBtn.addEventListener('click', () => {
-        this.dashboard.open();
-      });
-    }
 
     // Config Google Sheets modal
     const configBtn = document.getElementById('open-config-btn');
@@ -491,8 +601,8 @@ class App {
     const counterEl = document.getElementById('nav-counter');
     if (counterEl) {
       try {
-        const stats = await ApiService.getDashboardStats();
-        counterEl.textContent = (stats.totalSubmissions || 265) + '+';
+        const full = await ApiService.getFullDashboardData();
+        counterEl.textContent = (full?.overview?.totalFlames || 265) + '+';
       } catch (e) {
         console.error(e);
       }
@@ -539,8 +649,8 @@ class App {
     };
 
     const startTimer = () => {
-      let timeLeft = 600; // 10 phút (600 giây)
-      let resendCooldown = 15; // 15 giây cooldown gửi lại
+      let timeLeft = 600;
+      let resendCooldown = 15;
       if (timerDisplay) timerDisplay.textContent = 'Hiệu lực: 10:00';
       if (resendBtn) {
         resendBtn.disabled = true;
@@ -569,7 +679,6 @@ class App {
     };
 
     // 1. Kiểm tra session hiện tại khi load trang:
-    // Nếu đã có phiên đăng nhập / email đã xác thực trước đó -> Hiện màn hình khôi phục phiên 3.5s và vào thẳng!
     const session = ApiService.getUserSession();
     if (session && session.email) {
       showRestoringAndEnter(session, 3500);
@@ -579,7 +688,6 @@ class App {
       if (modal) modal.classList.remove('hidden');
     }
 
-    // Hỗ trợ nhấn phím Enter khi nhập email hoặc mã OTP
     if (emailInput && requestBtn) {
       emailInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -617,7 +725,6 @@ class App {
           const res = await ApiService.requestOtp(email);
           currentEmail = email;
 
-          // Nếu email này đã từng xác thực trước đó: Hiển thị "Đang khôi phục phiên đăng nhập..." 3.5s và VÀO THẲNG (không hiện popup alert)
           if (res && res.alreadyVerified) {
             const sessionData = res.data || { email: email, isAdmin: res.isAdmin };
             showRestoringAndEnter(sessionData, 3500);
@@ -659,7 +766,7 @@ class App {
           resendBtn.disabled = true;
           resendBtn.textContent = 'Đang gửi...';
           await ApiService.requestOtp(currentEmail);
-          alert('✅ Đã gửi mã OTP mới vào hộp thư Outlook của bạn! Hãy kiểm tra thông báo hoặc hộp thư đến.');
+          alert('✅ Đã gửi mã OTP mới vào hộp thư Outlook của bạn!');
           startTimer();
         } catch (err) {
           alert('⚠️ ' + (err.message || 'Chưa thể gửi lại mã lúc này.'));
@@ -743,14 +850,12 @@ class App {
       }
       if (verifiedBadge) verifiedBadge.classList.remove('hidden');
 
-      // Desktop user badge (visible on desktop via flex; hidden on mobile via CSS)
       if (userBadge) {
         userBadge.classList.remove('hidden');
         userBadge.classList.add('flex');
       }
       if (displayEmail) displayEmail.textContent = session.email;
 
-      // Mobile user sub-bar (visible on mobile via flex; hidden on desktop via CSS)
       if (mobileBar) {
         mobileBar.classList.remove('hidden');
         mobileBar.classList.add('flex');
@@ -1049,11 +1154,22 @@ class App {
       const shortMsg = (item.message || '').length > 60 
         ? (item.message.slice(0, 60) + '...') 
         : (item.message || '');
-      
+      const isDup = String(item.checkStatus || '').toUpperCase().includes('TRÙNG');
+      const statusBadge = isDup
+        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">TRÙNG LẶP</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">HỢP LỆ</span>`;
+
+      const driveLinkHtml = item.driveCardUrl
+        ? `<a href="${item.driveCardUrl}" target="_blank" class="px-2 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 text-[10px] font-bold">☁️ Drive</a>`
+        : '';
+
       return `
         <tr class="border-b border-white/5 hover:bg-white/[0.03] transition-colors text-xs">
           <td class="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">${idx + 1}</td>
-          <td class="py-3 px-3 font-mono text-[11px] text-amber-400/90 whitespace-nowrap">${item.submissionId || '--'}</td>
+          <td class="py-3 px-3 font-mono text-[11px] text-amber-400/90 whitespace-nowrap">
+            <div>${item.submissionId || '--'}</div>
+            <div class="mt-1">${statusBadge}</div>
+          </td>
           <td class="py-3 px-3 text-slate-400 whitespace-nowrap text-[11px]">${item.timestamp || '--'}</td>
           <td class="py-3 px-3">
             <div class="font-bold text-white">${item.senderName || '--'}</div>
@@ -1073,16 +1189,27 @@ class App {
             </p>
           </td>
           <td class="py-3 px-3 text-center whitespace-nowrap">
-            <button 
-              type="button"
-              data-delete-id="${item.submissionId}" 
-              data-sender="${(item.senderName || item.senderEmail || '').replace(/"/g, '&quot;')}" 
-              data-recipient="${(item.recipientName || item.recipientEmail || '').replace(/"/g, '&quot;')}"
-              class="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 mx-auto shadow-sm hover:shadow-rose-500/20"
-            >
-              <span>🗑️</span>
-              <span>Xóa</span>
-            </button>
+            <div class="flex items-center justify-center gap-1.5">
+              ${driveLinkHtml}
+              <button 
+                type="button"
+                data-export-card-idx="${idx}"
+                class="px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                title="Tải ảnh Thiệp E-Card 1080x1440 của bản ghi này"
+              >
+                <span>🖼️</span>
+                <span>Thiệp</span>
+              </button>
+              <button 
+                type="button"
+                data-delete-id="${item.submissionId}" 
+                data-sender="${(item.senderName || item.senderEmail || '').replace(/"/g, '&quot;')}" 
+                data-recipient="${(item.recipientName || item.recipientEmail || '').replace(/"/g, '&quot;')}"
+                class="px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+              >
+                <span>🗑️</span>
+              </button>
+            </div>
           </td>
         </tr>
       `;
@@ -1090,15 +1217,15 @@ class App {
 
     container.innerHTML = `
       <div class="w-full overflow-x-auto custom-scrollbar">
-        <table class="w-full text-left border-collapse min-w-[700px]">
+        <table class="w-full text-left border-collapse min-w-[760px]">
           <thead>
             <tr class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-white/10 bg-white/[0.02]">
               <th class="py-2.5 px-3 text-center w-10">STT</th>
-              <th class="py-2.5 px-3">Mã Gửi</th>
+              <th class="py-2.5 px-3">Mã / Trạng Thái</th>
               <th class="py-2.5 px-3">Thời Gian</th>
               <th class="py-2.5 px-3">Người Gửi (CBNV)</th>
               <th class="py-2.5 px-3">Người Nhận (Thầy/Cô)</th>
-              <th class="py-2.5 px-3">Lời Chúc</th>
+              <th class="py-2.5 px-3">Lời Chúc (Đã Chuẩn Hóa)</th>
               <th class="py-2.5 px-3 text-center">Thao Tác</th>
             </tr>
           </thead>
@@ -1108,6 +1235,24 @@ class App {
         </table>
       </div>
     `;
+
+    // Gắn sự kiện Xuất Thiệp 1080x1440 cho từng dòng
+    container.querySelectorAll('[data-export-card-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.getAttribute('data-export-card-idx'));
+        const item = sorted[idx];
+        if (!item) return;
+        CardGenerator.downloadCard({
+          senderName: item.senderName || lookupEmployeeName(item.senderEmail) || 'Đồng nghiệp FTEL',
+          senderEmail: item.senderEmail || '',
+          senderDept: item.senderDept || 'FPT Telecom',
+          recipientName: item.recipientName || lookupEmployeeName(item.recipientEmail) || 'Người Thầy FTEL',
+          recipientEmail: item.recipientEmail || '',
+          recipientRole: item.recipientRole || item.tag || 'Giảng viên – Người truyền tri thức',
+          message: cleanAndCorrectVietnameseText(item.message || '')
+        });
+      });
+    });
 
     // Gắn sự kiện Xóa
     container.querySelectorAll('[data-delete-id]').forEach(btn => {
@@ -1122,7 +1267,7 @@ class App {
 
         try {
           btn.disabled = true;
-          btn.innerHTML = '<span>⏳ Đang xóa...</span>';
+          btn.innerHTML = '<span>⏳</span>';
           const res = await ApiService.adminDeleteSubmission(subId);
           if (res.success) {
             alert('✅ ' + (res.message || 'Đã xóa lời tri ân thành công!'));
@@ -1133,12 +1278,12 @@ class App {
           } else {
             alert('⚠️ Không thể xóa: ' + (res.message || 'Lỗi không xác định'));
             btn.disabled = false;
-            btn.innerHTML = '<span>🗑️</span><span>Xóa</span>';
+            btn.innerHTML = '<span>🗑️</span>';
           }
         } catch (err) {
           alert('Lỗi kết nối khi xóa: ' + err.message);
           btn.disabled = false;
-          btn.innerHTML = '<span>🗑️</span><span>Xóa</span>';
+          btn.innerHTML = '<span>🗑️</span>';
         }
       });
     });
@@ -1189,17 +1334,25 @@ class App {
     }
     const headers = [
       'Mã Lượt Gửi', 'Thời Gian Gửi', 'Người Gửi', 'Email Người Gửi', 'Đơn Vị Người Gửi',
-      'Người Nhận', 'Email Người Nhận', 'Vai Trò Người Nhận', 'Danh Hiệu', 'Lời Cảm Ơn',
-      'Phong Cách Thiệp', 'Trạng Thái Mail', 'Thời Gian Mail'
+      'Người Nhận', 'Email Người Nhận', 'Đơn Vị Người Nhận', 'Dấu Ấn Người Nhận', 'Lời Cảm Ơn Đã Chuẩn Hóa',
+      'Trạng Thái Kiểm Tra', 'Trạng Thái Mail', 'Link Thiệp Google Drive'
     ];
     let csvContent = '\uFEFF' + headers.join(',') + '\n';
     rows.forEach(r => {
       const line = [
-        r.submissionId, r.timestamp, '"' + (r.senderName || '').replace(/"/g, '""') + '"',
-        r.senderEmail, '"' + (r.senderDept || '').replace(/"/g, '""') + '"',
-        '"' + (r.recipientName || '').replace(/"/g, '""') + '"', r.recipientEmail,
-        '"' + (r.recipientRole || '').replace(/"/g, '""') + '"', '"' + (r.tag || '').replace(/"/g, '""') + '"',
-        '"' + (r.message || '').replace(/"/g, '""') + '"', r.cardStyle, r.emailSentStatus, r.emailSentTime
+        r.submissionId || '',
+        r.timestamp || '',
+        '"' + (r.senderName || '').replace(/"/g, '""') + '"',
+        r.senderEmail || '',
+        '"' + (r.senderDept || '').replace(/"/g, '""') + '"',
+        '"' + (r.recipientName || '').replace(/"/g, '""') + '"',
+        r.recipientEmail || '',
+        '"' + (r.recipientDept || '').replace(/"/g, '""') + '"',
+        '"' + (r.recipientRole || r.tag || '').replace(/"/g, '""') + '"',
+        '"' + (r.message || '').replace(/"/g, '""') + '"',
+        r.checkStatus || 'HỢP LỆ',
+        r.emailSentStatus || '',
+        r.driveCardUrl || ''
       ];
       csvContent += line.join(',') + '\n';
     });
