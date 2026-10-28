@@ -120,6 +120,8 @@ function onOpen() {
  * Hàm kiểm tra nhanh: Bấm Chạy để gửi 1 email thử nghiệm trực tiếp về hộp thư Outlook của bạn
  */
 function testSendMailToTungDT() {
+  const activeUser = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
+  Logger.log("Đang gửi email thử nghiệm từ tài khoản Google: " + activeUser);
   sendGratitudeNotificationEmail({
     recipientEmail: "tungdt101@fpt.com",
     recipientName: "Đặng Thanh Tùng",
@@ -130,7 +132,7 @@ function testSendMailToTungDT() {
     senderDept: "Trung tâm Đào tạo FTEL (FTC)",
     message: "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
   });
-  Logger.log("✅ Đã gửi email thử nghiệm trực tiếp tới tungdt101@fpt.com và nhanlh10@fpt.com!");
+  Logger.log("✅ Đã kích hoạt lệnh gửi mail thành công tới tungdt101@fpt.com từ tài khoản Google: " + activeUser + "! Vui lòng kiểm tra Hộp thư đến (Inbox), thẻ 'Other' (Khác) hoặc thư mục 'Junk Email' trong Outlook.");
 }
 
 /**
@@ -985,16 +987,32 @@ function sendGratitudeNotificationEmail(params) {
       </div>
     `;
 
+    const plainTextRec = `Kính gửi Anh/Chị ${params.recipientName},\n\nNhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch "Gửi lời cảm ơn – Thắp sáng tri thức", Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp ${params.senderName} (${params.senderDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
+
     const recMailOptions = {
       to: params.recipientEmail,
       subject: CONFIG.EMAIL_SUBJECT_SUCCESS,
+      body: plainTextRec,
       htmlBody: recipientHtmlBody,
       name: "FTC - Thắp Lửa Tri Ân 20/11"
     };
     if (Object.keys(inlineImages).length > 0) recMailOptions.inlineImages = inlineImages;
     if (cardImageBlob) recMailOptions.attachments = [cardImageBlob];
 
-    MailApp.sendEmail(recMailOptions);
+    try {
+      MailApp.sendEmail(recMailOptions);
+    } catch (eMailApp) {
+      try {
+        GmailApp.sendEmail(params.recipientEmail, recMailOptions.subject, plainTextRec, {
+          htmlBody: recipientHtmlBody,
+          name: recMailOptions.name,
+          inlineImages: inlineImages,
+          attachments: cardImageBlob ? [cardImageBlob] : []
+        });
+      } catch (eGmail) {
+        Logger.log("Send recipient email error: " + eGmail.toString());
+      }
+    }
   }
 
   // EMAIL 2: GỬI TRỰC TIẾP CHO NGƯỜI GỬI (to: params.senderEmail - KHÔNG DÙNG CC, BẬT THÔNG BÁO TING TING HỘP THƯ ĐẾN)
@@ -1066,16 +1084,32 @@ function sendGratitudeNotificationEmail(params) {
       </div>
     `;
 
+    const plainTextSender = `Kính gửi Anh/Chị ${params.senderName},\n\nHệ thống xác nhận Anh/Chị vừa thắp lên thành công ngọn lửa tri ân gửi tới đồng nghiệp ${params.recipientName} (${params.recipientDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nTấm thiệp đã được chuyển phát thành công tới hộp thư Outlook của đồng nghiệp.\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
+
     const senderMailOptions = {
       to: params.senderEmail,
       subject: CONFIG.EMAIL_SUBJECT_SENDER || "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
+      body: plainTextSender,
       htmlBody: senderHtmlBody,
       name: "FTC - Thắp Lửa Tri Ân 20/11"
     };
     if (Object.keys(inlineImages).length > 0) senderMailOptions.inlineImages = inlineImages;
     if (cardImageBlob) senderMailOptions.attachments = [cardImageBlob];
 
-    MailApp.sendEmail(senderMailOptions);
+    try {
+      MailApp.sendEmail(senderMailOptions);
+    } catch (eMailApp) {
+      try {
+        GmailApp.sendEmail(params.senderEmail, senderMailOptions.subject, plainTextSender, {
+          htmlBody: senderHtmlBody,
+          name: senderMailOptions.name,
+          inlineImages: inlineImages,
+          attachments: cardImageBlob ? [cardImageBlob] : []
+        });
+      } catch (eGmail) {
+        Logger.log("Send sender email error: " + eGmail.toString());
+      }
+    }
   }
 }
 
@@ -1108,12 +1142,26 @@ function sendDuplicateWarningEmail(params) {
     </div>
   `;
 
-  MailApp.sendEmail({
-    to: params.senderEmail,
-    subject: CONFIG.EMAIL_SUBJECT_DUPLICATE,
-    htmlBody: htmlBody,
-    name: "FTC - Thắp Lửa Tri Ân 20/11"
-  });
+  const plainText = `Chào Anh/Chị ${params.senderName},\n\nHệ thống ghi nhận Anh/Chị vừa gửi thêm một lời tri ân đến đồng nghiệp ${params.recipientName} (${params.recipientEmail}):\n"${params.message}"\n\nTheo thể lệ chương trình, mỗi tài khoản chỉ được gửi 1 lần duy nhất cho cùng một đồng nghiệp để tránh trùng lặp/spam. Ngọn lửa tri ân đầu tiên của bạn đã được ghi nhận thành công trước đó.\n\nTiếp tục gửi lời tri ân tới đồng nghiệp khác tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
+
+  try {
+    MailApp.sendEmail({
+      to: params.senderEmail,
+      subject: CONFIG.EMAIL_SUBJECT_DUPLICATE,
+      body: plainText,
+      htmlBody: htmlBody,
+      name: "FTC - Thắp Lửa Tri Ân 20/11"
+    });
+  } catch (e1) {
+    try {
+      GmailApp.sendEmail(params.senderEmail, CONFIG.EMAIL_SUBJECT_DUPLICATE, plainText, {
+        htmlBody: htmlBody,
+        name: "FTC - Thắp Lửa Tri Ân 20/11"
+      });
+    } catch (e2) {
+      Logger.log("Send duplicate warning email error: " + e2.toString());
+    }
+  }
 }
 
 /**
