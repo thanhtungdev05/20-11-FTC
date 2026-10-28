@@ -509,6 +509,197 @@ export class ApiService {
   }
 
   /**
+   * Đọc trực tiếp tab Câu trả lời Google Form (gid=1557167031) qua GVIZ JSONP và tổng hợp số liệu Real-time
+   */
+  static async syncFormResponsesFromGoogleSheet(hrList = []) {
+    try {
+      const rows = await loadSheetViaGvizJsonp(GOOGLE_SHEET_ID, GOOGLE_SHEET_GID, 4500);
+      if (!Array.isArray(rows) || rows.length <= 1) return null;
+
+      // Tạo map tra cứu nhanh HR từ DS nhân sự (gid=1084168011)
+      const hrMap = new Map();
+      (hrList || []).forEach(emp => {
+        if (!emp || !emp.email) return;
+        const emailLower = String(emp.email).trim().toLowerCase();
+        const local = emailLower.split("@")[0];
+        hrMap.set(emailLower, emp);
+        if (local) {
+          hrMap.set(local, emp);
+          hrMap.set(`${local}@fpt.com`, emp);
+          hrMap.set(`${local}@fpt.net`, emp);
+        }
+      });
+
+      const resolvePerson = (rawEmail, fallbackName, fallbackDept) => {
+        const clean = String(rawEmail || "").trim().toLowerCase();
+        const local = clean.split("@")[0];
+        const found = hrMap.get(clean) || (local ? hrMap.get(local) : null) || lookupEmployeeInfo(clean);
+        return {
+          email: clean || (local ? `${local}@fpt.com` : ""),
+          name: (found && found.name) || fallbackName || (local ? local.toUpperCase() : "Đồng nghiệp FTEL"),
+          dept: (found && found.dept && found.dept !== "FPT Telecom" ? found.dept : "") || fallbackDept || "FPT Telecom"
+        };
+      };
+
+      const seenTriplets = new Set();
+      let totalFlames = 0;
+      const recipientSet = new Set();
+      const senderSet = new Set();
+      const unitSet = new Set();
+      const recipientStatsMap = {};
+      const early100Senders = [];
+      const seenEarlySenders = new Set();
+      const unitStatsMap = {};
+
+      const ensureUnit = (uName) => {
+        const key = String(uName || "FPT Telecom").trim() || "FPT Telecom";
+        if (!unitStatsMap[key]) {
+          unitStatsMap[key] = {
+            unit: key,
+            totalFlames: 0,
+            sendersMap: {},
+            recipientsMap: {},
+            membersMap: {},
+            flamesList: []
+          };
+        }
+        return unitStatsMap[key];
+      };
+
+      (hrList || []).forEach(emp => {
+        const uObj = ensureUnit(emp.dept);
+        uObj.membersMap[emp.email] = { ...emp, sentCount: 0, receivedCount: 0 };
+      });
+
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (!Array.isArray(r) || r.length < 3) continue;
+        const timestamp = String(r[0] || "").trim();
+        const rawSender = String(r[1] || "").trim().toLowerCase();
+        const rawRec = String(r[2] || "").trim().toLowerCase();
+        const role = String(r[3] || "Giảng viên – Người truyền tri thức").trim();
+        const rawMsg = String(r[4] || "").trim();
+        const checkStatus = String(r[10] || "").trim();
+
+        if (!rawSender || !rawRec || !rawMsg) continue;
+        if (checkStatus === "TRÙNG LẶP") continue;
+
+        const dupKey = `${rawSender}|||${rawRec}|||${rawMsg.toLowerCase().replace(/\s+/g, " ")}`;
+        if (seenTriplets.has(dupKey)) continue;
+        seenTriplets.add(dupKey);
+
+        const sInfo = resolvePerson(rawSender, r[5], r[6]);
+        const rInfo = resolvePerson(rawRec, r[7], r[8]);
+
+        totalFlames++;
+        recipientSet.add(rInfo.email);
+        senderSet.add(sInfo.email);
+        unitSet.add(sInfo.dept);
+        unitSet.add(rInfo.dept);
+
+        if (!recipientStatsMap[rInfo.email]) {
+          recipientStatsMap[rInfo.email] = {
+            name: rInfo.name,
+            email: rInfo.email,
+            dept: rInfo.dept,
+            role: role,
+            count: 0
+          };
+        }
+        recipientStatsMap[rInfo.email].count++;
+
+        if (!seenEarlySenders.has(sInfo.email) && early100Senders.length < 100) {
+          seenEarlySenders.add(sInfo.email);
+          early100Senders.push({
+            order: early100Senders.length + 1,
+            name: sInfo.name,
+            email: sInfo.email,
+            dept: sInfo.dept,
+            recipientName: rInfo.name,
+            timestamp: timestamp
+          });
+        }
+
+        const recU = ensureUnit(rInfo.dept);
+        recU.totalFlames++;
+        recU.flamesList.push({
+          senderName: sInfo.name,
+          senderEmail: sInfo.email,
+          senderDept: sInfo.dept,
+          recipientName: rInfo.name,
+          recipientEmail: rInfo.email,
+          recipientDept: rInfo.dept,
+          role: role,
+          timestamp: timestamp
+        });
+        if (!recU.recipientsMap[rInfo.email]) {
+          recU.recipientsMap[rInfo.email] = { name: rInfo.name, email: rInfo.email, dept: rInfo.dept, role, count: 0 };
+        }
+        recU.recipientsMap[rInfo.email].count++;
+
+        const sndU = ensureUnit(sInfo.dept);
+        if (!sndU.sendersMap[sInfo.email]) {
+          sndU.sendersMap[sInfo.email] = { name: sInfo.name, email: sInfo.email, dept: sInfo.dept, count: 0, latestTimestamp: timestamp };
+        }
+        sndU.sendersMap[sInfo.email].count++;
+        sndU.sendersMap[sInfo.email].latestTimestamp = timestamp;
+      }
+
+      if (totalFlames === 0) return null;
+
+      const top30Recipients = Object.values(recipientStatsMap)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 30)
+        .map((item, idx) => ({
+          rank: idx + 1,
+          ...item,
+          badge: idx === 0 ? "gold" : idx === 1 ? "silver" : idx === 2 ? "bronze" : ""
+        }));
+
+      const unitSpread = Object.values(unitStatsMap)
+        .map(u => {
+          const sendersList = Object.values(u.sendersMap).sort((a, b) => b.count - a.count);
+          const recipientsList = Object.values(u.recipientsMap).sort((a, b) => b.count - a.count);
+          const membersList = Object.values(u.membersMap);
+          return {
+            unit: u.unit,
+            totalFlames: u.totalFlames,
+            senderCount: sendersList.length,
+            recipientCount: recipientsList.length,
+            memberCount: membersList.length,
+            flamesList: u.flamesList.slice().reverse(),
+            sendersList,
+            recipientsList,
+            membersList
+          };
+        })
+        .sort((a, b) => b.totalFlames - a.totalFlames || b.memberCount - a.memberCount);
+
+      return {
+        overview: {
+          totalFlames,
+          uniqueRecipients: recipientSet.size,
+          uniqueSenders: senderSet.size,
+          uniqueUnits: unitSet.size || unitSpread.length
+        },
+        totalFlames,
+        uniqueRecipients: recipientSet.size,
+        uniqueSenders: senderSet.size,
+        uniqueUnits: unitSet.size || unitSpread.length,
+        top30Recipients,
+        early100Senders,
+        unitSpread,
+        hrDirectory: hrList.length > 0 ? hrList : MOCK_HR_DIRECTORY,
+        pendingRender: [],
+        isLiveSheet: true,
+        hrSyncSource: "google_sheet_gviz"
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
    * Nhập nhanh danh sách nhân sự khi người dùng Copy & Paste từ Sheet DS Nhân sự (gid=1084168011) hoặc file CSV/TSV
    */
   static async importHrDirectoryFromText(rawText) {
@@ -666,6 +857,13 @@ export class ApiService {
     // 1. Thử đồng bộ trực tiếp tab DS Nhân sự (gid=1084168011) qua Google Visualization JSONP (không bị chặn CORS)
     const gvizHrSync = await this.syncHrDirectoryFromGoogleSheet();
     const customHrList = this.getStoredCustomHrList();
+    const activeHrList = gvizHrSync.list.length > 0 ? gvizHrSync.list : customHrList;
+
+    // 2. Thử đọc trực tiếp cả tab Câu trả lời Google Form (gid=1557167031) qua GVIZ JSONP
+    const directFormSheetData = await this.syncFormResponsesFromGoogleSheet(activeHrList);
+    if (directFormSheetData) {
+      return this.mergeHrDirectoryIntoDashboard(directFormSheetData, [gvizHrSync.list, customHrList]);
+    }
 
     if (!this.isMockMode()) {
       try {
