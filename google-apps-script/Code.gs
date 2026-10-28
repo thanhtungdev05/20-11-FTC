@@ -517,26 +517,32 @@ function getFullCampaignDashboardData() {
   });
 
   if (lastRow <= 1) {
-    const emptyUnits = Object.values(unitStatsMap).map(u => ({
-      unit: u.unit,
-      totalFlames: 0,
-      senderCount: 0,
-      recipientCount: 0,
-      memberCount: Object.keys(u.membersMap).length,
-      flamesList: [],
-      sendersList: [],
-      recipientsList: [],
-      membersList: Object.values(u.membersMap)
-    }));
+    const allHrArr = Object.values(hrEmployeesByEmail);
+    const hrCompact = allHrArr.map(e => [e.email, e.name, e.dept, e.sentCount || 0, e.receivedCount || 0]);
+    const emptyUnits = Object.values(unitStatsMap).map(u => {
+      const mList = Object.values(u.membersMap);
+      return {
+        unit: u.unit,
+        totalFlames: 0,
+        senderCount: 0,
+        recipientCount: 0,
+        memberCount: mList.length,
+        flamesList: [],
+        sendersList: [],
+        recipientsList: [],
+        membersList: mList.slice(0, 60)
+      };
+    });
     return {
       totalFlames: 0,
       uniqueRecipients: 0,
       uniqueSenders: 0,
       uniqueUnits: emptyUnits.length,
+      totalHrCount: allHrArr.length,
       top30Recipients: [],
       early100Senders: [],
       unitSpread: emptyUnits,
-      hrDirectory: Object.values(hrEmployeesByEmail),
+      hrCompact: hrCompact,
       pendingRender: []
     };
   }
@@ -731,25 +737,28 @@ function getFullCampaignDashboardData() {
     }
   }
 
-  // Sắp xếp Khu vực D: Lan tỏa theo đơn vị (Giảm dần theo totalFlames, kèm danh sách chi tiết Thành viên, Người gửi, Người nhận, Ngọn lửa)
+  // Sắp xếp Khu vực D: Lan tỏa theo đơn vị (Giảm dần theo totalFlames, tối ưu tải cho quy mô 24.608+ nhân sự)
   const unitSpread = Object.values(unitStatsMap)
     .map(u => {
       const sendersList = Object.values(u.sendersMap).sort((a, b) => b.count - a.count);
       const recipientsList = Object.values(u.recipientsMap).sort((a, b) => b.count - a.count);
-      const membersList = Object.values(u.membersMap).sort((a, b) => (b.receivedCount + b.sentCount) - (a.receivedCount + a.sentCount));
+      const allMembers = Object.values(u.membersMap);
       return {
         unit: u.unit,
         totalFlames: u.totalFlames,
         senderCount: sendersList.length,
         recipientCount: recipientsList.length,
-        memberCount: membersList.length,
+        memberCount: allMembers.length,
         flamesList: u.flamesList.slice().reverse(),
         sendersList: sendersList,
         recipientsList: recipientsList,
-        membersList: membersList
+        membersList: allMembers.slice(0, 60)
       };
     })
     .sort((a, b) => b.totalFlames - a.totalFlames || b.senderCount - a.senderCount || b.memberCount - a.memberCount);
+
+  const allHrValues = Object.values(hrEmployeesByEmail);
+  const hrCompact = allHrValues.map(e => [e.email, e.name, e.dept, e.sentCount || 0, e.receivedCount || 0]);
 
   return {
     totalFlames: totalFlames,
@@ -757,10 +766,11 @@ function getFullCampaignDashboardData() {
     uniqueRecipients: recipientSet.size,
     uniqueSenders: senderSet.size,
     uniqueUnits: unitSet.size || unitSpread.length,
+    totalHrCount: allHrValues.length,
     top30Recipients: top30Recipients,
     early100Senders: early100Senders,
     unitSpread: unitSpread,
-    hrDirectory: Object.values(hrEmployeesByEmail),
+    hrCompact: hrCompact,
     recentTributes: validChronologicalList.slice(-20).reverse(),
     pendingRender: syncInfo.pendingRender || []
   };

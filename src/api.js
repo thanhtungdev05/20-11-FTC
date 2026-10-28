@@ -8,7 +8,8 @@ import {
   MOCK_HR_DIRECTORY,
   cleanAndCorrectVietnameseText,
   lookupEmployeeInfo,
-  saveEmployeeNameCache
+  saveEmployeeNameCache,
+  registerBulkEmployeesInMemory
 } from './mockData.js';
 
 /**
@@ -49,10 +50,92 @@ async function fetchAppsScript(rawUrl, options = {}) {
   return fetch(rawUrl, options);
 }
 
-// Storage keys
+// Storage keys & IndexedDB (Hỗ trợ lưu trữ bền vững 24.608+ nhân sự vượt giới hạn 5MB của localStorage)
 const STORAGE_KEY_SUBMISSIONS = "ftel_20_11_submissions";
 const STORAGE_KEY_LAST_SUBMIT = "ftel_20_11_last_submit_time";
 const STORAGE_KEY_CUSTOM_HR = "ftel_custom_hr_list";
+const IDB_NAME = "ftel_20_11_hr_db";
+const IDB_STORE = "hr_directory_store";
+const IDB_KEY = "full_hr_24608";
+
+let __inMemoryCustomHrList = null;
+
+function openHrIndexedDB() {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === "undefined") {
+      resolve(null);
+      return;
+    }
+    try {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = () => resolve(null);
+    } catch (err) {
+      resolve(null);
+    }
+  });
+}
+
+async function saveHrListToStorage(list) {
+  if (!Array.isArray(list) || list.length === 0) return;
+  __inMemoryCustomHrList = list;
+  registerBulkEmployeesInMemory(list);
+  try {
+    const db = await openHrIndexedDB();
+    if (db) {
+      await new Promise((resolve) => {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).put(list, IDB_KEY);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    }
+  } catch (e) {}
+  try {
+    if (list.length <= 5000) {
+      localStorage.setItem(STORAGE_KEY_CUSTOM_HR, JSON.stringify(list));
+    } else {
+      localStorage.setItem("ftel_custom_hr_count", String(list.length));
+    }
+  } catch (e) {}
+}
+
+async function loadHrListFromStorage() {
+  if (Array.isArray(__inMemoryCustomHrList) && __inMemoryCustomHrList.length > 0) {
+    return __inMemoryCustomHrList;
+  }
+  try {
+    const db = await openHrIndexedDB();
+    if (db) {
+      const idbData = await new Promise((resolve) => {
+        const tx = db.transaction(IDB_STORE, "readonly");
+        const getReq = tx.objectStore(IDB_STORE).get(IDB_KEY);
+        getReq.onsuccess = () => resolve(getReq.result || null);
+        getReq.onerror = () => resolve(null);
+      });
+      if (Array.isArray(idbData) && idbData.length > 0) {
+        __inMemoryCustomHrList = idbData;
+        registerBulkEmployeesInMemory(idbData);
+        return idbData;
+      }
+    }
+  } catch (e) {}
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_HR) || "[]");
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      __inMemoryCustomHrList = parsed;
+      registerBulkEmployeesInMemory(parsed);
+      return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
 
 /**
  * Đọc trực tiếp dữ liệu từ tab bất kỳ của Google Sheet thông qua Google Visualization JSONP (không bị chặn CORS)
@@ -196,13 +279,6 @@ export function parseRowsIntoHrDirectory(rows) {
       fullName = email.split("@")[0].toUpperCase();
     }
 
-    saveEmployeeNameCache(email, fullName, deptName);
-    const localPart = email.split("@")[0];
-    if (localPart) {
-      saveEmployeeNameCache(`${localPart}@fpt.com`, fullName, deptName);
-      saveEmployeeNameCache(`${localPart}@fpt.net`, fullName, deptName);
-    }
-
     list.push({
       name: fullName,
       email: email,
@@ -213,6 +289,7 @@ export function parseRowsIntoHrDirectory(rows) {
     });
   }
 
+  registerBulkEmployeesInMemory(list);
   return list;
 }
 
@@ -478,9 +555,16 @@ export class ApiService {
   }
 
   /**
-   * Lấy danh sách nhân sự đã được đồng bộ / dán từ Sheet DS nhân sự (gid=1084168011)
+   * Lấy danh sách nhân sự đã được đồng bộ / dán từ Sheet DS nhân sự (gid=1084168011 - hỗ trợ 24.608+ nhân sự qua IndexedDB)
    */
+  static async getStoredCustomHrListAsync() {
+    return await loadHrListFromStorage();
+  }
+
   static getStoredCustomHrList() {
+    if (Array.isArray(__inMemoryCustomHrList) && __inMemoryCustomHrList.length > 0) {
+      return __inMemoryCustomHrList;
+    }
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_HR) || "[]");
       return Array.isArray(parsed) ? parsed : [];
@@ -494,11 +578,11 @@ export class ApiService {
    */
   static async syncHrDirectoryFromGoogleSheet() {
     try {
-      const rows = await loadSheetViaGvizJsonp(GOOGLE_SHEET_ID, GOOGLE_HR_SHEET_GID, 4500);
+      const rows = await loadSheetViaGvizJsonp(GOOGLE_SHEET_ID, GOOGLE_HR_SHEET_GID, 6500);
       if (Array.isArray(rows) && rows.length > 0) {
         const parsedList = parseRowsIntoHrDirectory(rows);
         if (parsedList.length > 0) {
-          localStorage.setItem(STORAGE_KEY_CUSTOM_HR, JSON.stringify(parsedList));
+          await saveHrListToStorage(parsedList);
           return { success: true, count: parsedList.length, list: parsedList, source: "google_sheet_gviz" };
         }
       }
@@ -700,56 +784,51 @@ export class ApiService {
   }
 
   /**
-   * Nhập nhanh danh sách nhân sự khi người dùng Copy & Paste từ Sheet DS Nhân sự (gid=1084168011) hoặc file CSV/TSV
+   * Nhập nhanh danh sách nhân sự (hỗ trợ 24.608+ nhân sự qua Copy-Paste hoặc File CSV/TSV)
    */
   static async importHrDirectoryFromText(rawText) {
     if (!rawText || !String(rawText).trim()) {
-      throw new Error("Vui lòng dán nội dung từ Sheet DS Nhân sự (Ctrl+A -> Ctrl+C rồi Ctrl+V vào ô)!");
+      throw new Error("Vui lòng dán nội dung hoặc chọn file CSV/TSV từ Sheet DS Nhân sự!");
     }
     const lines = String(rawText)
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(Boolean);
 
-    const rows = lines.map(line => {
+    const rows = new Array(lines.length);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       if (line.includes("\t")) {
-        return line.split("\t").map(c => c.trim());
+        rows[i] = line.split("\t").map(c => c.trim());
+      } else if (line.includes(";")) {
+        rows[i] = line.split(";").map(c => c.trim());
+      } else {
+        rows[i] = line.split(",").map(c => c.trim().replace(/^["']|["']$/g, ""));
       }
-      if (line.includes(";")) {
-        return line.split(";").map(c => c.trim());
-      }
-      return line.split(",").map(c => c.trim().replace(/^["']|["']$/g, ""));
-    });
+    }
 
     const parsedList = parseRowsIntoHrDirectory(rows);
     if (parsedList.length === 0) {
       throw new Error("Không nhận diện được dòng nhân sự hợp lệ. Hãy đảm bảo dữ liệu có chứa cột Email (@fpt.com / @fpt.net) và Họ tên!");
     }
 
-    // Gộp với danh sách đã lưu trước đó (ưu tiên thông tin mới nhất)
-    const existing = this.getStoredCustomHrList();
-    const mergedMap = new Map();
-    [...existing, ...parsedList].forEach(emp => {
-      if (!emp || !emp.email) return;
-      const key = String(emp.email).trim().toLowerCase();
-      mergedMap.set(key, emp);
-    });
-
-    const finalList = Array.from(mergedMap.values());
-    localStorage.setItem(STORAGE_KEY_CUSTOM_HR, JSON.stringify(finalList));
-
-    // Đồng bộ ngầm lên Google Apps Script nếu có kết nối
-    if (!this.isMockMode()) {
-      const scriptUrl = getEffectiveScriptUrl();
-      fetchAppsScript(scriptUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          action: "upload_hr_directory",
-          employees: parsedList
-        })
-      }).catch(() => {});
+    // Nếu người dùng nạp danh sách lớn (> 500 nhân sự, VD 24.608 nhân sự), dùng nguyên danh sách mới để khớp chính xác 100% số lượng với Sheet
+    let finalList = parsedList;
+    if (parsedList.length < 500) {
+      const existing = await this.getStoredCustomHrListAsync();
+      const mergedMap = new Map();
+      for (let i = 0; i < existing.length; i++) {
+        const emp = existing[i];
+        if (emp && emp.email) mergedMap.set(String(emp.email).trim().toLowerCase(), emp);
+      }
+      for (let i = 0; i < parsedList.length; i++) {
+        const emp = parsedList[i];
+        if (emp && emp.email) mergedMap.set(String(emp.email).trim().toLowerCase(), emp);
+      }
+      finalList = Array.from(mergedMap.values());
     }
+
+    await saveHrListToStorage(finalList);
 
     return {
       success: true,
@@ -760,10 +839,13 @@ export class ApiService {
   }
 
   /**
-   * Hợp nhất Danh sách Nhân sự (từ Sheet gid=1084168011, Local Cache & Mock) và cập nhật lại Thống kê Đơn vị
+   * Hợp nhất Danh sách Nhân sự O(N) siêu tốc (hỗ trợ 24.608+ nhân sự không bị lag) và cập nhật lại Thống kê Đơn vị
    */
   static mergeHrDirectoryIntoDashboard(baseData, extraHrLists = []) {
     const empByAccount = new Map();
+    const hasLargeRealHr = extraHrLists.some(list => Array.isArray(list) && list.length > 300) ||
+      (Array.isArray(baseData.hrDirectory) && baseData.hrDirectory.length > 300);
+
     const addEmp = (emp, isPriority = false) => {
       if (!emp || (!emp.email && !emp.name)) return;
       const cleanEmail = String(emp.email || "").trim().toLowerCase();
@@ -791,32 +873,51 @@ export class ApiService {
       }
     };
 
-    // 1. Nạp danh sách nền
-    (baseData.hrDirectory || MOCK_HR_DIRECTORY).forEach(e => addEmp(e, false));
-    // 2. Nạp danh sách từ Sheet gid=1084168011 / người dùng đồng bộ (ghi đè chính xác Họ tên & Đơn vị)
+    // 1. Nếu chưa có danh sách thực > 300 người mới nạp danh sách mẫu 295 người; nếu đã có DS 24.608 nhân sự thực thì lấy đúng số lượng thực!
+    if (!hasLargeRealHr) {
+      (baseData.hrDirectory || MOCK_HR_DIRECTORY).forEach(e => addEmp(e, false));
+    } else if (Array.isArray(baseData.hrDirectory) && baseData.hrDirectory.length > 300) {
+      baseData.hrDirectory.forEach(e => addEmp(e, true));
+    }
+
+    // 2. Nạp danh sách từ Sheet gid=1084168011 / IndexedDB
     extraHrLists.forEach(list => {
       if (Array.isArray(list)) {
-        list.forEach(e => addEmp(e, true));
+        for (let i = 0; i < list.length; i++) {
+          addEmp(list[i], true);
+        }
       }
     });
 
     const mergedHrDirectory = Array.from(empByAccount.values());
+    registerBulkEmployeesInMemory(mergedHrDirectory);
 
-    // Cập nhật lại membersList của từng Đơn vị trong unitSpread theo đúng DS Nhân sự đã hợp nhất
+    // Cập nhật lại membersList của từng Đơn vị trong unitSpread với độ phức tạp O(N) bằng Set
     const unitMap = new Map();
+    const unitMemberKeySets = new Map();
+
     (baseData.unitSpread || MOCK_UNIT_SPREAD).forEach(u => {
+      const mList = hasLargeRealHr ? [] : (Array.isArray(u.membersList) ? [...u.membersList] : []);
+      const keySet = new Set();
+      for (let i = 0; i < mList.length; i++) {
+        const k = String(mList[i].email || "").toLowerCase().split("@")[0];
+        if (k) keySet.add(k);
+      }
+      unitMemberKeySets.set(u.unit, keySet);
       unitMap.set(u.unit, {
         ...u,
-        flamesList: Array.isArray(u.flamesList) ? [...u.flamesList] : [],
-        sendersList: Array.isArray(u.sendersList) ? [...u.sendersList] : [],
-        recipientsList: Array.isArray(u.recipientsList) ? [...u.recipientsList] : [],
-        membersList: Array.isArray(u.membersList) ? [...u.membersList] : []
+        flamesList: Array.isArray(u.flamesList) ? u.flamesList : [],
+        sendersList: Array.isArray(u.sendersList) ? u.sendersList : [],
+        recipientsList: Array.isArray(u.recipientsList) ? u.recipientsList : [],
+        membersList: mList
       });
     });
 
-    mergedHrDirectory.forEach(emp => {
+    for (let i = 0; i < mergedHrDirectory.length; i++) {
+      const emp = mergedHrDirectory[i];
       const unitName = emp.dept || "FPT Telecom";
       if (!unitMap.has(unitName)) {
+        unitMemberKeySets.set(unitName, new Set());
         unitMap.set(unitName, {
           unit: unitName,
           totalFlames: emp.receivedCount || 0,
@@ -830,13 +931,14 @@ export class ApiService {
         });
       }
       const uObj = unitMap.get(unitName);
+      const keySet = unitMemberKeySets.get(unitName);
       const localKey = emp.email.split("@")[0];
-      const alreadyInUnit = uObj.membersList.some(m => String(m.email || "").toLowerCase().split("@")[0] === localKey);
-      if (!alreadyInUnit) {
+      if (!keySet.has(localKey)) {
+        keySet.add(localKey);
         uObj.membersList.push(emp);
       }
       uObj.memberCount = uObj.membersList.length;
-    });
+    }
 
     const finalUnits = Array.from(unitMap.values()).sort(
       (a, b) => (b.totalFlames || 0) - (a.totalFlames || 0) || (b.memberCount || 0) - (a.memberCount || 0)
@@ -854,9 +956,9 @@ export class ApiService {
    * Lấy toàn bộ dữ liệu Live Dashboard (Khu vực B - C - D) từ Google Sheet (hoặc Mock kết hợp Local)
    */
   static async getFullDashboardData() {
-    // 1. Thử đồng bộ trực tiếp tab DS Nhân sự (gid=1084168011) qua Google Visualization JSONP (không bị chặn CORS)
+    // 1. Thử đồng bộ trực tiếp tab DS Nhân sự (gid=1084168011) qua Google Visualization JSONP + IndexedDB
     const gvizHrSync = await this.syncHrDirectoryFromGoogleSheet();
-    const customHrList = this.getStoredCustomHrList();
+    const customHrList = await this.getStoredCustomHrListAsync();
     const activeHrList = gvizHrSync.list.length > 0 ? gvizHrSync.list : customHrList;
 
     // 2. Thử đọc trực tiếp cả tab Câu trả lời Google Form (gid=1557167031) qua GVIZ JSONP
@@ -881,11 +983,25 @@ export class ApiService {
         }
 
         if (!result) {
-          result = await loadAppsScriptViaJsonp(scriptUrl, "get_dashboard", 4000);
+          result = await loadAppsScriptViaJsonp(scriptUrl, "get_dashboard", 5500);
         }
 
         if (result && result.success && result.data) {
           const d = result.data;
+          // Giải nén hrCompact (24.608+ nhân sự) nếu được trả về từ Code.gs mới
+          let unpackedHr = Array.isArray(d.hrDirectory) ? d.hrDirectory : [];
+          if (Array.isArray(d.hrCompact) && d.hrCompact.length > 0) {
+            unpackedHr = d.hrCompact.map(item => ({
+              email: item[0] || "",
+              name: item[1] || "",
+              dept: item[2] || "FPT Telecom",
+              role: "CBNV FPT Telecom",
+              sentCount: Number(item[3] || 0),
+              receivedCount: Number(item[4] || 0)
+            }));
+            await saveHrListToStorage(unpackedHr);
+          }
+
           if (typeof d.totalFlames !== 'undefined' && Array.isArray(d.top30Recipients)) {
             const totalFlames = d.totalFlames || d.totalSubmissions || 0;
             const uniqueRecipients = d.uniqueRecipients || 0;
@@ -912,12 +1028,12 @@ export class ApiService {
               top30Recipients: d.top30Recipients.length > 0 ? d.top30Recipients : MOCK_LEADERBOARD,
               early100Senders: Array.isArray(d.early100Senders) && d.early100Senders.length > 0 ? d.early100Senders : MOCK_EARLY_100,
               unitSpread: enrichedUnitSpread,
-              hrDirectory: Array.isArray(d.hrDirectory) && d.hrDirectory.length > 0 ? d.hrDirectory : MOCK_HR_DIRECTORY,
+              hrDirectory: unpackedHr.length > 0 ? unpackedHr : MOCK_HR_DIRECTORY,
               pendingRender: d.pendingRender || [],
               isLiveSheet: true,
               hrSyncSource: gvizHrSync.success ? "google_sheet_gviz" : "apps_script"
             };
-            return this.mergeHrDirectoryIntoDashboard(liveBase, [d.hrDirectory || [], gvizHrSync.list, customHrList]);
+            return this.mergeHrDirectoryIntoDashboard(liveBase, [unpackedHr, gvizHrSync.list, customHrList]);
           }
         }
       } catch (err) {

@@ -271,16 +271,31 @@ export class DashboardModule {
 
           ${this.showHrSyncPanel ? `
             <div class="mb-5 p-4 rounded-2xl bg-slate-950/90 border border-amber-400/50 space-y-3">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
                 <div>
                   <h3 class="text-xs sm:text-sm font-extrabold text-amber-300">
-                    ⚡ ĐỒNG BỘ TRỰC TIẾP HOẶC DÁN NHANH TAB "DS NHÂN SỰ" (GID=1084168011)
+                    ⚡ NẠP SIÊU TỐC 24.608 NHÂN SỰ TỪ TAB "DS NHÂN SỰ" (GID=1084168011)
                   </h3>
                   <p class="text-[11px] text-slate-300 mt-0.5">
-                    Nếu Google Sheet đang để chế độ Riêng tư (Restricted), bạn chỉ cần mở <a href="${GOOGLE_HR_SHEET_URL}" target="_blank" class="text-amber-400 underline font-bold">Sheet DS nhân sự (gid=1084168011)</a>, bấm <strong>Ctrl + A</strong> ➔ <strong>Ctrl + C</strong> rồi dán (<strong>Ctrl + V</strong>) vào ô bên dưới:
+                    Hỗ trợ quy mô lớn <strong>24.608+ nhân sự</strong> không bị lag trình duyệt (lưu vào bộ nhớ IndexedDB dung lượng lớn):
                   </p>
                 </div>
-                <div class="flex items-center gap-2 shrink-0">
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                  <input type="file" id="hr-csv-file-input" accept=".csv,.tsv,.txt" class="hidden" />
+                  <button
+                    type="button"
+                    id="hr-csv-file-btn"
+                    class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 text-xs font-extrabold cursor-pointer"
+                  >
+                    📂 Chọn file .CSV tải từ Sheet (24.608 người)
+                  </button>
+                  <button
+                    type="button"
+                    id="hr-clipboard-fast-paste-btn"
+                    class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-300 text-xs font-extrabold cursor-pointer"
+                  >
+                    ⚡ Dán 1 chạm từ Clipboard (Sau khi Ctrl+C)
+                  </button>
                   <button
                     type="button"
                     id="hr-direct-gviz-sync-btn"
@@ -301,8 +316,8 @@ export class DashboardModule {
 
               <textarea
                 id="hr-paste-textarea"
-                rows="4"
-                placeholder="Dán (Ctrl+V) các dòng copy từ Sheet DS nhân sự vào đây (Tự động nhận diện cột Email, Họ và tên, Đơn vị)..."
+                rows="3"
+                placeholder="Cách nhanh nhất cho 24.608 dòng: Mở Sheet gid=1084168011 -> bấm Ctrl+A -> Ctrl+C, sau đó click vào ô này và bấm Ctrl+V (Hệ thống tự động nạp tức thì 24.608 nhân sự không gây đơ trình duyệt!)..."
                 class="custom-input w-full rounded-xl p-3 text-xs font-mono"
               ></textarea>
 
@@ -322,7 +337,7 @@ export class DashboardModule {
           ` : ''}
 
           <div class="flex items-center justify-between text-xs text-slate-400 mb-3">
-            <span>Hiển thị <strong class="text-amber-300">${Math.min(filteredHrList.length, maxHrDisplay)}</strong> / <strong class="text-white">${filteredHrList.length}</strong> nhân sự phù hợp</span>
+            <span>Hiển thị <strong class="text-amber-300">${Math.min(filteredHrList.length, maxHrDisplay).toLocaleString('vi-VN')}</strong> / <strong class="text-white">${filteredHrList.length.toLocaleString('vi-VN')}</strong> nhân sự phù hợp</span>
             <span class="text-[11px] text-slate-400">💡 Bấm vào Email để copy nhanh khi điền Google Form</span>
           </div>
 
@@ -798,8 +813,11 @@ export class DashboardModule {
 
         <!-- CHẾ ĐỘ 5: XEM DANH SÁCH THÀNH VIÊN TRONG ĐƠN VỊ (TỪ DS NHÂN SỰ) -->
         ${activeSubTab === 'members' ? `
+          <div class="text-xs text-slate-400 mb-2">
+            Tổng nhân sự đơn vị: <strong class="text-amber-300">${(u.memberCount || membersList.length).toLocaleString('vi-VN')}</strong> CBNV ${membersList.length > 120 ? `(Hiển thị 120 thành viên đầu tiên - dùng thanh tìm kiếm nhân sự phía trên để tra cứu toàn bộ)` : ''}
+          </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
-            ${membersList.map((mem, mIdx) => `
+            ${membersList.slice(0, 120).map((mem, mIdx) => `
               <div class="p-3 rounded-xl bg-slate-950/80 border border-white/10 flex items-center justify-between gap-2 text-xs">
                 <div class="min-w-0">
                   <div class="font-bold text-white truncate">${mIdx + 1}. ${mem.name}</div>
@@ -880,6 +898,67 @@ export class DashboardModule {
       });
     }
 
+    // Nút Chọn file CSV/TSV (24.608 nhân sự)
+    const csvFileBtn = this.container.querySelector('#hr-csv-file-btn');
+    const csvFileInput = this.container.querySelector('#hr-csv-file-input');
+    if (csvFileBtn && csvFileInput) {
+      csvFileBtn.addEventListener('click', () => csvFileInput.click());
+      csvFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const fb = this.container.querySelector('#hr-sync-feedback');
+        if (fb) fb.textContent = `⏳ Đang đọc và nạp file ${file.name}...`;
+        try {
+          const text = await file.text();
+          const res = await ApiService.importHrDirectoryFromText(text);
+          this.hrSyncStatusMsg = `✅ Đã nạp siêu tốc ${res.importedCount.toLocaleString('vi-VN')} nhân sự từ file ${file.name} (Tổng: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
+          await this.refreshData();
+        } catch (err) {
+          this.hrSyncStatusMsg = `⚠️ ${err.message}`;
+          if (fb) fb.textContent = this.hrSyncStatusMsg;
+        }
+      });
+    }
+
+    // Nút Dán 1 chạm từ Clipboard (không cần render vào textarea)
+    const fastPasteBtn = this.container.querySelector('#hr-clipboard-fast-paste-btn');
+    if (fastPasteBtn) {
+      fastPasteBtn.addEventListener('click', async () => {
+        const fb = this.container.querySelector('#hr-sync-feedback');
+        try {
+          if (fb) fb.textContent = '⏳ Đang đọc 24.608 dòng từ Clipboard...';
+          const clipText = await navigator.clipboard.readText();
+          const res = await ApiService.importHrDirectoryFromText(clipText);
+          this.hrSyncStatusMsg = `✅ Đã nạp siêu tốc ${res.importedCount.toLocaleString('vi-VN')} nhân sự từ Clipboard (Tổng: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
+          await this.refreshData();
+        } catch (err) {
+          this.hrSyncStatusMsg = '⚠️ Vui lòng click vào ô văn bản bên dưới và bấm Ctrl + V!';
+          if (fb) fb.textContent = this.hrSyncStatusMsg;
+        }
+      });
+    }
+
+    // Tự động bắt sự kiện Ctrl+V vào ô textarea để nạp thẳng vào RAM (tránh làm đơ trình duyệt khi dán 24.608 dòng)
+    const pasteTextarea = this.container.querySelector('#hr-paste-textarea');
+    if (pasteTextarea) {
+      pasteTextarea.addEventListener('paste', async (e) => {
+        const text = (e.clipboardData || window.clipboardData)?.getData('text/plain') || '';
+        if (text && text.length > 2000) {
+          e.preventDefault();
+          const fb = this.container.querySelector('#hr-sync-feedback');
+          if (fb) fb.textContent = '⏳ Đang xử lý dữ liệu lớn từ Clipboard...';
+          try {
+            const res = await ApiService.importHrDirectoryFromText(text);
+            this.hrSyncStatusMsg = `✅ Đã nạp siêu tốc ${res.importedCount.toLocaleString('vi-VN')} nhân sự (Tổng danh bạ: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
+            await this.refreshData();
+          } catch (err) {
+            this.hrSyncStatusMsg = `⚠️ ${err.message}`;
+            if (fb) fb.textContent = this.hrSyncStatusMsg;
+          }
+        }
+      });
+    }
+
     // Nút Nạp nhanh dữ liệu Copy-Paste từ Sheet DS nhân sự
     const importPasteBtn = this.container.querySelector('#hr-import-paste-btn');
     if (importPasteBtn) {
@@ -888,7 +967,7 @@ export class DashboardModule {
         const rawText = textarea ? textarea.value : '';
         try {
           const res = await ApiService.importHrDirectoryFromText(rawText);
-          this.hrSyncStatusMsg = `✅ Đã nạp thành công ${res.importedCount} nhân sự (Tổng danh bạ: ${res.totalCount} CBNV)!`;
+          this.hrSyncStatusMsg = `✅ Đã nạp thành công ${res.importedCount.toLocaleString('vi-VN')} nhân sự (Tổng danh bạ: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
           await this.refreshData();
         } catch (err) {
           this.hrSyncStatusMsg = `⚠️ ${err.message}`;

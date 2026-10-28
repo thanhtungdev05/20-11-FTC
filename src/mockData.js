@@ -73,10 +73,37 @@ export const EMPLOYEE_DIRECTORY = {
   "nghiadt@fpt.net": { name: "Đinh Trọng Nghĩa", dept: "Ban Giám đốc & Văn phòng HO" }
 };
 
+// Bộ nhớ đệm RAM tốc độ cao O(1) hỗ trợ quy mô 25.000+ nhân sự không làm đầy localStorage
+export const IN_MEMORY_HR_MAP = new Map();
+
+export function registerBulkEmployeesInMemory(list = []) {
+  if (!Array.isArray(list)) return;
+  for (let i = 0; i < list.length; i++) {
+    const emp = list[i];
+    if (!emp || !emp.email) continue;
+    const email = String(emp.email).trim().toLowerCase();
+    const local = email.split("@")[0];
+    const info = { name: emp.name || "", dept: emp.dept || "FPT Telecom", avatar: emp.avatar || "" };
+    IN_MEMORY_HR_MAP.set(email, info);
+    if (local) {
+      IN_MEMORY_HR_MAP.set(local, info);
+      IN_MEMORY_HR_MAP.set(`${local}@fpt.com`, info);
+      IN_MEMORY_HR_MAP.set(`${local}@fpt.net`, info);
+    }
+  }
+}
+
 export function lookupEmployeeInfo(email) {
   if (!email) return { name: "", dept: "FPT Telecom", avatar: "" };
   const normalized = String(email).trim().toLowerCase();
   const localPart = normalized.split("@")[0];
+
+  const memHit =
+    IN_MEMORY_HR_MAP.get(normalized) ||
+    (localPart ? IN_MEMORY_HR_MAP.get(localPart) : null);
+  if (memHit && memHit.name) {
+    return memHit;
+  }
 
   const entry =
     EMPLOYEE_DIRECTORY[normalized] ||
@@ -109,11 +136,14 @@ export function saveEmployeeNameCache(email, fullName, dept = "FPT Telecom") {
   const normalized = String(email).trim().toLowerCase();
   const cleanName = String(fullName).trim();
   if (!normalized || !cleanName) return;
-  try {
-    const cachedDir = JSON.parse(localStorage.getItem("ftel_employee_dir_cache") || "{}");
-    cachedDir[normalized] = { name: cleanName, dept: dept || "FPT Telecom" };
-    localStorage.setItem("ftel_employee_dir_cache", JSON.stringify(cachedDir));
-  } catch (e) {}
+  const local = normalized.split("@")[0];
+  const info = { name: cleanName, dept: dept || "FPT Telecom", avatar: "" };
+  IN_MEMORY_HR_MAP.set(normalized, info);
+  if (local) {
+    IN_MEMORY_HR_MAP.set(local, info);
+    IN_MEMORY_HR_MAP.set(`${local}@fpt.com`, info);
+    IN_MEMORY_HR_MAP.set(`${local}@fpt.net`, info);
+  }
 }
 
 /**
