@@ -149,24 +149,37 @@ export class DashboardModule {
     const top3 = filteredTop30[2] || null;
     const rank4To30 = filteredTop30.slice(3, 30);
 
+    const maxTop30Flames = Math.max(...filteredTop30.map(i => i.count || 1), 1);
     const maxUnitFlames = Math.max(...unitSpread.map(u => u.totalFlames || 1), 1);
     const allUnitsList = unitSpread.map(u => u.unit);
 
     this.container.innerHTML = `
       <div class="space-y-8">
         <!-- ======================================================================= -->
-        <!-- KHU VỰC B: TỔNG QUAN CHIẾN DỊCH (4 THẺ KPI CẬP NHẬT TỰ ĐỘNG)            -->
+        <!-- KHU VỰC B: TỔNG QUAN CHIẾN DỊCH (CHUẨN ADMINLTE v4 SMALL-BOX WIDGETS)   -->
         <!-- ======================================================================= -->
-        <section class="glass-card-glow rounded-3xl p-5 sm:p-7">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-white/10">
-            <div>
-              <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>Khu vực B • Tổng Quan Chiến Dịch (Real-time)</span>
+        <section id="section-kpi" class="lte-card lte-card-outline-orange scroll-mt-20">
+          <!-- AdminLTE Card Header -->
+          <div class="lte-card-header">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/30 to-amber-500/10 border border-orange-500/40 flex items-center justify-center text-lg shadow-md">
+                📊
               </div>
-              <h2 class="text-lg sm:text-2xl font-black text-white">NHỊP ĐẬP LAN TỎA NGỌN LỬA TRI ÂN</h2>
+              <div>
+                <div class="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>Khu vực B • Tổng Quan Chiến Dịch (Real-time)</span>
+                </div>
+                <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">NHỊP ĐẬP LAN TỎA NGỌN LỬA TRI ÂN</h2>
+              </div>
             </div>
+
+            <!-- AdminLTE Card Tools -->
             <div class="flex flex-wrap items-center gap-2">
+              <span class="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-bold text-emerald-300">
+                <span>●</span>
+                <span>Auto-Sync Google Sheet</span>
+              </span>
               <a 
                 href="${GOOGLE_FORM_URL}" 
                 target="_blank" 
@@ -179,80 +192,106 @@ export class DashboardModule {
               <button 
                 type="button" 
                 id="dash-refresh-btn" 
-                class="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-slate-200 transition-all cursor-pointer"
+                class="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                ↻ Cập nhật số liệu
+                <span>↻</span>
+                <span>Cập nhật số liệu</span>
               </button>
             </div>
           </div>
 
-          <!-- 4 Thẻ chỉ số tổng hợp -->
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-500/5 border border-orange-500/30 shadow-lg">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-orange-300">Tổng số ngọn lửa</span>
-                <span class="text-xl">🔥</span>
+          <!-- AdminLTE Card Body: 4 Small Boxes (KPI Widgets) -->
+          <div class="lte-card-body">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Small Box 1: Tổng số ngọn lửa -->
+              <div class="lte-small-box bg-gradient-to-br from-orange-600/25 via-amber-500/15 to-slate-950/90 border-orange-500/40">
+                <div class="lte-inner">
+                  <div class="text-[11px] font-extrabold uppercase tracking-wider text-orange-300 mb-1">Tổng số ngọn lửa</div>
+                  <div class="text-3xl sm:text-4xl font-black text-amber-400 tracking-tight">${totalFlames.toLocaleString('vi-VN')}</div>
+                  <p class="text-xs text-slate-300 mt-1.5 font-medium">Lời cảm ơn hợp lệ đã thắp sáng</p>
+                </div>
+                <div class="lte-small-box-icon">🔥</div>
+                <div class="lte-small-box-footer text-orange-200">
+                  <span>Đã lọc trùng & chuẩn hóa chính tả</span>
+                  <span>100% ✓</span>
+                </div>
               </div>
-              <div class="text-2xl sm:text-4xl font-black text-amber-400">${totalFlames.toLocaleString('vi-VN')}</div>
-              <p class="text-[11px] text-slate-400 mt-1">Tổng số lời cảm ơn hợp lệ</p>
-            </div>
 
-            <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-500/15 to-yellow-500/5 border border-amber-500/30 shadow-lg">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-amber-300">Người được tri ân</span>
-                <span class="text-xl">🎓</span>
+              <!-- Small Box 2: Người được tri ân -->
+              <div class="lte-small-box bg-gradient-to-br from-amber-500/25 via-yellow-500/10 to-slate-950/90 border-amber-500/40">
+                <div class="lte-inner">
+                  <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-300 mb-1">Người được tri ân</div>
+                  <div class="text-3xl sm:text-4xl font-black text-white tracking-tight">${uniqueRecipients.toLocaleString('vi-VN')}</div>
+                  <p class="text-xs text-slate-300 mt-1.5 font-medium">Cá nhân nhận ít nhất 1 lời cảm ơn</p>
+                </div>
+                <div class="lte-small-box-icon">🎓</div>
+                <a href="#section-leaderboard" class="lte-small-box-footer hover:bg-black/40 transition-colors text-amber-200">
+                  <span>Xem Top 30 Tiếp Lửa Tri Thức</span>
+                  <span>➔</span>
+                </a>
               </div>
-              <div class="text-2xl sm:text-4xl font-black text-white">${uniqueRecipients.toLocaleString('vi-VN')}</div>
-              <p class="text-[11px] text-slate-400 mt-1">Cá nhân nhận ít nhất 1 lời cảm ơn</p>
-            </div>
 
-            <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-sky-500/15 to-blue-500/5 border border-sky-500/30 shadow-lg">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-sky-300">Người tham gia gửi</span>
-                <span class="text-xl">💌</span>
+              <!-- Small Box 3: Người tham gia gửi -->
+              <div class="lte-small-box bg-gradient-to-br from-sky-500/25 via-blue-600/10 to-slate-950/90 border-sky-500/40">
+                <div class="lte-inner">
+                  <div class="text-[11px] font-extrabold uppercase tracking-wider text-sky-300 mb-1">Người tham gia gửi</div>
+                  <div class="text-3xl sm:text-4xl font-black text-sky-300 tracking-tight">${uniqueSenders.toLocaleString('vi-VN')}</div>
+                  <p class="text-xs text-slate-300 mt-1.5 font-medium">CBNV đã gửi lời cảm ơn</p>
+                </div>
+                <div class="lte-small-box-icon">💌</div>
+                <a href="#section-leaderboard" class="lte-small-box-footer hover:bg-black/40 transition-colors text-sky-200">
+                  <span>Xem Top 100 Gửi Sớm Nhất</span>
+                  <span>➔</span>
+                </a>
               </div>
-              <div class="text-2xl sm:text-4xl font-black text-sky-300">${uniqueSenders.toLocaleString('vi-VN')}</div>
-              <p class="text-[11px] text-slate-400 mt-1">CBNV đã gửi lời cảm ơn</p>
-            </div>
 
-            <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-teal-500/5 border border-emerald-500/30 shadow-lg">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold uppercase tracking-wider text-emerald-300">Đơn vị lan tỏa</span>
-                <span class="text-xl">🏢</span>
+              <!-- Small Box 4: Đơn vị lan tỏa -->
+              <div class="lte-small-box bg-gradient-to-br from-emerald-500/25 via-teal-600/10 to-slate-950/90 border-emerald-500/40">
+                <div class="lte-inner">
+                  <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300 mb-1">Đơn vị lan tỏa</div>
+                  <div class="text-3xl sm:text-4xl font-black text-emerald-400 tracking-tight">${uniqueUnits.toLocaleString('vi-VN')}</div>
+                  <p class="text-xs text-slate-300 mt-1.5 font-medium">Đơn vị / Phòng ban có nhân sự</p>
+                </div>
+                <div class="lte-small-box-icon">🏢</div>
+                <a href="#section-unit-spread" class="lte-small-box-footer hover:bg-black/40 transition-colors text-emerald-200">
+                  <span>Xem thống kê chi tiết đơn vị</span>
+                  <span>➔</span>
+                </a>
               </div>
-              <div class="text-2xl sm:text-4xl font-black text-emerald-400">${uniqueUnits.toLocaleString('vi-VN')}</div>
-              <p class="text-[11px] text-slate-400 mt-1">Đơn vị có nhân sự tham gia</p>
             </div>
           </div>
         </section>
 
         <!-- ======================================================================= -->
-        <!-- KHU VỰC TRA CỨU NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ (SHEET GID=1084168011)  -->
+        <!-- KHU VỰC TRA CỨU NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ (ADMINLTE CONTACTS BOX) -->
         <!-- ======================================================================= -->
-        <section class="glass-card rounded-3xl p-5 sm:p-7 border border-amber-500/30">
-          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 mb-5 border-b border-white/10">
-            <div>
-              <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
-                <span>🔍</span>
-                <span>Danh Bạ Nhân Sự FTEL • Đồng Bộ Sheet DS Nhân Sự</span>
+        <section id="section-hr-search" class="lte-card lte-card-outline-gold scroll-mt-20">
+          <!-- AdminLTE Card Header -->
+          <div class="lte-card-header">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-lg shadow-md">
+                🔍
               </div>
-              <h2 class="text-lg sm:text-2xl font-black text-white">TÌM KIẾM NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ</h2>
-              <p class="text-xs text-slate-400 mt-0.5">
-                Tra cứu nhanh Họ và tên, Email FPT, Đơn vị công tác và số ngọn lửa đã gửi / đã nhận của từng CBNV
-              </p>
+              <div>
+                <div class="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
+                  <span>Danh Bạ Nhân Sự FTEL • Đồng Bộ Sheet DS Nhân Sự (gid=1084168011)</span>
+                </div>
+                <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">TÌM KIẾM NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ</h2>
+              </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              <div class="relative">
+            <!-- AdminLTE Card Tools: Search + Unit Filter + Sync Button -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+              <div class="relative flex-1 sm:flex-initial">
                 <input 
                   type="text" 
                   id="hr-directory-search-input" 
                   value="${this.hrSearchQuery}"
                   placeholder="🔍 Nhập tên, email (VD: Nhanlh10@fpt.com)..." 
-                  class="custom-input rounded-xl px-4 py-2.5 text-xs sm:text-sm sm:w-72 border-amber-500/40"
+                  class="custom-input w-full sm:w-72 rounded-xl px-4 py-2 text-xs sm:text-sm border-amber-500/40"
                 />
               </div>
-              <select id="hr-directory-unit-select" class="custom-input rounded-xl px-3 py-2.5 text-xs sm:text-sm">
+              <select id="hr-directory-unit-select" class="custom-input rounded-xl px-3 py-2 text-xs sm:text-sm">
                 <option value="ALL" ${this.hrUnitFilter === 'ALL' ? 'selected' : ''}>Tất cả đơn vị (${allUnitsList.length})</option>
                 ${allUnitsList.map(u => `
                   <option value="${u}" ${this.hrUnitFilter === u ? 'selected' : ''}>${u}</option>
@@ -261,7 +300,7 @@ export class DashboardModule {
               <button
                 type="button"
                 id="hr-toggle-sync-panel-btn"
-                class="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+                class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
                 title="Đồng bộ hoặc Dán nhanh toàn bộ dữ liệu từ tab DS nhân sự (gid=1084168011)"
               >
                 <span>📥 Đồng bộ DS Nhân sự</span>
@@ -269,149 +308,166 @@ export class DashboardModule {
             </div>
           </div>
 
-          ${this.showHrSyncPanel ? `
-            <div class="mb-5 p-4 rounded-2xl bg-slate-950/90 border border-amber-400/50 space-y-3">
-              <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-                <div>
-                  <h3 class="text-xs sm:text-sm font-extrabold text-amber-300">
-                    ⚡ NẠP SIÊU TỐC 24.608 NHÂN SỰ TỪ TAB "DS NHÂN SỰ" (GID=1084168011)
-                  </h3>
-                  <p class="text-[11px] text-slate-300 mt-0.5">
-                    Hỗ trợ quy mô lớn <strong>24.608+ nhân sự</strong> không bị lag trình duyệt (lưu vào bộ nhớ IndexedDB dung lượng lớn):
-                  </p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2 shrink-0">
-                  <input type="file" id="hr-csv-file-input" accept=".csv,.tsv,.txt" class="hidden" />
-                  <button
-                    type="button"
-                    id="hr-csv-file-btn"
-                    class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 text-xs font-extrabold cursor-pointer"
-                  >
-                    📂 Chọn file .CSV tải từ Sheet (24.608 người)
-                  </button>
-                  <button
-                    type="button"
-                    id="hr-clipboard-fast-paste-btn"
-                    class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-300 text-xs font-extrabold cursor-pointer"
-                  >
-                    ⚡ Dán 1 chạm từ Clipboard (Sau khi Ctrl+C)
-                  </button>
-                  <button
-                    type="button"
-                    id="hr-direct-gviz-sync-btn"
-                    class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 text-xs font-bold cursor-pointer"
-                  >
-                    🔄 Tải tự động từ Google Sheet
-                  </button>
-                  <a
-                    href="${GOOGLE_HR_SHEET_URL}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-xs font-semibold"
-                  >
-                    ↗ Mở Sheet gid=1084168011
-                  </a>
-                </div>
-              </div>
-
-              <textarea
-                id="hr-paste-textarea"
-                rows="3"
-                placeholder="Cách nhanh nhất cho 24.608 dòng: Mở Sheet gid=1084168011 -> bấm Ctrl+A -> Ctrl+C, sau đó click vào ô này và bấm Ctrl+V (Hệ thống tự động nạp tức thì 24.608 nhân sự không gây đơ trình duyệt!)..."
-                class="custom-input w-full rounded-xl p-3 text-xs font-mono"
-              ></textarea>
-
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <span id="hr-sync-feedback" class="text-xs font-semibold text-emerald-300">${this.hrSyncStatusMsg || ''}</span>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    id="hr-import-paste-btn"
-                    class="btn-flame px-4 py-2 rounded-xl text-xs font-extrabold cursor-pointer"
-                  >
-                    ✅ Nạp & Cập nhật DS Nhân sự ngay
-                  </button>
-                </div>
-              </div>
-            </div>
-          ` : ''}
-
-          <div class="flex items-center justify-between text-xs text-slate-400 mb-3">
-            <span>Hiển thị <strong class="text-amber-300">${Math.min(filteredHrList.length, maxHrDisplay).toLocaleString('vi-VN')}</strong> / <strong class="text-white">${filteredHrList.length.toLocaleString('vi-VN')}</strong> nhân sự phù hợp</span>
-            <span class="text-[11px] text-slate-400">💡 Bấm vào Email để copy nhanh khi điền Google Form</span>
-          </div>
-
-          ${filteredHrList.length > 0 ? `
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
-              ${filteredHrList.slice(0, maxHrDisplay).map(emp => `
-                <div class="p-3.5 rounded-2xl bg-slate-950/75 border border-white/10 hover:border-amber-500/40 transition-all flex flex-col justify-between gap-2.5">
-                  <div class="flex items-start gap-3">
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500/30 to-amber-400/20 border border-amber-400/40 flex items-center justify-center text-xs font-black text-amber-300 shrink-0">
-                      ${this.getInitials(emp.name)}
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <div class="font-bold text-white text-sm truncate">${emp.name}</div>
-                      <button 
-                        type="button"
-                        data-copy-email="${emp.email}"
-                        class="text-xs font-mono text-amber-300 hover:text-amber-200 flex items-center gap-1 truncate mt-0.5 cursor-pointer"
-                        title="Bấm để copy Email"
-                      >
-                        <span>📧 ${emp.email}</span>
-                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-white/10 text-slate-300">Copy</span>
-                      </button>
-                      <div class="text-[11px] text-slate-400 truncate mt-1">🏢 ${emp.dept || 'FPT Telecom'}</div>
-                    </div>
+          <!-- AdminLTE Card Body -->
+          <div class="lte-card-body">
+            ${this.showHrSyncPanel ? `
+              <div class="lte-callout lte-callout-warning mb-5 space-y-3">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                  <div>
+                    <h3 class="text-xs sm:text-sm font-extrabold text-amber-300">
+                      ⚡ NẠP SIÊU TỐC 24.608 NHÂN SỰ TỪ TAB "DS NHÂN SỰ" (GID=1084168011)
+                    </h3>
+                    <p class="text-[11px] text-slate-300 mt-0.5">
+                      Hỗ trợ quy mô lớn <strong>24.608+ nhân sự</strong> không bị lag trình duyệt (lưu vào bộ nhớ IndexedDB dung lượng lớn):
+                    </p>
                   </div>
-                  <div class="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
-                    <div class="flex items-center gap-2.5">
-                      <span class="text-emerald-300 font-bold">🎓 Nhận: ${emp.receivedCount || 0} 🔥</span>
-                      <span class="text-sky-300 font-semibold">💌 Gửi: ${emp.sentCount || 0}</span>
-                    </div>
-                    <a 
-                      href="${GOOGLE_FORM_URL}" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      class="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 font-bold transition-all"
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <input type="file" id="hr-csv-file-input" accept=".csv,.tsv,.txt" class="hidden" />
+                    <button
+                      type="button"
+                      id="hr-csv-file-btn"
+                      class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 text-xs font-extrabold cursor-pointer"
                     >
-                      🔥 Tri ân
+                      📂 Chọn file .CSV tải từ Sheet (24.608 người)
+                    </button>
+                    <button
+                      type="button"
+                      id="hr-clipboard-fast-paste-btn"
+                      class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-300 text-xs font-extrabold cursor-pointer"
+                    >
+                      ⚡ Dán 1 chạm từ Clipboard (Sau khi Ctrl+C)
+                    </button>
+                    <button
+                      type="button"
+                      id="hr-direct-gviz-sync-btn"
+                      class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 text-xs font-bold cursor-pointer"
+                    >
+                      🔄 Tải tự động từ Google Sheet
+                    </button>
+                    <a
+                      href="${GOOGLE_HR_SHEET_URL}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-xs font-semibold"
+                    >
+                      ↗ Mở Sheet gid=1084168011
                     </a>
                   </div>
                 </div>
-              `).join('')}
-            </div>
-          ` : `
-            <div class="py-8 text-center text-slate-300 text-xs space-y-3">
-              <div>Không tìm thấy nhân sự nào khớp với từ khóa "<strong>${this.hrSearchQuery}</strong>" trong bộ nhớ hiện tại.</div>
-              <div class="flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  id="hr-empty-open-sync-btn"
-                  class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-extrabold cursor-pointer"
-                >
-                  📥 Bấm để Đồng bộ / Dán nhanh DS Nhân sự từ Sheet (gid=1084168011)
-                </button>
+
+                <textarea
+                  id="hr-paste-textarea"
+                  rows="3"
+                  placeholder="Cách nhanh nhất cho 24.608 dòng: Mở Sheet gid=1084168011 -> bấm Ctrl+A -> Ctrl+C, sau đó click vào ô này và bấm Ctrl+V (Hệ thống tự động nạp tức thì 24.608 nhân sự không gây đơ trình duyệt!)..."
+                  class="custom-input w-full rounded-xl p-3 text-xs font-mono"
+                ></textarea>
+
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span id="hr-sync-feedback" class="text-xs font-semibold text-emerald-300">${this.hrSyncStatusMsg || ''}</span>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="hr-import-paste-btn"
+                      class="btn-flame px-4 py-2 rounded-xl text-xs font-extrabold cursor-pointer"
+                    >
+                      ✅ Nạp & Cập nhật DS Nhân sự ngay
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          `}
+            ` : ''}
+
+            ${filteredHrList.length > 0 ? `
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+                ${filteredHrList.slice(0, maxHrDisplay).map(emp => `
+                  <div class="rounded-2xl bg-slate-950/85 border border-white/10 hover:border-amber-400/50 transition-all flex flex-col justify-between overflow-hidden shadow-lg group">
+                    <!-- Top Header Strip -->
+                    <div class="px-3.5 py-2 bg-white/[0.03] border-b border-white/5 flex items-center justify-between gap-2 text-[11px]">
+                      <span class="text-slate-300 font-semibold truncate">🏢 ${emp.dept || 'FPT Telecom'}</span>
+                      <span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold text-[10px] shrink-0">Active</span>
+                    </div>
+
+                    <!-- Contact Body -->
+                    <div class="p-3.5 flex items-center gap-3">
+                      <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-500/30 to-amber-400/20 border border-amber-400/40 flex items-center justify-center text-xs font-black text-amber-300 shrink-0 shadow-inner">
+                        ${this.getInitials(emp.name)}
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <div class="font-extrabold text-white text-sm truncate group-hover:text-amber-300 transition-colors">${emp.name}</div>
+                        <button 
+                          type="button"
+                          data-copy-email="${emp.email}"
+                          class="text-xs font-mono text-amber-300 hover:text-amber-200 flex items-center gap-1.5 truncate mt-1 cursor-pointer"
+                          title="Bấm để copy Email"
+                        >
+                          <span class="truncate">📧 ${emp.email}</span>
+                          <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-200 font-sans font-bold shrink-0">Copy</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- AdminLTE Contact Card Footer -->
+                    <div class="px-3.5 py-2.5 bg-black/40 border-t border-white/10 flex items-center justify-between text-[11px]">
+                      <div class="flex items-center gap-2.5">
+                        <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 font-bold">🎓 Nhận: ${emp.receivedCount || 0} 🔥</span>
+                        <span class="px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-300 font-semibold">💌 Gửi: ${emp.sentCount || 0}</span>
+                      </div>
+                      <a 
+                        href="${GOOGLE_FORM_URL}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 font-extrabold hover:brightness-110 transition-all"
+                      >
+                        🔥 Tri ân
+                      </a>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : `
+              <div class="py-8 text-center text-slate-300 text-xs space-y-3">
+                <div>Không tìm thấy nhân sự nào khớp với từ khóa "<strong>${this.hrSearchQuery}</strong>" trong bộ nhớ hiện tại.</div>
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    id="hr-empty-open-sync-btn"
+                    class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 font-extrabold cursor-pointer"
+                  >
+                    📥 Bấm để Đồng bộ / Dán nhanh DS Nhân sự từ Sheet (gid=1084168011)
+                  </button>
+                </div>
+              </div>
+            `}
+          </div>
+
+          <!-- AdminLTE Card Footer -->
+          <div class="lte-card-footer flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400">
+            <span>Hiển thị <strong class="text-amber-300">${Math.min(filteredHrList.length, maxHrDisplay).toLocaleString('vi-VN')}</strong> / <strong class="text-white">${filteredHrList.length.toLocaleString('vi-VN')}</strong> nhân sự trong danh bạ</span>
+            <span class="text-[11px] text-slate-400">💡 Bấm trực tiếp vào địa chỉ Email để sao chép nhanh khi điền Google Form</span>
+          </div>
         </section>
 
         <!-- ======================================================================= -->
         <!-- KHU VỰC C: BẢNG XẾP HẠNG VINH DANH (TOP 30 & TOP 100 SỚM NHẤT)          -->
         <!-- ======================================================================= -->
-        <section class="glass-card rounded-3xl p-5 sm:p-7">
-          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 mb-6 border-b border-white/10">
-            <div>
-              <div class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
-                Khu vực C • Bảng Xếp Hạng Vinh Danh
+        <section id="section-leaderboard" class="lte-card lte-card-outline-orange scroll-mt-20">
+          <!-- AdminLTE Card Header -->
+          <div class="lte-card-header">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/30 to-orange-500/20 border border-amber-400/40 flex items-center justify-center text-lg shadow-md">
+                🏆
               </div>
-              <h2 class="text-lg sm:text-2xl font-black text-white">BẢNG VÀNG TIẾP LỬA TRI THỨC FTEL</h2>
-              <p class="text-xs text-slate-400 mt-0.5">Chỉ tính các lời cảm ơn hợp lệ (mỗi bản ghi hợp lệ tính 1 ngọn lửa, tự động loại trừ bản ghi trùng lặp)</p>
+              <div>
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
+                  Khu vực C • Bảng Xếp Hạng Vinh Danh
+                </div>
+                <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">BẢNG VÀNG TIẾP LỬA TRI THỨC FTEL</h2>
+              </div>
             </div>
 
-            <!-- Thanh chuyển đổi 2 bảng xếp hạng + Tìm kiếm -->
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              <div class="inline-flex p-1 rounded-2xl bg-slate-950/80 border border-white/10">
+            <!-- AdminLTE Card Tools: Nav Pills + Search -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+              <div class="inline-flex p-1 rounded-2xl bg-slate-950/90 border border-white/10">
                 <button 
                   type="button" 
                   data-tab="top30" 
@@ -432,103 +488,112 @@ export class DashboardModule {
                 type="text" 
                 id="dash-inline-search" 
                 value="${this.searchQuery}"
-                placeholder="Tìm trong Bảng xếp hạng..." 
-                class="custom-input rounded-xl px-3.5 py-2 text-xs sm:w-52"
+                placeholder="🔍 Tìm trong Bảng xếp hạng..." 
+                class="custom-input rounded-xl px-3.5 py-2 text-xs sm:w-56"
               />
             </div>
           </div>
 
-          <!-- NỘI DUNG BẢNG 1: 30 NGƯỜI TIẾP LỬA TRI THỨC -->
-          <div id="tab-panel-top30" class="${this.activeRankingTab === 'top30' ? 'block' : 'hidden'} space-y-6">
-            <!-- BỤC VINH DANH TOP 3 NỔI BẬT -->
-            ${top1 ? `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-2">
-              <!-- HẠNG 2 (BẠC) -->
-              ${top2 ? this.renderPodiumCard(top2, 2) : '<div></div>'}
-              <!-- HẠNG 1 (VÀNG - CAO NHẤT Ở GIỮA) -->
-              ${this.renderPodiumCard(top1, 1)}
-              <!-- HẠNG 3 (ĐỒNG) -->
-              ${top3 ? this.renderPodiumCard(top3, 3) : '<div></div>'}
-            </div>
-            ` : `
-            <div class="py-10 text-center text-slate-400 text-sm">Chưa có dữ liệu phù hợp với bộ lọc.</div>
-            `}
+          <!-- AdminLTE Card Body -->
+          <div class="lte-card-body">
+            <!-- NỘI DUNG BẢNG 1: 30 NGƯỜI TIẾP LỬA TRI THỨC -->
+            <div id="tab-panel-top30" class="${this.activeRankingTab === 'top30' ? 'block' : 'hidden'} space-y-6">
+              <!-- BỤC VINH DANH TOP 3 NỔI BẬT (ADMINLTE WIDGET USER STYLE) -->
+              ${top1 ? `
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-2">
+                <!-- HẠNG 2 (BẠC) -->
+                ${top2 ? this.renderPodiumCard(top2, 2) : '<div></div>'}
+                <!-- HẠNG 1 (VÀNG - CAO NHẤT Ở GIỮA) -->
+                ${this.renderPodiumCard(top1, 1)}
+                <!-- HẠNG 3 (ĐỒNG) -->
+                ${top3 ? this.renderPodiumCard(top3, 3) : '<div></div>'}
+              </div>
+              ` : `
+              <div class="py-10 text-center text-slate-400 text-sm">Chưa có dữ liệu phù hợp với bộ lọc.</div>
+              `}
 
-            <!-- DANH SÁCH HẠNG 4 – 30 (DẠNG THẺ / BẢNG GỌN DỄ ĐỌC) -->
-            ${rank4To30.length > 0 ? `
-            <div class="mt-6">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-300">
-                  ✦ Danh sách vinh danh Hạng 4 – ${Math.min(30, filteredTop30.length)}
-                </h3>
-                <span class="text-[11px] text-slate-400">Sắp xếp theo tổng số lời cảm ơn giảm dần</span>
+              <!-- DANH SÁCH HẠNG 4 – 30 (ADMINLTE PROGRESS LIST TABLE) -->
+              ${rank4To30.length > 0 ? `
+              <div class="mt-6">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+                  <h3 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                    <span>✦ Danh Sách Vinh Danh Hạng 4 – ${Math.min(30, filteredTop30.length)}</span>
+                  </h3>
+                  <span class="text-[11px] text-slate-400">Xếp theo tổng số ngọn lửa nhận được giảm dần</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
+                  ${rank4To30.map(item => this.renderRankCard4To30(item, maxTop30Flames)).join('')}
+                </div>
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
-                ${rank4To30.map(item => this.renderRankCard4To30(item)).join('')}
-              </div>
-            </div>
-            ` : ''}
-          </div>
-
-          <!-- NỘI DUNG BẢNG 2: 100 NGƯỜI TIẾP LỬA SỚM NHẤT (TIMELINE DÒNG THỜI GIAN) -->
-          <div id="tab-panel-early100" class="${this.activeRankingTab === 'early100' ? 'block' : 'hidden'}">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-              <div>
-                <h3 class="text-sm sm:text-base font-extrabold text-amber-300 uppercase">
-                  ⚡ Dòng Thời Gian 100 Người Tiếp Lửa Sớm Nhất
-                </h3>
-                <p class="text-xs text-slate-400">Xếp theo thời điểm gửi lời cảm ơn hợp lệ tăng dần (từ sớm nhất)</p>
-              </div>
-              <span class="text-xs px-3 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 font-bold">
-                Đã ghi nhận: ${filteredEarly100.length} / 100 CBNV đầu tiên
-              </span>
+              ` : ''}
             </div>
 
-            <div class="relative pl-4 sm:pl-6 border-l-2 border-amber-500/35 space-y-3 max-h-[560px] overflow-y-auto pr-2 custom-scrollbar">
-              ${filteredEarly100.map(item => `
-                <div class="relative p-3.5 rounded-2xl bg-slate-950/65 border border-white/10 hover:border-amber-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span class="absolute -left-[23px] sm:-left-[31px] top-4 w-4 h-4 rounded-full bg-gradient-to-tr from-orange-500 to-amber-300 border-2 border-slate-950 shadow-md shadow-orange-500/40"></span>
-                  <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 font-black text-xs flex items-center justify-center shrink-0">
-                      #${item.order}
-                    </div>
-                    <div class="min-w-0">
-                      <div class="font-bold text-white text-sm truncate">${item.name}</div>
-                      <div class="text-xs text-slate-400 truncate">
-                        <span>🏢 ${item.dept || 'FPT Telecom'}</span>
-                        ${item.recipientName ? `<span class="text-amber-400/90"> • Gửi tới: ${item.recipientName}</span>` : ''}
+            <!-- NỘI DUNG BẢNG 2: 100 NGƯỜI TIẾP LỬA SỚM NHẤT (ADMINLTE TIMELINE COMPONENT) -->
+            <div id="tab-panel-early100" class="${this.activeRankingTab === 'early100' ? 'block' : 'hidden'}">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-white/10">
+                <div>
+                  <h3 class="text-sm sm:text-base font-extrabold text-amber-300 uppercase">
+                    ⚡ Dòng Thời Gian 100 Người Tiếp Lửa Sớm Nhất
+                  </h3>
+                  <p class="text-xs text-slate-400">Xếp theo thời điểm gửi lời cảm ơn hợp lệ tăng dần (từ sớm nhất)</p>
+                </div>
+                <span class="text-xs px-3 py-1.5 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 font-extrabold">
+                  Đã ghi nhận: ${filteredEarly100.length} / 100 CBNV đầu tiên
+                </span>
+              </div>
+
+              <div class="relative pl-5 sm:pl-7 border-l-2 border-amber-500/40 space-y-3 max-h-[560px] overflow-y-auto pr-2 custom-scrollbar">
+                ${filteredEarly100.map(item => `
+                  <div class="relative p-3.5 rounded-2xl bg-slate-950/80 border border-white/10 hover:border-amber-500/45 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-md">
+                    <span class="absolute -left-[27px] sm:-left-[35px] top-4 w-4 h-4 rounded-full bg-gradient-to-tr from-orange-500 to-amber-300 border-2 border-slate-950 shadow-md shadow-orange-500/50"></span>
+                    <div class="flex items-center gap-3 min-w-0">
+                      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/25 to-orange-500/10 border border-amber-400/40 text-amber-300 font-black text-xs flex items-center justify-center shrink-0">
+                        #${item.order}
+                      </div>
+                      <div class="min-w-0">
+                        <div class="font-extrabold text-white text-sm truncate">${item.name}</div>
+                        <div class="text-xs text-slate-400 truncate mt-0.5">
+                          <span>🏢 ${item.dept || 'FPT Telecom'}</span>
+                          ${item.recipientName ? `<span class="text-amber-300 font-semibold"> ➔ Gửi tới: ${item.recipientName}</span>` : ''}
+                        </div>
                       </div>
                     </div>
+                    <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-xl shrink-0 self-start sm:self-center">
+                      <span>🕒</span>
+                      <span>${item.timestamp}</span>
+                    </div>
                   </div>
-                  <div class="flex items-center gap-1.5 text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-lg shrink-0 self-start sm:self-center">
-                    <span>🕒</span>
-                    <span>${item.timestamp}</span>
-                  </div>
-                </div>
-              `).join('')}
+                `).join('')}
+              </div>
             </div>
           </div>
         </section>
 
         <!-- ======================================================================= -->
-        <!-- KHU VỰC D: THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ / PHÒNG BAN (CLICK XEM CHI TIẾT) -->
+        <!-- KHU VỰC D: THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ (ADMINLTE ACCORDION & PROGRESS) -->
         <!-- ======================================================================= -->
-        <section class="glass-card rounded-3xl p-5 sm:p-7">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b border-white/10">
-            <div>
-              <div class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
-                Khu vực D • Lan Tỏa Theo Đơn Vị (Đồng bộ Danh sách Nhân sự)
+        <section id="section-unit-spread" class="lte-card lte-card-outline-emerald scroll-mt-20">
+          <!-- AdminLTE Card Header -->
+          <div class="lte-card-header">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-lg shadow-md">
+                🏢
               </div>
-              <h2 class="text-lg sm:text-2xl font-black text-white">THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ / PHÒNG BAN</h2>
-              <p class="text-xs text-slate-400 mt-0.5">
-                👆 <strong>Bấm vào từng Đơn vị</strong> hoặc bấm vào <strong>🔥 Ngọn lửa</strong>, <strong>💌 Người gửi</strong>, <strong>🎓 Người nhận</strong> để xem danh sách các thành viên chi tiết trong đơn vị đó
-              </p>
+              <div>
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
+                  Khu vực D • Lan Tỏa Theo Đơn Vị (Đồng bộ Danh sách Nhân sự)
+                </div>
+                <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ / PHÒNG BAN</h2>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  👆 <strong>Bấm vào từng Đơn vị</strong> hoặc bấm vào <strong>🔥 Ngọn lửa</strong>, <strong>💌 Người gửi</strong>, <strong>🎓 Người nhận</strong> để xem danh sách các thành viên chi tiết
+                </p>
+              </div>
             </div>
 
-            <!-- Bộ lọc theo đơn vị -->
+            <!-- AdminLTE Card Tools: Bộ lọc đơn vị -->
             <div class="flex items-center gap-2">
-              <label class="text-xs text-slate-300 font-semibold whitespace-nowrap">Lọc đơn vị:</label>
-              <select id="dash-unit-filter" class="custom-input rounded-xl px-3 py-2 text-xs sm:text-sm">
+              <label class="text-xs text-slate-300 font-bold whitespace-nowrap">Lọc đơn vị:</label>
+              <select id="dash-unit-filter" class="custom-input rounded-xl px-3.5 py-2 text-xs sm:text-sm">
                 <option value="ALL" ${this.selectedUnitFilter === 'ALL' ? 'selected' : ''}>Tất cả đơn vị (${allUnitsList.length})</option>
                 ${allUnitsList.map(u => `
                   <option value="${u}" ${this.selectedUnitFilter === u ? 'selected' : ''}>${u}</option>
@@ -537,33 +602,34 @@ export class DashboardModule {
             </div>
           </div>
 
-          <div class="space-y-4">
+          <!-- AdminLTE Card Body -->
+          <div class="lte-card-body space-y-4">
             ${filteredUnits.map((u, idx) => {
               const widthPct = Math.max(6, Math.round((u.totalFlames / maxUnitFlames) * 100));
               const isExpanded = this.expandedUnit === u.unit;
               return `
-                <div class="rounded-2xl bg-slate-950/75 border ${isExpanded ? 'border-amber-400/60 shadow-xl shadow-amber-500/10' : 'border-white/10 hover:border-white/25'} transition-all overflow-hidden">
+                <div class="rounded-2xl bg-slate-950/85 border ${isExpanded ? 'border-amber-400/65 shadow-xl shadow-amber-500/10' : 'border-white/10 hover:border-white/25'} transition-all overflow-hidden">
                   <!-- Thanh tiêu đề Đơn vị (Bấm vào để đóng/mở chi tiết) -->
                   <div 
                     data-unit-toggle="${u.unit}"
                     class="p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors"
                   >
-                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 mb-2.5">
-                      <div class="flex items-center gap-2.5">
-                        <span class="w-7 h-7 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-black flex items-center justify-center shrink-0">
-                          ${idx + 1}
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-3">
+                      <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500/30 to-amber-500/10 border border-orange-500/40 text-amber-300 text-xs font-black flex items-center justify-center shrink-0 shadow-sm">
+                          #${idx + 1}
                         </span>
                         <div>
                           <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-extrabold text-white text-sm sm:text-base">${u.unit}</span>
-                            <span class="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-amber-300 font-semibold">
-                              ${isExpanded ? '▼ Đang mở chi tiết' : '▶ Bấm xem thành viên chi tiết'}
+                            <span class="text-[11px] px-2.5 py-0.5 rounded-full ${isExpanded ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-white/10 text-slate-300'} font-bold">
+                              ${isExpanded ? '▼ Đang mở chi tiết' : '▶ Bấm xem chi tiết'}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <!-- 3 Nút Chỉ Số Trực Quan (Bấm vào từng chỉ số để mở thẳng tab chi tiết đó) -->
+                      <!-- 4 Nút Chỉ Số Trực Quan chuẩn AdminLTE Info Badges -->
                       <div class="flex flex-wrap items-center gap-2 text-xs">
                         <button 
                           type="button"
@@ -572,7 +638,7 @@ export class DashboardModule {
                           class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
                           title="Xem chi tiết ${u.totalFlames} ngọn lửa của đơn vị ${u.unit}"
                         >
-                          <span>🔥 ${u.totalFlames} ngọn lửa</span>
+                          <span>🔥 ${(u.totalFlames || 0).toLocaleString('vi-VN')} ngọn lửa</span>
                         </button>
                         <button 
                           type="button"
@@ -581,7 +647,7 @@ export class DashboardModule {
                           class="px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                           title="Xem chi tiết ${u.senderCount} người gửi của đơn vị ${u.unit}"
                         >
-                          <span>💌 ${u.senderCount} người gửi</span>
+                          <span>💌 ${(u.senderCount || 0).toLocaleString('vi-VN')} người gửi</span>
                         </button>
                         <button 
                           type="button"
@@ -590,7 +656,7 @@ export class DashboardModule {
                           class="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                           title="Xem chi tiết ${u.recipientCount} người nhận của đơn vị ${u.unit}"
                         >
-                          <span>🎓 ${u.recipientCount} người nhận</span>
+                          <span>🎓 ${(u.recipientCount || 0).toLocaleString('vi-VN')} người nhận</span>
                         </button>
                         <button 
                           type="button"
@@ -598,15 +664,15 @@ export class DashboardModule {
                           data-stat-tab="overview_all"
                           class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 font-semibold flex items-center gap-1 transition-all cursor-pointer"
                         >
-                          <span>👥 Xem tất cả</span>
+                          <span>👥 Xem tất cả (${(u.memberCount || 0).toLocaleString('vi-VN')})</span>
                         </button>
                       </div>
                     </div>
 
-                    <!-- Biểu đồ thanh ngang -->
-                    <div class="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
+                    <!-- AdminLTE Animated Striped Progress Bar -->
+                    <div class="lte-progress">
                       <div 
-                        class="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 transition-all duration-500"
+                        class="lte-progress-bar bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300"
                         style="width: ${widthPct}%"
                       ></div>
                     </div>
@@ -1066,12 +1132,13 @@ export class DashboardModule {
     const isTop1 = rank === 1;
     const isTop2 = rank === 2;
     const borderClass = isTop1
-      ? 'border-amber-400/70 bg-gradient-to-b from-amber-500/20 via-orange-500/10 to-slate-950/90 shadow-2xl shadow-amber-500/20 md:-translate-y-2'
+      ? 'border-amber-400/80 bg-gradient-to-b from-amber-500/25 via-orange-500/10 to-slate-950/95 shadow-2xl shadow-amber-500/25 md:-translate-y-3'
       : isTop2
-      ? 'border-slate-300/50 bg-gradient-to-b from-slate-300/15 to-slate-950/85'
-      : 'border-orange-500/50 bg-gradient-to-b from-orange-600/15 to-slate-950/85';
+      ? 'border-slate-300/55 bg-gradient-to-b from-slate-300/15 to-slate-950/90 shadow-xl'
+      : 'border-orange-500/55 bg-gradient-to-b from-orange-600/15 to-slate-950/90 shadow-xl';
 
-    const medal = isTop1 ? '👑 HẠNG 1' : isTop2 ? '🥈 HẠNG 2' : '🥉 HẠNG 3';
+    const medal = isTop1 ? '👑 QUÁN QUÂN TRI THỨC' : isTop2 ? '🥈 Á QUÂN TRI THỨC' : '🥉 QUÝ QUÂN TRI THỨC';
+    const ribbonText = isTop1 ? 'TOP 1' : isTop2 ? 'TOP 2' : 'TOP 3';
     const badgeBg = isTop1
       ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950'
       : isTop2
@@ -1079,56 +1146,77 @@ export class DashboardModule {
       : 'bg-gradient-to-r from-amber-600 to-orange-500 text-white';
 
     return `
-      <div class="relative rounded-3xl p-5 text-center border-2 ${borderClass} transition-all">
-        <div class="inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3 ${badgeBg} shadow-md">
-          ${medal}
+      <div class="relative rounded-3xl overflow-hidden text-center border-2 ${borderClass} transition-all">
+        <!-- AdminLTE Corner Ribbon -->
+        <div class="lte-ribbon-wrapper">
+          <div class="lte-ribbon ${badgeBg}">${ribbonText}</div>
         </div>
 
-        <!-- Ảnh đại diện (hoặc Avatar chữ cái sang trọng) -->
-        <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-3 p-0.5 bg-gradient-to-tr from-orange-500 to-amber-300 shadow-lg">
-          ${item.avatar ? `
-            <img src="${item.avatar}" alt="${item.name}" class="w-full h-full rounded-full object-cover bg-slate-900" />
-          ` : `
-            <div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-lg sm:text-xl font-black text-amber-300">
-              ${this.getInitials(item.name)}
-            </div>
-          `}
+        <div class="p-5 pb-4">
+          <div class="inline-block px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider mb-3 ${badgeBg} shadow-md">
+            ${medal}
+          </div>
+
+          <!-- Ảnh đại diện (hoặc Avatar chữ cái sang trọng) -->
+          <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-3 p-0.5 bg-gradient-to-tr from-orange-500 to-amber-300 shadow-lg">
+            ${item.avatar ? `
+              <img src="${item.avatar}" alt="${item.name}" class="w-full h-full rounded-full object-cover bg-slate-900" />
+            ` : `
+              <div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-lg sm:text-xl font-black text-amber-300">
+                ${this.getInitials(item.name)}
+              </div>
+            `}
+          </div>
+
+          <h4 class="text-base sm:text-lg font-black text-white truncate">${item.name}</h4>
+          <p class="text-xs text-amber-300/95 font-bold truncate mt-0.5">🏢 ${item.dept || 'FPT Telecom'}</p>
+          <p class="text-[11px] text-slate-400 truncate mt-0.5">${item.role || 'Người truyền lửa'}</p>
         </div>
 
-        <h4 class="text-base sm:text-lg font-black text-white truncate">${item.name}</h4>
-        <p class="text-xs text-amber-300/90 font-semibold truncate mt-0.5">${item.dept || 'FPT Telecom'}</p>
-        <p class="text-[11px] text-slate-400 truncate mt-0.5">${item.role || 'Người truyền lửa'}</p>
-
-        <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-center gap-2">
-          <span class="text-xl">🔥</span>
-          <span class="text-xl sm:text-2xl font-black text-amber-400">${item.count}</span>
-          <span class="text-xs text-slate-300 font-semibold">ngọn lửa</span>
+        <!-- AdminLTE Widget User 3-Column Footer -->
+        <div class="grid grid-cols-3 divide-x divide-white/10 bg-black/45 border-t border-white/10 py-2.5 px-2 text-center">
+          <div>
+            <div class="text-[10px] uppercase text-slate-400 font-bold">Thứ hạng</div>
+            <div class="text-sm font-black text-white">#${rank}</div>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase text-amber-300 font-bold">Ngọn lửa</div>
+            <div class="text-sm sm:text-base font-black text-amber-400">🔥 ${item.count}</div>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase text-emerald-300 font-bold">Trạng thái</div>
+            <div class="text-xs font-extrabold text-emerald-400">Hợp lệ ✓</div>
+          </div>
         </div>
       </div>
     `;
   }
 
-  renderRankCard4To30(item) {
+  renderRankCard4To30(item, maxCount = 50) {
+    const pct = Math.max(10, Math.round(((item.count || 1) / maxCount) * 100));
     return `
-      <div class="p-3.5 rounded-2xl bg-slate-950/65 border border-white/10 hover:border-amber-500/35 transition-all flex items-center justify-between gap-3">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-8 h-8 rounded-xl bg-white/5 border border-white/10 text-slate-300 font-extrabold text-xs flex items-center justify-center shrink-0">
+      <div class="p-3.5 rounded-2xl bg-slate-950/80 border border-white/10 hover:border-amber-500/45 transition-all flex items-center justify-between gap-3 shadow-md">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <div class="w-9 h-9 rounded-xl bg-white/5 border border-white/15 text-amber-300 font-black text-xs flex items-center justify-center shrink-0">
             #${item.rank}
           </div>
           <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500/30 to-amber-400/20 border border-amber-400/30 flex items-center justify-center text-xs font-bold text-amber-300 shrink-0 overflow-hidden">
             ${item.avatar ? `<img src="${item.avatar}" alt="${item.name}" class="w-full h-full object-cover" />` : this.getInitials(item.name)}
           </div>
-          <div class="min-w-0">
-            <div class="font-bold text-white text-sm truncate">${item.name}</div>
-            <div class="text-xs text-slate-400 truncate">${item.dept || 'FPT Telecom'}</div>
+          <div class="min-w-0 flex-1">
+            <div class="font-extrabold text-white text-sm truncate">${item.name}</div>
+            <div class="text-xs text-slate-400 truncate">🏢 ${item.dept || 'FPT Telecom'}</div>
+            <div class="w-full h-1.5 rounded-full bg-slate-900 mt-1.5 overflow-hidden">
+              <div class="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300" style="width: ${pct}%"></div>
+            </div>
           </div>
         </div>
-        <div class="text-right shrink-0">
-          <div class="text-base font-black text-amber-400 flex items-center gap-1 justify-end">
+        <div class="text-right shrink-0 pl-2">
+          <div class="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-sm font-black text-amber-400 flex items-center gap-1 justify-end">
             <span>🔥</span>
             <span>${item.count}</span>
           </div>
-          <div class="text-[10px] text-slate-400">ngọn lửa</div>
+          <div class="text-[10px] text-slate-400 mt-0.5 font-semibold">ngọn lửa</div>
         </div>
       </div>
     `;
