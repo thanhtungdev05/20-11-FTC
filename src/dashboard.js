@@ -1588,8 +1588,8 @@ export class DashboardModule {
     if (statusEl) {
       statusEl.className = 'lte-callout lte-callout-success text-xs sm:text-sm font-bold text-emerald-300 flex flex-wrap items-center justify-between gap-2';
       statusEl.innerHTML = `
-        <span>✅ Đã kích hoạt gửi Thiệp Tri Ân (1080x1440) về hộp thư Outlook <strong>TungDT101@fpt.com</strong> (CC: <strong>Nhanlh10@fpt.com</strong>) & ghi nhận vào Google Sheet!</span>
-        <span class="text-[11px] text-amber-300">Tiêu đề mail: "MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN"</span>
+        <span>✅ Đã gửi thẳng 2 thư Thiệp Tri Ân (1080x1440) cho vai trò <strong>Người nhận</strong> & <strong>Người gửi</strong> về hộp thư Outlook <strong>TungDT101@fpt.com</strong> (Không lưu vào Google Sheet chính thức)!</span>
+        <span class="text-[11px] text-amber-300">Trạng thái: SENT_SUCCESS ✓</span>
       `;
     }
   }

@@ -1312,7 +1312,7 @@ export class ApiService {
 
   /**
    * Gửi Thiệp Tri Ân thử nghiệm (kèm ảnh 1080x1440 chuẩn Key Visual) về thẳng Outlook TungDT101@fpt.com
-   * Hỗ trợ đồng thời Fetch POST + Form POST (mang sẵn Cookie đăng nhập @fpt.com của trình duyệt)
+   * CHỈ GỬI EMAIL KIỂM TRA (Người nhận & Người gửi) - KHÔNG lưu kết quả vào Google Sheet chính thức
    */
   static async sendTestEcardToOutlook(CardGenerator, targetEmail = "tungdt101@fpt.com") {
     const cleanTarget = String(targetEmail || "tungdt101@fpt.com").trim().toLowerCase();
@@ -1331,61 +1331,60 @@ export class ApiService {
 
     const cardImageBase64 = CardGenerator ? CardGenerator.getCardDataUrl(testCardData, { width: 1080, height: 1440 }) : "";
     const scriptUrl = getEffectiveScriptUrl();
-    const postPayload = {
-      action: "submit_gratitude",
+    const testMailRelayUrl = "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec";
+
+    // 1. Gửi qua kênh Mail Relay độc lập (KHÔNG ghi vào Google Sheet chính thức 1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g)
+    let fetchDelivered = false;
+    try {
+      const resRec = await fetch(testMailRelayUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "submit_gratitude",
+          ...testCardData,
+          recipientName: "Đặng Thanh Tùng (Người Nhận Thiệp)",
+          tag: "30 Tiếp Lửa Bền Bỉ",
+          cardImageBase64
+        })
+      });
+      if (resRec && resRec.ok) {
+        fetchDelivered = true;
+      }
+
+      // Gửi thêm bản sao của Người gửi về cùng hộp thư để kiểm tra đủ cả 2 chiều
+      await fetch(testMailRelayUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "submit_gratitude",
+          ...testCardData,
+          recipientName: "Đặng Thanh Tùng (Bản sao xác nhận cho Người Gửi)",
+          senderName: "Đặng Thanh Tùng -> Đã gửi tới Lê Hoàng Nhân (FTC)",
+          tag: "Bản Sao Xác Nhận Người Gửi (CC)",
+          message: `Xác nhận hệ thống đã gửi thành công tấm thiệp tri ân 20/11 tới đồng nghiệp kèm file thiệp 1080x1440 đính kèm! (${uniqueSuffix})`,
+          cardImageBase64
+        })
+      });
+    } catch (e) {}
+
+    // 2. Gửi song song action 'send_test_email_only' (chỉ bắn mail, không ghi vào Sheet chính thức)
+    const emailOnlyPayload = {
+      action: "send_test_email_only",
       ...testCardData,
       cardImageBase64
     };
-
-    let fetchDelivered = false;
     try {
-      const res = await fetchAppsScript(scriptUrl, {
+      await fetchAppsScript(scriptUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(postPayload)
+        body: JSON.stringify(emailOnlyPayload)
       });
-      if (res && res.ok) {
-        fetchDelivered = true;
-      }
     } catch (e) {}
-
-    // Kênh dự phòng 2: Gửi qua Hidden Form POST tới /a/macros/fpt.com/... để trình duyệt tự đính kèm Cookie FPT Workspace
-    if (!fetchDelivered && typeof document !== "undefined") {
-      try {
-        let iframe = document.getElementById("ftel_gas_test_iframe");
-        if (!iframe) {
-          iframe = document.createElement("iframe");
-          iframe.id = "ftel_gas_test_iframe";
-          iframe.name = "ftel_gas_test_iframe";
-          iframe.style.display = "none";
-          document.body.appendChild(iframe);
-        }
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = scriptUrl;
-        form.target = "ftel_gas_test_iframe";
-        form.style.display = "none";
-
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = "payload";
-        input.value = JSON.stringify(postPayload);
-        form.appendChild(input);
-
-        document.body.appendChild(form);
-        form.submit();
-        setTimeout(() => {
-          if (form.parentNode) form.parentNode.removeChild(form);
-        }, 4000);
-        fetchDelivered = true;
-      } catch (formErr) {
-        console.warn("Form POST fallback warning:", formErr);
-      }
-    }
 
     return {
       success: true,
       delivered: fetchDelivered,
+      savedToOfficialSheet: false,
       cardData: testCardData,
       cardImageBase64,
       subject: "MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN"

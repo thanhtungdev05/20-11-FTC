@@ -1001,6 +1001,27 @@ function doPost(e) {
       return createJsonResponse(res);
     }
 
+    // Action 3b: Chỉ gửi Email Thiệp thử nghiệm (KHÔNG lưu kết quả vào Google Sheet chính thức)
+    if (action === "send_test_email_only") {
+      sendGratitudeNotificationEmail({
+        recipientEmail: String(payload.recipientEmail || "tungdt101@fpt.com").trim().toLowerCase(),
+        recipientName: payload.recipientName || "Đặng Thanh Tùng",
+        recipientDept: payload.recipientDept || "Trung tâm Đào tạo FTEL (FTC)",
+        recipientRole: payload.recipientRole || "Người dẫn dắt – Người truyền cảm hứng",
+        senderEmail: String(payload.senderEmail || "nhanlh10@fpt.com").trim().toLowerCase(),
+        senderName: payload.senderName || "Lê Hoàng Nhân (FTC)",
+        senderDept: payload.senderDept || "Trung tâm Đào tạo FTEL (FTC)",
+        message: payload.message || "",
+        cardImageBase64: payload.cardImageBase64 || ""
+      });
+      return createJsonResponse({
+        success: true,
+        savedToSheet: false,
+        emailSentStatus: "SENT_SUCCESS",
+        message: "Đã gửi email thử nghiệm (không lưu vào Google Sheet)."
+      });
+    }
+
     // Action 4: Cập nhật danh sách nhân sự hàng loạt (HR Directory)
     if (action === "upload_hr_directory") {
       const res = handleUploadHrDirectory(payload);
