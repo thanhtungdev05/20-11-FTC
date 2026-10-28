@@ -111,8 +111,26 @@ function onOpen() {
     ui.createMenu("🔥 FTC 20/11 - Quản Trị")
       .addItem("1. Khởi tạo cột & Trigger tự động", "setupSystemAndTriggers")
       .addItem("2. Quét & Xử lý các dòng mới từ Google Form", "processAllUnprocessedRows")
+      .addItem("3. Gửi thử nghiệm 1 Email về Outlook TungDT101@fpt.com", "testSendMailToTungDT")
       .addToUi();
   } catch (e) {}
+}
+
+/**
+ * Hàm kiểm tra nhanh: Bấm Chạy để gửi 1 email thử nghiệm trực tiếp về hộp thư Outlook của bạn
+ */
+function testSendMailToTungDT() {
+  sendGratitudeNotificationEmail({
+    recipientEmail: "tungdt101@fpt.com",
+    recipientName: "Đặng Thanh Tùng",
+    recipientDept: "Trung tâm Đào tạo FTEL (FTC)",
+    recipientRole: "Người dẫn dắt – Người truyền cảm hứng",
+    senderEmail: "nhanlh10@fpt.com",
+    senderName: "Lê Hoàng Nhân (FTC)",
+    senderDept: "Trung tâm Đào tạo FTEL (FTC)",
+    message: "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
+  });
+  Logger.log("✅ Đã gửi email thử nghiệm trực tiếp tới tungdt101@fpt.com và nhanlh10@fpt.com!");
 }
 
 /**
