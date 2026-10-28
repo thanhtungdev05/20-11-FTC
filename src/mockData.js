@@ -4,8 +4,10 @@
 
 export const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform";
 export const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit?pli=1&gid=1557167031#gid=1557167031";
+export const GOOGLE_HR_SHEET_URL = "https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit?gid=1084168011#gid=1084168011";
 export const GOOGLE_SHEET_ID = "1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g";
 export const GOOGLE_SHEET_GID = "1557167031";
+export const GOOGLE_HR_SHEET_GID = "1084168011";
 
 export const DEPARTMENTS = [
   "Trung tâm Đào tạo FTEL (FTC)",

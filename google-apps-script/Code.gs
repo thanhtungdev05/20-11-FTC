@@ -27,8 +27,9 @@ const CONFIG = {
   // Link Google Form chính thức
   GOOGLE_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform",
 
-  // Tên tab Danh sách nhân sự (để tự động tra cứu Họ tên & Đơn vị từ Email)
-  HR_SHEET_NAME: "DS_NhanSu",
+  // GID & Tên tab Danh sách nhân sự (https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit?gid=1084168011#gid=1084168011)
+  HR_SHEET_GID: 1084168011,
+  HR_SHEET_NAME: "DS nhân sự",
 
   // Tên tab lưu trữ từ Web (dự phòng nếu gửi trực tiếp từ Web)
   LEGACY_SHEET_NAME: "DanhSachTriAn",
@@ -166,20 +167,44 @@ function processAllUnprocessedRows() {
     const currentMailStatus = String(row[11] || "").trim();  // Cột L: Trạng thái gửi Mail
     const tripletKey = buildDuplicateKey(senderEmail, recipientEmail, rawMessage);
 
+    const senderHr = lookupHrByEmail(hrMap, senderEmail) || {
+      name: String(row[5] || "").trim() || fallbackNameFromEmail(senderEmail),
+      dept: String(row[6] || "").trim() || "FPT Telecom"
+    };
+    const recipientHr = lookupHrByEmail(hrMap, recipientEmail) || {
+      name: String(row[7] || "").trim() || fallbackNameFromEmail(recipientEmail),
+      dept: String(row[8] || "").trim() || "FPT Telecom"
+    };
+
     // Nếu dòng này đã được xử lý trước đó:
     if (currentCheckStatus === "HỢP LỆ") {
       seenTriplets.add(tripletKey);
+      // Tự động cập nhật bổ sung Họ tên & Đơn vị từ Sheet DS nhân sự (gid=1084168011) nếu dòng cũ chưa có tên chuẩn
+      const existingSName = String(row[5] || "").trim();
+      const existingRName = String(row[7] || "").trim();
+      if (
+        (senderHr.name && existingSName !== senderHr.name) ||
+        (recipientHr.name && existingRName !== recipientHr.name)
+      ) {
+        sheet.getRange(rowNumber, 6, 1, 4).setValues([[
+          senderHr.name,
+          senderHr.dept,
+          recipientHr.name,
+          recipientHr.dept
+        ]]);
+      }
+
       // Nếu hợp lệ nhưng chưa có ảnh thiệp Drive / chưa gửi mail thì đưa vào danh sách chờ Web Canvas xuất thiệp
       if (currentMailStatus !== "ĐÃ GỬI MAIL") {
         pendingRenderList.push({
           rowNumber: rowNumber,
           timestamp: formatTimestamp(timestamp),
           senderEmail: senderEmail,
-          senderName: String(row[5] || fallbackNameFromEmail(senderEmail)),
-          senderDept: String(row[6] || "FPT Telecom"),
+          senderName: senderHr.name || existingSName || fallbackNameFromEmail(senderEmail),
+          senderDept: senderHr.dept || String(row[6] || "FPT Telecom"),
           recipientEmail: recipientEmail,
-          recipientName: String(row[7] || fallbackNameFromEmail(recipientEmail)),
-          recipientDept: String(row[8] || "FPT Telecom"),
+          recipientName: recipientHr.name || existingRName || fallbackNameFromEmail(recipientEmail),
+          recipientDept: recipientHr.dept || String(row[8] || "FPT Telecom"),
           recipientRole: recipientRole,
           message: String(row[9] || rawMessage)
         });
@@ -190,16 +215,6 @@ function processAllUnprocessedRows() {
     if (currentCheckStatus === "TRÙNG LẶP") {
       continue;
     }
-
-    // --- XỬ LÝ DÒNG MỚI CHƯA KIỂM TRA ---
-    const senderHr = hrMap[senderEmail] || {
-      name: String(row[5] || "").trim() || fallbackNameFromEmail(senderEmail),
-      dept: String(row[6] || "").trim() || "FPT Telecom"
-    };
-    const recipientHr = hrMap[recipientEmail] || {
-      name: String(row[7] || "").trim() || fallbackNameFromEmail(recipientEmail),
-      dept: String(row[8] || "").trim() || "FPT Telecom"
-    };
 
     // Kiểm tra trùng 3 thông tin: Người gửi + Người nhận + Thông điệp
     const isDuplicate = seenTriplets.has(tripletKey);
@@ -512,13 +527,13 @@ function getFullCampaignDashboardData() {
     if (seenTriplets.has(dupKey)) return;
     seenTriplets.add(dupKey);
 
-    const senderHr = hrMap[senderEmail] || {};
-    const recipientHr = hrMap[recipientEmail] || {};
+    const senderHr = lookupHrByEmail(hrMap, senderEmail) || {};
+    const recipientHr = lookupHrByEmail(hrMap, recipientEmail) || {};
 
-    const senderName = String(row[5] || senderHr.name || fallbackNameFromEmail(senderEmail)).trim();
-    const senderDept = String(row[6] || senderHr.dept || "FPT Telecom").trim();
-    const recipientName = String(row[7] || recipientHr.name || fallbackNameFromEmail(recipientEmail)).trim();
-    const recipientDept = String(row[8] || recipientHr.dept || "FPT Telecom").trim();
+    const senderName = String(senderHr.name || row[5] || fallbackNameFromEmail(senderEmail)).trim();
+    const senderDept = String(senderHr.dept || row[6] || "FPT Telecom").trim();
+    const recipientName = String(recipientHr.name || row[7] || fallbackNameFromEmail(recipientEmail)).trim();
+    const recipientDept = String(recipientHr.dept || row[8] || "FPT Telecom").trim();
     const recipientAvatar = recipientHr.avatar || "";
     const cleanedMsg = String(row[9] || rawMessage).trim();
     const driveUrl = String(row[12] || "").trim();
@@ -994,8 +1009,40 @@ function ensureExtendedHeaders(sheet) {
   }
 }
 
+function getHrDirectorySheet(ss) {
+  const sheets = ss.getSheets();
+  // 1. Tìm chính xác theo GID (gid = 1084168011) mà bạn vừa bổ sung
+  for (let i = 0; i < sheets.length; i++) {
+    if (sheets[i].getSheetId() === CONFIG.HR_SHEET_GID) {
+      return sheets[i];
+    }
+  }
+  // 2. Dự phòng tìm theo tên tab phổ biến (DS nhân sự, DS_NhanSu, Danh sách nhân sự...)
+  const candidateNames = [
+    CONFIG.HR_SHEET_NAME,
+    "DS nhân sự",
+    "DS Nhân sự",
+    "DS_NhanSu",
+    "Danh sách nhân sự",
+    "Danh sach nhan su",
+    "NhanSu",
+    "HR"
+  ];
+  for (let i = 0; i < candidateNames.length; i++) {
+    const found = ss.getSheetByName(candidateNames[i]);
+    if (found) return found;
+  }
+  for (let i = 0; i < sheets.length; i++) {
+    const nameLower = sheets[i].getName().toLowerCase();
+    if (nameLower.indexOf("nhân sự") !== -1 || nameLower.indexOf("nhan su") !== -1) {
+      return sheets[i];
+    }
+  }
+  return null;
+}
+
 function ensureHrDirectorySheet(ss) {
-  let hrSheet = ss.getSheetByName(CONFIG.HR_SHEET_NAME);
+  let hrSheet = getHrDirectorySheet(ss);
   if (!hrSheet) {
     hrSheet = ss.insertSheet(CONFIG.HR_SHEET_NAME);
     hrSheet.appendRow(["Email", "Họ và tên", "Đơn vị", "Ảnh đại diện (URL)"]);
@@ -1007,21 +1054,88 @@ function ensureHrDirectorySheet(ss) {
 
 function loadHrDirectoryMap(ss) {
   const map = {};
-  const hrSheet = ss.getSheetByName(CONFIG.HR_SHEET_NAME);
+  const hrSheet = getHrDirectorySheet(ss);
   if (!hrSheet || hrSheet.getLastRow() <= 1) return map;
 
-  const rows = hrSheet.getRange(2, 1, hrSheet.getLastRow() - 1, 4).getValues();
-  rows.forEach(r => {
-    const email = String(r[0] || "").trim().toLowerCase();
-    if (email) {
-      map[email] = {
-        name: String(r[1] || "").trim(),
-        dept: String(r[2] || "FPT Telecom").trim(),
-        avatar: String(r[3] || "").trim()
-      };
+  const data = hrSheet.getDataRange().getValues();
+  if (!data || data.length <= 1) return map;
+
+  const headers = data[0].map(h => String(h || "").trim().toLowerCase());
+
+  // Tự động nhận diện vị trí cột Email, Họ và tên, Đơn vị, Ảnh đại diện trên Sheet gid=1084168011
+  let emailCol = -1;
+  let nameCol = -1;
+  let deptCol = -1;
+  let avatarCol = -1;
+
+  for (let c = 0; c < headers.length; c++) {
+    const h = headers[c];
+    if (emailCol === -1 && (h.indexOf("email") !== -1 || h.indexOf("mail") !== -1 || h.indexOf("account") !== -1 || h.indexOf("tài khoản") !== -1)) {
+      emailCol = c;
+    } else if (nameCol === -1 && (h.indexOf("họ và tên") !== -1 || h.indexOf("họ tên") !== -1 || h.indexOf("tên") !== -1 || h.indexOf("name") !== -1 || h.indexOf("nhân sự") !== -1 || h.indexOf("cbnv") !== -1)) {
+      nameCol = c;
+    } else if (deptCol === -1 && (h.indexOf("đơn vị") !== -1 || h.indexOf("phòng ban") !== -1 || h.indexOf("bộ phận") !== -1 || h.indexOf("chi nhánh") !== -1 || h.indexOf("trung tâm") !== -1 || h.indexOf("khối") !== -1 || h.indexOf("ban") !== -1 || h.indexOf("vùng") !== -1 || h.indexOf("dept") !== -1 || h.indexOf("unit") !== -1)) {
+      deptCol = c;
+    } else if (avatarCol === -1 && (h.indexOf("ảnh") !== -1 || h.indexOf("avatar") !== -1 || h.indexOf("hình") !== -1)) {
+      avatarCol = c;
     }
-  });
+  }
+
+  // Nếu tiêu đề cột không rõ, tự động quét dòng dữ liệu đầu tiên để tìm cột chứa "@"
+  if (emailCol === -1 && data.length > 1) {
+    for (let r = 1; r < Math.min(data.length, 6); r++) {
+      for (let c = 0; c < data[r].length; c++) {
+        if (String(data[r][c] || "").indexOf("@") !== -1) {
+          emailCol = c;
+          break;
+        }
+      }
+      if (emailCol !== -1) break;
+    }
+  }
+
+  // Mặc định chuẩn nếu vẫn chưa xác định được cột
+  if (emailCol === -1) emailCol = 0;
+  if (nameCol === -1) nameCol = emailCol === 0 ? 1 : 0;
+  if (deptCol === -1) deptCol = Math.max(emailCol, nameCol) + 1;
+
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    const rawEmail = String(row[emailCol] || "").trim().toLowerCase();
+    const fullName = String(row[nameCol] || "").trim();
+    const deptName = (deptCol < row.length ? String(row[deptCol] || "").trim() : "") || "FPT Telecom";
+    const avatarUrl = avatarCol !== -1 && avatarCol < row.length ? String(row[avatarCol] || "").trim() : "";
+
+    if (!rawEmail && !fullName) continue;
+
+    const record = {
+      name: fullName,
+      dept: deptName,
+      avatar: avatarUrl
+    };
+
+    if (rawEmail) {
+      map[rawEmail] = record;
+      const localPart = rawEmail.split("@")[0].trim();
+      if (localPart) {
+        if (!map[localPart]) map[localPart] = record;
+        if (!map[localPart + "@fpt.com"]) map[localPart + "@fpt.com"] = record;
+        if (!map[localPart + "@fpt.net"]) map[localPart + "@fpt.net"] = record;
+        if (!map[localPart + "@vienthongtin.com"]) map[localPart + "@vienthongtin.com"] = record;
+      }
+    }
+  }
+
   return map;
+}
+
+function lookupHrByEmail(hrMap, email) {
+  if (!hrMap || !email) return null;
+  const clean = String(email).trim().toLowerCase();
+  if (hrMap[clean]) return hrMap[clean];
+  const localPart = clean.split("@")[0];
+  if (localPart && hrMap[localPart]) return hrMap[localPart];
+  return null;
 }
 
 function handleUploadHrDirectory(payload) {
