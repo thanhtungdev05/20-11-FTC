@@ -470,15 +470,6 @@ export class DashboardModule {
                 <span>●</span>
                 <span>Auto-Sync Google Sheet</span>
               </span>
-              <button
-                type="button"
-                id="dash-send-test-card-btn"
-                class="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-xs font-extrabold text-amber-300 transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
-                title="Xem trước Thiệp 1080x1440 và gửi thử nghiệm về Outlook TungDT101@fpt.com"
-              >
-                <span>📨</span>
-                <span>Gửi Thiệp Test (TungDT101@fpt.com)</span>
-              </button>
               <a 
                 href="${GOOGLE_FORM_URL}" 
                 target="_blank" 
@@ -1184,11 +1175,6 @@ export class DashboardModule {
       refreshBtn.addEventListener('click', () => this.refreshData());
     }
 
-    const sendTestCardBtn = this.container.querySelector('#dash-send-test-card-btn');
-    if (sendTestCardBtn) {
-      sendTestCardBtn.addEventListener('click', () => this.openTestCardPreviewAndSend());
-    }
-
     // Sự kiện tìm kiếm Nhân sự siêu tốc (0ms lag, không vẽ lại toàn trang, không ngắt bộ gõ tiếng Việt Unikey)
     const hrSearchInput = this.container.querySelector('#hr-directory-search-input');
     if (hrSearchInput) {
@@ -1519,126 +1505,5 @@ export class DashboardModule {
         </div>
       </div>
     `;
-  }
-
-  /**
-   * Mở cửa sổ xem trước Thiệp 1080x1440 & giao diện Email Outlook thực tế, đồng thời bắn mail thử nghiệm về TungDT101@fpt.com
-   */
-  async openTestCardPreviewAndSend() {
-    let modal = document.getElementById('ftel-test-card-modal');
-    if (modal) modal.remove();
-
-    modal = document.createElement('div');
-    modal.id = 'ftel-test-card-modal';
-    modal.className = 'fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto';
-    modal.innerHTML = `
-      <div class="lte-card lte-card-outline-gold w-full max-w-5xl max-h-[92vh] overflow-y-auto custom-scrollbar">
-        <div class="lte-card-header sticky top-0 z-10 bg-slate-950/95 backdrop-blur-md">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-lg">📨</div>
-            <div>
-              <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">Kiểm tra Luồng Gửi Thiệp & Email Outlook</div>
-              <h3 class="text-base sm:text-xl font-black text-white">XEM TRƯỚC THIỆP & GỬI THỬ NGHIỆM VỀ OUTLOOK TUNGDt101@FPT.COM</h3>
-            </div>
-          </div>
-          <button type="button" id="close-test-card-modal-btn" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-rose-500/30 border border-white/15 text-xs font-extrabold text-white cursor-pointer">
-            ✕ Đóng
-          </button>
-        </div>
-
-        <div class="lte-card-body space-y-4">
-          <div id="test-card-send-status" class="lte-callout lte-callout-warning text-xs sm:text-sm font-bold text-amber-300 flex items-center justify-between gap-2">
-            <span>⏳ Đang kết xuất ảnh Thiệp 1080x1440 px từ phôi chuẩn và gửi về hộp thư Outlook <strong>TungDT101@fpt.com</strong>...</span>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <!-- CỘT 1: BẢN THIỆP 1080x1440 CÁ NHÂN HÓA -->
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <h4 class="text-xs sm:text-sm font-extrabold uppercase text-amber-300">1. Ảnh Thiệp 1080x1440 (Người nhận & Người gửi)</h4>
-                <a id="download-test-card-link" download="Thiep_Tri_An_20_11_TungDT101.png" class="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 text-xs font-extrabold cursor-pointer">
-                  ⬇️ Tải ảnh .PNG
-                </a>
-              </div>
-              <div class="rounded-2xl overflow-hidden border-2 border-amber-400/50 shadow-2xl bg-slate-900">
-                <img id="test-card-preview-img" alt="Thiệp Tri Ân 20/11" class="w-full h-auto block" />
-              </div>
-            </div>
-
-            <!-- CỘT 2: GIAO DIỆN EMAIL TRÊN OUTLOOK CỦA NGƯỜI NHẬN & NGƯỜI GỬI -->
-            <div class="space-y-3">
-              <h4 class="text-xs sm:text-sm font-extrabold uppercase text-emerald-300">2. Giao diện Email hiển thị trong Outlook (TungDT101@fpt.com)</h4>
-              <div class="rounded-2xl overflow-hidden border border-white/15 bg-slate-900/95 shadow-xl text-xs space-y-3 p-4">
-                <div class="space-y-1.5 pb-3 border-b border-white/10">
-                  <div class="flex items-center gap-2"><span class="text-slate-400 w-24 shrink-0">Tiêu đề (Subject):</span> <strong class="text-amber-300 text-sm">MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN</strong></div>
-                  <div class="flex items-center gap-2"><span class="text-slate-400 w-24 shrink-0">Người nhận (To):</span> <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">TungDT101@fpt.com (Đặng Thanh Tùng)</span></div>
-                  <div class="flex items-center gap-2"><span class="text-slate-400 w-24 shrink-0">Người gửi (CC):</span> <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-bold">Nhanlh10@fpt.com (Lê Hoàng Nhân)</span></div>
-                  <div class="flex items-center gap-2"><span class="text-slate-400 w-24 shrink-0">Đính kèm:</span> <span class="text-slate-200 font-semibold">📎 Thiep_Tri_An_Dang_Thanh_Tung.png (Inline + File đính kèm + Link Google Drive)</span></div>
-                </div>
-
-                <!-- Mô phỏng khung HTML Email thực tế trong Outlook -->
-                <div class="rounded-xl overflow-hidden border border-orange-500/50 bg-[#071226] text-white">
-                  <div class="p-4 text-center" style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%);">
-                    <div class="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1">Trung tâm Đào tạo và Phát triển FPT Telecom (FTC)</div>
-                    <div class="text-sm sm:text-base font-black text-white">🔥 MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN 🔥</div>
-                  </div>
-                  <div class="p-4 space-y-2.5 text-slate-200 leading-relaxed text-xs">
-                    <p>Kính gửi Anh/Chị <strong class="text-amber-300">Đặng Thanh Tùng</strong>,</p>
-                    <p>Nhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch <strong>"Gửi lời cảm ơn – Thắp sáng tri thức"</strong>, Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp <strong class="text-orange-400">Lê Hoàng Nhân (FTC)</strong> (Trung tâm Đào tạo FTEL (FTC)) với dấu ấn <em>"Người dẫn dắt – Người truyền cảm hứng"</em>:</p>
-                    <div class="p-3 rounded-lg bg-white/5 border-l-4 border-amber-400 italic text-white">
-                      "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
-                    </div>
-                    <p class="text-[11px] text-slate-400">*(Trong Outlook, tấm thiệp 1080x1440 ở cột bên trái được nhúng trực tiếp ngay tại đây kèm nút Xem & Tải Thiệp Độ Phân Giải Cao trên Google Drive)*</p>
-                    <div class="pt-2 text-center space-y-1.5">
-                      <a
-                        href="https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-block px-5 py-2.5 rounded-full font-extrabold text-xs text-white shadow-lg"
-                        style="background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%);"
-                      >
-                        ✦ [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN ➜
-                      </a>
-                      <div class="text-[11px] text-slate-400">
-                        (Bấm vào nút trên để nhập và gửi tiếp lời chúc đáp lại hoặc gửi lời tri ân tới đồng nghiệp khác)
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const closeBtn = modal.querySelector('#close-test-card-modal-btn');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => modal.remove());
-    }
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.remove();
-    });
-
-    const res = await ApiService.sendTestEcardToOutlook(CardGenerator, 'tungdt101@fpt.com');
-    const previewImg = modal.querySelector('#test-card-preview-img');
-    const downloadLink = modal.querySelector('#download-test-card-link');
-    const statusEl = modal.querySelector('#test-card-send-status');
-
-    if (previewImg && res.cardImageBase64) {
-      previewImg.src = res.cardImageBase64;
-    }
-    if (downloadLink && res.cardImageBase64) {
-      downloadLink.href = res.cardImageBase64;
-    }
-    if (statusEl) {
-      statusEl.className = 'lte-callout lte-callout-success text-xs sm:text-sm font-bold text-emerald-300 flex flex-wrap items-center justify-between gap-2';
-      statusEl.innerHTML = `
-        <span>✅ Đã gửi thẳng 2 thư Thiệp Tri Ân (1080x1440) cho vai trò <strong>Người nhận</strong> & <strong>Người gửi</strong> về hộp thư Outlook <strong>TungDT101@fpt.com</strong> (Không lưu vào Google Sheet chính thức)!</span>
-        <span class="text-[11px] text-amber-300">Trạng thái: SENT_SUCCESS ✓</span>
-      `;
-    }
   }
 }
