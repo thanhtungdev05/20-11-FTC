@@ -7,9 +7,9 @@
 export const fptLogoImg = new Image();
 fptLogoImg.src = '/assets/logoFPT.png';
 
-// Preload Official Key Visual 30 Năm Tiếp Lửa for E-Card
+// Preload Official Key Visual 30 Năm Tiếp Lửa for E-Card (Cache-busted v2 template)
 export const keyVisualImg = new Image();
-keyVisualImg.src = '/assets/key-visual-card.jpg';
+keyVisualImg.src = '/assets/key-visual-card.jpg?v=2';
 
 export class CardGenerator {
   /**
@@ -39,70 +39,38 @@ export class CardGenerator {
     const FONT_TITLE = '"Montserrat", "Plus Jakarta Sans", "Segoe UI", sans-serif';
 
     // =========================================================================
-    // PHONG CÁCH 1: OFFICIAL KEY VISUAL - 30 NĂM TIẾP LỬA (CHÍNH THỨC)
+    // PHONG CÁCH 1: OFFICIAL KEY VISUAL - PHÔI THIỆP CHÍNH THỨC (CÓ SẴN KHUNG & ĐƯỜNG KÝ TÊN)
     // =========================================================================
     if (theme === 'kv') {
       const kvLoaded = keyVisualImg.complete && keyVisualImg.naturalWidth > 0;
       if (kvLoaded) {
         ctx.drawImage(keyVisualImg, 0, 0, width, height);
       } else {
-        // Fallback màu nền Sapphire sâu thẳm nếu ảnh đang tải
+        // Fallback nếu ảnh phôi đang tải
         const bgGrad = ctx.createRadialGradient(
           width / 2, height * 0.45, 100 * scale,
           width / 2, height / 2, width * 0.75
         );
-        bgGrad.addColorStop(0, '#0a1d4a');
-        bgGrad.addColorStop(1, '#030818');
+        bgGrad.addColorStop(0, '#042882');
+        bgGrad.addColorStop(1, '#021038');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.75)';
+        ctx.lineWidth = 2.5 * scale;
+        roundRect(ctx, width * 0.04, height * 0.338, width * 0.92, height * 0.51, 24 * scale, false, true);
+        ctx.restore();
       }
 
-      // Khung bảng kính mờ cao cấp lồng ghép trên nền KV (Frosted Royal Glass Plaque)
-      const plaqueX = 75 * scale;
-      const plaqueY = 515 * scale;
-      const plaqueW = width - 150 * scale;
-      const plaqueH = 775 * scale;
-
-      ctx.save();
-      ctx.fillStyle = 'rgba(5, 15, 42, 0.84)';
-      ctx.strokeStyle = 'rgba(255, 215, 0, 0.65)';
-      ctx.lineWidth = 2 * scale;
-      ctx.shadowColor = 'rgba(243, 112, 33, 0.35)';
-      ctx.shadowBlur = 25 * scale;
-      roundRect(ctx, plaqueX, plaqueY, plaqueW, plaqueH, 24 * scale, true, true);
-
-      // Viền trong vàng mảnh
-      ctx.strokeStyle = 'rgba(255, 215, 0, 0.25)';
-      ctx.lineWidth = 1 * scale;
-      roundRect(ctx, plaqueX + 12 * scale, plaqueY + 12 * scale, plaqueW - 24 * scale, plaqueH - 24 * scale, 18 * scale, false, true);
-
-      // Corner Accents vàng kim
-      const cornerSize = 25 * scale;
-      const corners = [
-        { x: plaqueX, y: plaqueY, dx: 1, dy: 1 },
-        { x: plaqueX + plaqueW, y: plaqueY, dx: -1, dy: 1 },
-        { x: plaqueX, y: plaqueY + plaqueH, dx: 1, dy: -1 },
-        { x: plaqueX + plaqueW, y: plaqueY + plaqueH, dx: -1, dy: -1 }
-      ];
-      corners.forEach(c => {
-        ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 3 * scale;
-        ctx.beginPath();
-        ctx.moveTo(c.x + c.dx * cornerSize, c.y);
-        ctx.lineTo(c.x, c.y);
-        ctx.lineTo(c.x, c.y + c.dy * cornerSize);
-        ctx.stroke();
-      });
-      ctx.restore();
-
-      // Thông tin Người nhận
+      // 1. Thông tin Người nhận (Căn giữa phía trên khung có sẵn của phôi thiệp)
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffd700';
       ctx.font = `italic 600 ${20 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText('✦ TRÂN TRỌNG GỬI ĐẾN ✦', width / 2, plaqueY + 48 * scale);
+      ctx.fillText('✦ TRÂN TRỌNG GỬI ĐẾN ✦', width / 2, height * 0.376);
 
       // Tên Người Nhận
-      const maxNameWidth = plaqueW - 90 * scale;
+      const maxNameWidth = width * 0.84;
       let nameFontSize = 38 * scale;
       ctx.font = `bold ${nameFontSize}px ${FONT_PRIMARY}`;
       while (ctx.measureText(recipientName.toUpperCase()).width > maxNameWidth && nameFontSize > 22 * scale) {
@@ -111,67 +79,69 @@ export class CardGenerator {
       }
       ctx.save();
       ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
-      ctx.shadowBlur = 15 * scale;
-      ctx.fillText(recipientName.toUpperCase(), width / 2, plaqueY + 98 * scale);
+      ctx.shadowColor = 'rgba(255, 215, 0, 0.45)';
+      ctx.shadowBlur = 14 * scale;
+      ctx.fillText(recipientName.toUpperCase(), width / 2, height * 0.412);
       ctx.restore();
 
       // Dấu ấn của người nhận lửa (Vai trò)
-      ctx.fillStyle = '#cbd5e1';
+      ctx.fillStyle = '#e2e8f0';
       ctx.font = `500 ${20 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText(recipientRole, width / 2, plaqueY + 134 * scale);
+      ctx.fillText(recipientRole, width / 2, height * 0.439);
 
-      // Đường phân cách kim cương phía trên
-      const divY1 = plaqueY + 162 * scale;
+      // Đường phân cách kim cương mảnh dưới tên người nhận
+      const divY1 = height * 0.457;
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)';
-      ctx.lineWidth = 1 * scale;
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+      ctx.lineWidth = 1.2 * scale;
       ctx.beginPath();
       ctx.moveTo(width / 2 - 130 * scale, divY1);
       ctx.lineTo(width / 2 + 130 * scale, divY1);
       ctx.stroke();
       ctx.fillStyle = '#ffd700';
-      drawDiamond(ctx, width / 2, divY1, 6 * scale);
+      drawDiamond(ctx, width / 2, divY1, 5.5 * scale);
       ctx.restore();
 
-      // Lời chúc tri ân (Message - hỗ trợ trọn vẹn từ 10 đến 1000 ký tự)
-      const maxTextW = plaqueW - 80 * scale;
-      let msgFontSize = 23 * scale;
+      // 2. Lời chúc tri ân (Nằm trọn trong khoảng trống từ 47.2% đến 70.8% chiều cao thiệp, hỗ trợ tới 1000 ký tự)
+      const maxTextW = width * 0.84;
+      let msgFontSize = 24 * scale;
       let lineHeight = 38 * scale;
 
       if (message.length < 120) {
         msgFontSize = 26 * scale;
-        lineHeight = 44 * scale;
+        lineHeight = 42 * scale;
       } else if (message.length <= 300) {
-        msgFontSize = 23 * scale;
-        lineHeight = 37 * scale;
+        msgFontSize = 22.5 * scale;
+        lineHeight = 35 * scale;
       } else if (message.length <= 550) {
-        msgFontSize = 20 * scale;
-        lineHeight = 31 * scale;
+        msgFontSize = 19.5 * scale;
+        lineHeight = 29 * scale;
       } else if (message.length <= 800) {
-        msgFontSize = 17.5 * scale;
-        lineHeight = 26 * scale;
+        msgFontSize = 17 * scale;
+        lineHeight = 24.5 * scale;
       } else {
-        msgFontSize = 16 * scale;
-        lineHeight = 23.5 * scale;
+        msgFontSize = 15.5 * scale;
+        lineHeight = 22 * scale;
       }
 
       ctx.save();
-      ctx.font = `italic 400 ${msgFontSize}px ${FONT_PRIMARY}`;
-      ctx.fillStyle = '#f8fafc';
+      ctx.font = `italic 500 ${msgFontSize}px ${FONT_PRIMARY}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0, 10, 35, 0.75)';
+      ctx.shadowBlur = 8 * scale;
       ctx.textAlign = 'center';
 
       let lines = getLines(ctx, `"${message}"`, maxTextW);
-      const maxMsgHeight = 435 * scale;
-      while (lines.length * lineHeight > maxMsgHeight && msgFontSize > 13.5 * scale) {
-        msgFontSize -= 0.75 * scale;
-        lineHeight = msgFontSize * 1.44;
-        ctx.font = `italic 400 ${msgFontSize}px ${FONT_PRIMARY}`;
+      const maxMsgHeight = height * 0.236;
+      while (lines.length * lineHeight > maxMsgHeight && msgFontSize > 12.5 * scale) {
+        msgFontSize -= 0.5 * scale;
+        lineHeight = msgFontSize * 1.38;
+        ctx.font = `italic 500 ${msgFontSize}px ${FONT_PRIMARY}`;
         lines = getLines(ctx, `"${message}"`, maxTextW);
       }
 
       const totalTextH = lines.length * lineHeight;
-      const msgCenterY = plaqueY + 402 * scale;
+      const msgCenterY = height * 0.590;
       const startY = msgCenterY - totalTextH / 2 + lineHeight * 0.74;
 
       lines.forEach((line, index) => {
@@ -179,30 +149,27 @@ export class CardGenerator {
       });
       ctx.restore();
 
-      // Đường phân cách người gửi phía dưới
-      const divY2 = plaqueY + 642 * scale;
+      // 3. Thông tin Người gửi (Căn chuẩn theo đường kẻ ngang màu vàng có sẵn ở góc phải dưới của phôi thiệp: X = 76.2%, Line Y = 75.0%)
+      const sigCenterX = width * 0.762;
+      const maxSenderW = width * 0.33;
+
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.lineWidth = 1 * scale;
-      ctx.beginPath();
-      ctx.moveTo(width / 2 - 100 * scale, divY2);
-      ctx.lineTo(width / 2 + 100 * scale, divY2);
-      ctx.stroke();
-      ctx.restore();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = `500 ${17.5 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText('Ngọn lửa tri ân được thắp lên bởi', sigCenterX, height * 0.733);
 
-      // Thông tin Người gửi
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = `500 ${18 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText('Ngọn lửa tri ân được thắp lên bởi', width / 2, plaqueY + 680 * scale);
-
+      let senderFontSize = 28 * scale;
+      ctx.font = `bold ${senderFontSize}px ${FONT_PRIMARY}`;
+      while (ctx.measureText(senderName).width > maxSenderW && senderFontSize > 18 * scale) {
+        senderFontSize -= 1.5 * scale;
+        ctx.font = `bold ${senderFontSize}px ${FONT_PRIMARY}`;
+      }
       ctx.fillStyle = '#ffd700';
-      ctx.font = `bold ${29 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText(senderName, width / 2, plaqueY + 725 * scale);
-
-      // Chân trang KV
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-      ctx.font = `600 ${14 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText('✦ FPT TELECOM • 30 NĂM KHÍ PHÁCH TIÊN PHONG • 20/11/2026 ✦', width / 2, 1395 * scale);
+      ctx.shadowColor = 'rgba(0, 10, 35, 0.85)';
+      ctx.shadowBlur = 10 * scale;
+      ctx.fillText(senderName, sigCenterX, height * 0.784);
+      ctx.restore();
 
       return;
     }

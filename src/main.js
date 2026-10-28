@@ -40,6 +40,13 @@ class App {
         fptLogoImg.onload = () => this.updateCardPreview();
       }
     }
+    if (keyVisualImg) {
+      if (keyVisualImg.complete) {
+        this.updateCardPreview();
+      } else {
+        keyVisualImg.onload = () => this.updateCardPreview();
+      }
+    }
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => {
         this.updateCardPreview();
