@@ -1366,7 +1366,7 @@ export class ApiService {
       savedToOfficialSheet: false,
       cardData: testCardData,
       cardImageBase64,
-      subject: "MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN"
+      subject: "[FTEL 20/11] Bạn vừa nhận được một Ngọn Lửa Tri Ân từ đồng nghiệp!"
     };
   }
   static async getDashboardStats() {

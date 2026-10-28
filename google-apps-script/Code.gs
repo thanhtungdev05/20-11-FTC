@@ -44,8 +44,8 @@ const CONFIG = {
   ALLOWED_DOMAINS: ["fpt.com", "fpt.net", "vienthongtin.com"],
 
   // Tiêu đề email chính thức theo yêu cầu của BTC
-  EMAIL_SUBJECT_SUCCESS: "MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN",
-  EMAIL_SUBJECT_SENDER: "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
+  EMAIL_SUBJECT_SUCCESS: "[FTEL 20/11] Bạn vừa nhận được một Ngọn Lửa Tri Ân từ đồng nghiệp!",
+  EMAIL_SUBJECT_SENDER: "[FTEL 20/11] Xác nhận bạn đã thắp lên một Ngọn Lửa Tri Ân thành công!",
   EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo: Mỗi tài khoản chỉ gửi 1 lần cho cùng một đồng nghiệp",
 
   // Email nghiệp vụ chính thức của Ban tổ chức (Trung tâm Đào tạo FTEL - FTC)
@@ -78,7 +78,7 @@ const CONFIG = {
  * Cột H (8): Họ tên người nhận (Lấy từ DS_NhanSu)
  * Cột I (9): Đơn vị người nhận (Lấy từ DS_NhanSu)
  * Cột J (10): Thông điệp chuẩn hóa chính tả
- * Cột K (11): Trạng thái kiểm tra (HỢP LỆ / TRÙNG LẶP)
+ * Cột K (11): Trạng thái kiểm tra (TỰ ĐỘNG DUYỆT / TRÙNG LẶP / SPAM <5P)
  * Cột L (12): Trạng thái gửi Mail (ĐÃ GỬI MAIL / CHỜ XUẤT THIỆP / ĐÃ BÁO TRÙNG)
  * Cột M (13): Link Thiệp Google Drive
  * Cột N (14): Mã định danh & Thời gian xử lý
@@ -92,6 +92,7 @@ function setupSystemAndTriggers() {
   const formSheet = getFormResponseSheet(ss);
   ensureExtendedHeaders(formSheet);
   ensureHrDirectorySheet(ss);
+  updateReportDashboardSheet(ss);
 
   // Xóa trigger cũ (nếu có) để tránh nhân đôi
   const triggers = ScriptApp.getProjectTriggers();
@@ -108,7 +109,7 @@ function setupSystemAndTriggers() {
     .onFormSubmit()
     .create();
 
-  Logger.log("✅ Đã khởi tạo hệ thống, tab DS_NhanSu và Trigger onFormSubmit thành công!");
+  Logger.log("✅ Đã khởi tạo hệ thống, tab DS_NhanSu, tab Dashboard_BaoCao và Trigger Tự Động Duyệt onFormSubmit thành công!");
 }
 
 /**
@@ -117,16 +118,26 @@ function setupSystemAndTriggers() {
 function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu("🔥 FTC 20/11 - Quản Trị")
-      .addItem("1. Khởi tạo cột & Trigger tự động", "setupSystemAndTriggers")
-      .addItem("2. Quét & Xử lý các dòng mới từ Google Form", "processAllUnprocessedRows")
-      .addItem("3. Gửi thử nghiệm 1 Email về Outlook TungDT101@fpt.com", "testSendMailToTungDT")
+    ui.createMenu("🔥 FTC 20/11 - Quản Trị Tự Động")
+      .addItem("1. Khởi tạo cột, Tab Báo cáo & Kích hoạt Tự Động Duyệt", "setupSystemAndTriggers")
+      .addItem("2. Quét & Tự động duyệt các lời chúc mới", "processAllUnprocessedRows")
+      .addItem("3. Gửi thiệp thử nghiệm về Outlook TungDT101@fpt.com", "testSendMailToTungDT")
+      .addItem("4. Cập nhật Tab Dashboard_BaoCao ngay", "menuUpdateReportDashboard")
       .addSeparator()
-      .addItem("4. Chẩn đoán hệ thống gửi mail", "menuDiagnoseMailSystem")
-      .addItem("5. Gửi lại tất cả mail bị LỖI", "menuResendFailedMails")
-      .addItem("6. Gửi lại mail cho 1 dòng cụ thể", "menuResendMailForRow")
+      .addItem("5. Chẩn đoán hệ thống gửi mail", "menuDiagnoseMailSystem")
+      .addItem("6. Gửi lại tất cả mail bị LỖI", "menuResendFailedMails")
+      .addItem("7. Gửi lại mail cho 1 dòng cụ thể", "menuResendMailForRow")
       .addToUi();
   } catch (e) {}
+}
+
+/**
+ * Menu 4: Cập nhật ngay tab Dashboard_BaoCao trên Google Sheet
+ */
+function menuUpdateReportDashboard() {
+  const ss = getSpreadsheet();
+  updateReportDashboardSheet(ss);
+  showAdminAlert("Cập nhật Dashboard", "✅ Đã làm mới tab 'Dashboard_BaoCao' với số liệu thời gian thực mới nhất!");
 }
 
 /**
@@ -251,8 +262,8 @@ function processAllUnprocessedRows() {
   const values = dataRange.getValues();
   const hrMap = loadHrDirectoryMap(ss);
 
-  // Tập hợp các cặp (senderEmail | recipientEmail) đã hợp lệ trước đó để check trùng (Mỗi người chỉ gửi 1 lần cho 1 đồng nghiệp)
-  const seenPairs = new Set();
+  // Map lưu cặp (senderEmail ||| recipientEmail) -> { rowNumber, timeMs } để check trùng 2 cấp độ
+  const seenPairsMap = new Map();
   let processedCount = 0;
   const pendingRenderList = [];
 
@@ -271,6 +282,7 @@ function processAllUnprocessedRows() {
     const currentCheckStatus = String(row[10] || "").trim(); // Cột K: Trạng thái kiểm tra
     const currentMailStatus = String(row[11] || "").trim();  // Cột L: Trạng thái gửi Mail
     const pairKey = buildDuplicateKey(senderEmail, recipientEmail);
+    const rowTime = timestamp instanceof Date ? timestamp.getTime() : (Date.parse(timestamp) || Date.now());
 
     const senderHr = lookupHrByEmail(hrMap, senderEmail) || {
       name: String(row[5] || "").trim() || fallbackNameFromEmail(senderEmail),
@@ -281,9 +293,11 @@ function processAllUnprocessedRows() {
       dept: String(row[8] || "").trim() || "FPT Telecom"
     };
 
-    // Nếu dòng này đã được xử lý trước đó:
-    if (currentCheckStatus === "HỢP LỆ") {
-      seenPairs.add(pairKey);
+    // Nếu dòng này đã được duyệt trước đó (TỰ ĐỘNG DUYỆT hoặc HỢP LỆ):
+    if (currentCheckStatus === "TỰ ĐỘNG DUYỆT" || currentCheckStatus === "HỢP LỆ") {
+      if (!seenPairsMap.has(pairKey)) {
+        seenPairsMap.set(pairKey, { rowNumber: rowNumber, timeMs: rowTime });
+      }
       // Tự động cập nhật bổ sung Họ tên & Đơn vị từ Sheet DS nhân sự (gid=1084168011) nếu dòng cũ chưa có tên chuẩn
       const existingSName = String(row[5] || "").trim();
       const existingRName = String(row[7] || "").trim();
@@ -300,7 +314,6 @@ function processAllUnprocessedRows() {
       }
 
       // Tự động gửi mail cho dòng hợp lệ CHƯA TỪNG GỬI (trống / chờ xuất thiệp).
-      // Các dòng "LỖI MAIL" KHÔNG tự gửi lại mỗi lần mở Dashboard (tránh đốt hạn mức) → dùng menu "5. Gửi lại tất cả mail bị LỖI".
       if (currentMailStatus === "" || currentMailStatus === "CHỜ XUẤT THIỆP") {
         const mailRes = sendGratitudeNotificationEmail({
           recipientEmail: recipientEmail,
@@ -336,50 +349,70 @@ function processAllUnprocessedRows() {
       continue;
     }
 
-    if (currentCheckStatus === "TRÙNG LẶP") {
+    if (currentCheckStatus.indexOf("TRÙNG LẶP") !== -1) {
       continue;
     }
 
-    // Kiểm tra trùng: Mỗi tài khoản người gửi chỉ được gửi cho mỗi người nhận 1 lần duy nhất trong toàn chiến dịch
-    const isDuplicate = seenPairs.has(pairKey);
+    // KIỂM TRA TRÙNG 2 CẤP ĐỘ:
+    // Cấp 1: Trùng do thao tác / Spam double-submit (< 5 phút giữa cùng người gửi & cùng người nhận)
+    // Cấp 2: Trùng lặp chính sách (mỗi tài khoản chỉ gửi 1 lời tri ân duy nhất cho cùng 1 đồng nghiệp)
+    const prevSubmission = seenPairsMap.get(pairKey);
 
-    if (isDuplicate) {
+    if (prevSubmission) {
+      const timeDiffMs = Math.abs(rowTime - prevSubmission.timeMs);
+      const isQuickSpam = timeDiffMs < 5 * 60 * 1000;
       const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
-      const dupRes = sendDuplicateWarningEmail({
-        senderEmail: senderEmail,
-        senderName: senderHr.name,
-        recipientName: recipientHr.name,
-        recipientEmail: recipientEmail,
-        message: rawMessage
-      });
-      const dupMailStatus = dupRes.ok
-        ? "ĐÃ BÁO TRÙNG"
-        : "LỖI GỬI BÁO TRÙNG: " + truncateText(dupRes.error, 250);
 
-      sheet.getRange(rowNumber, 6, 1, 9).setValues([[
-        senderHr.name,
-        senderHr.dept,
-        recipientHr.name,
-        recipientHr.dept,
-        rawMessage,
-        "TRÙNG LẶP",
-        dupMailStatus,
-        "",
-        "DUP-" + nowStr
-      ]]);
-      processedCount++;
-      continue;
+      if (isQuickSpam) {
+        sheet.getRange(rowNumber, 6, 1, 9).setValues([[
+          senderHr.name,
+          senderHr.dept,
+          recipientHr.name,
+          recipientHr.dept,
+          rawMessage,
+          "TRÙNG LẶP (SPAM <5P)",
+          "BỎ QUA (BẤM NHIỀU LẦN)",
+          "",
+          "SPAM-" + nowStr
+        ]]);
+        processedCount++;
+        continue;
+      } else {
+        const dupRes = sendDuplicateWarningEmail({
+          senderEmail: senderEmail,
+          senderName: senderHr.name,
+          recipientName: recipientHr.name,
+          recipientEmail: recipientEmail,
+          message: rawMessage
+        });
+        const dupMailStatus = dupRes.ok
+          ? "ĐÃ BÁO TRÙNG"
+          : "LỖI GỬI BÁO TRÙNG: " + truncateText(dupRes.error, 250);
+
+        sheet.getRange(rowNumber, 6, 1, 9).setValues([[
+          senderHr.name,
+          senderHr.dept,
+          recipientHr.name,
+          recipientHr.dept,
+          rawMessage,
+          "TRÙNG LẶP",
+          dupMailStatus,
+          "",
+          "DUP-" + nowStr
+        ]]);
+        processedCount++;
+        continue;
+      }
     }
 
-    // Dòng HỢP LỆ -> Ghi nhận vào tập đã thấy
-    seenPairs.add(pairKey);
+    // Dòng HỢP LỆ -> HỆ THỐNG TỰ ĐỘNG DUYỆT NGAY LẬP TỨC (Zero-Delay)
+    seenPairsMap.set(pairKey, { rowNumber: rowNumber, timeMs: rowTime });
 
     // Chỉnh sửa chính tả & chuẩn hóa câu chữ tiếng Việt
     const cleanedMessage = cleanAndCorrectVietnameseText(rawMessage);
     const submissionId = "FTEL-" + Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "yyyyMMdd-HHmmss") + "-R" + rowNumber;
 
     // TỰ ĐỘNG GỬI EMAIL NGAY LẬP TỨC CHO CẢ NGƯỜI NHẬN & NGƯỜI GỬI (ĐỘC LẬP TO:, KHÔNG CẦN CHỜ WEB)
-    // Ghi TRẠNG THÁI THẬT vào cột L (ĐÃ GỬI MAIL / LỖI MAIL: lý do cụ thể)
     const mailRes = sendGratitudeNotificationEmail({
       recipientEmail: recipientEmail,
       recipientName: recipientHr.name,
@@ -394,14 +427,14 @@ function processAllUnprocessedRows() {
     });
     const mailStatus = buildMailStatusText(mailRes);
 
-    // Ghi thông tin HR + chính tả vào cột F -> N
+    // Ghi thông tin HR + chính tả + TRẠNG THÁI TỰ ĐỘNG DUYỆT vào cột F -> N
     sheet.getRange(rowNumber, 6, 1, 9).setValues([[
       senderHr.name,
       senderHr.dept,
       recipientHr.name,
       recipientHr.dept,
       cleanedMessage,
-      "HỢP LỆ",
+      "TỰ ĐỘNG DUYỆT",
       mailStatus,
       "",
       submissionId
@@ -422,6 +455,15 @@ function processAllUnprocessedRows() {
     });
 
     processedCount++;
+  }
+
+  // Tự động làm mới tab Báo cáo Dashboard_BaoCao trên Google Sheet nếu có xử lý dòng mới
+  if (processedCount > 0) {
+    try {
+      updateReportDashboardSheet(ss);
+    } catch (eDash) {
+      Logger.log("Cập nhật Dashboard_BaoCao tự động lỗi: " + eDash);
+    }
   }
 
   return {
@@ -755,7 +797,7 @@ function getFullCampaignDashboardData() {
     if (!senderEmail || !recipientEmail || !rawMessage) return;
 
     // Bỏ qua bản ghi bị đánh dấu TRÙNG LẶP
-    if (checkStatus === "TRÙNG LẶP") return;
+    if (checkStatus === "TRÙNG LẶP" || checkStatus.indexOf("TRÙNG LẶP") !== -1) return;
 
     // Quy tắc dữ liệu: Mỗi cặp (người gửi, người nhận) chỉ tính 1 lần duy nhất trong toàn chiến dịch
     const dupKey = buildDuplicateKey(senderEmail, recipientEmail);
@@ -957,6 +999,111 @@ function getFullCampaignDashboardData() {
     recentTributes: validChronologicalList.slice(-20).reverse(),
     pendingRender: syncInfo.pendingRender || []
   };
+}
+
+
+/**
+ * ==============================================================================
+ * 4b. TỰ ĐỘNG TẠO & CẬP NHẬT TAB BÁO CÁO "Dashboard_BaoCao" TRÊN GOOGLE SHEET
+ * ==============================================================================
+ * Cho phép Ban Tổ Chức xem ngay Bảng Vinh Danh Top 3 (Vàng/Bạc/Đồng), Top 4-10
+ * và Báo cáo Thống kê Đơn vị mọi lúc mà không cần mở trang Web.
+ */
+function updateReportDashboardSheet(ss, data) {
+  if (!ss) ss = getSpreadsheet();
+  let dashSheet = ss.getSheetByName("Dashboard_BaoCao");
+  if (!dashSheet) {
+    dashSheet = ss.insertSheet("Dashboard_BaoCao");
+  }
+
+  try {
+    dashSheet.setTabColor("#f37021");
+  } catch (e) {}
+
+  dashSheet.clear();
+  dashSheet.setGridlines(true);
+
+  if (!data) {
+    data = getFullCampaignDashboardData();
+  }
+
+  const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
+
+  // Title Banner
+  dashSheet.getRange("A1:F1").merge().setValue("🔥 CHIẾN DỊCH THẮP LỬA TRI ÂN - FTEL 20/11/2026 🔥")
+    .setBackground("#002d62").setFontColor("#ffd700").setFontSize(15).setFontWeight("bold").setHorizontalAlignment("center");
+  
+  dashSheet.getRange("A2:F2").merge().setValue("HỆ THỐNG TỰ ĐỘNG DUYỆT & GỬI EMAIL THỜI GIAN THỰC (Cập nhật lúc: " + nowStr + ")")
+    .setBackground("#071226").setFontColor("#94a3b8").setFontSize(10).setFontStyle("italic").setHorizontalAlignment("center");
+
+  // Section 1: KPI Cards
+  dashSheet.getRange("A4:B4").merge().setValue("📊 CHỈ SỐ KPI CHIẾN DỊCH").setFontWeight("bold").setFontSize(11).setFontColor("#002d62");
+  const kpiData = [
+    ["Tổng số ngọn lửa đã thắp:", data.totalFlames || 0],
+    ["Số đồng nghiệp được tri ân (Người nhận):", data.uniqueRecipients || 0],
+    ["Số CBNV đã gửi tri ân (Người gửi):", data.uniqueSenders || 0],
+    ["Số Đơn vị / Phòng ban tham gia:", data.uniqueUnits || 0]
+  ];
+  dashSheet.getRange("A5:B8").setValues(kpiData);
+  dashSheet.getRange("A5:A8").setFontWeight("bold").setBackground("#f8fafc");
+  dashSheet.getRange("B5:B8").setFontWeight("bold").setFontColor("#f37021").setHorizontalAlignment("center").setFontSize(12);
+
+  // Section 2: Top 3 Vinh Danh
+  dashSheet.getRange("D4:F4").merge().setValue("🏆 BẢNG VINH DANH TOP 3 (NGƯỜI TIẾP LỬA)").setFontWeight("bold").setFontSize(11).setFontColor("#002d62");
+  const top3 = (data.top30Recipients || []).slice(0, 3);
+  const top3Rows = [
+    ["🥇 HẠNG 1 (CÚP VÀNG)", top3[0] ? top3[0].name + " (" + top3[0].dept + ")" : "Chưa có", top3[0] ? top3[0].count + " thiệp" : "0"],
+    ["🥈 HẠNG 2 (CÚP BẠC)", top3[1] ? top3[1].name + " (" + top3[1].dept + ")" : "Chưa có", top3[1] ? top3[1].count + " thiệp" : "0"],
+    ["🥉 HẠNG 3 (CÚP ĐỒNG)", top3[2] ? top3[2].name + " (" + top3[2].dept + ")" : "Chưa có", top3[2] ? top3[2].count + " thiệp" : "0"]
+  ];
+  dashSheet.getRange("D5:F7").setValues(top3Rows);
+  dashSheet.getRange("D5:D7").setFontWeight("bold");
+  dashSheet.getRange("D5:F5").setBackground("#fef9c3");
+  dashSheet.getRange("D6:F6").setBackground("#f1f5f9");
+  dashSheet.getRange("D7:F7").setBackground("#ffedd5");
+  dashSheet.getRange("F5:F7").setHorizontalAlignment("center").setFontWeight("bold");
+
+  // Section 3: Bảng Top 4 - 10
+  dashSheet.getRange("A10:F10").merge().setValue("🎖️ DANH SÁCH TOP 4 ĐẾN TOP 10 (NGƯỜI TIẾP LỬA TRI THỨC)").setFontWeight("bold").setFontSize(11).setBackground("#e2e8f0").setFontColor("#0f172a");
+  const topHeaders = ["Hạng", "Họ và tên", "Đơn vị / Phòng ban", "Email", "Vai trò / Dấu ấn", "Số ngọn lửa nhận"];
+  dashSheet.getRange(11, 1, 1, 6).setValues([topHeaders]).setFontWeight("bold").setBackground("#002d62").setFontColor("#ffffff").setHorizontalAlignment("center");
+
+  const top4to10 = (data.top30Recipients || []).slice(3, 10);
+  const top4Rows = [];
+  for (let k = 0; k < 7; k++) {
+    const item = top4to10[k];
+    if (item) {
+      top4Rows.push([k + 4, item.name, item.dept, item.email, item.role || "", item.count]);
+    } else {
+      top4Rows.push([k + 4, "-", "-", "-", "-", 0]);
+    }
+  }
+  dashSheet.getRange(12, 1, 7, 6).setValues(top4Rows);
+  dashSheet.getRange(12, 1, 7, 1).setHorizontalAlignment("center").setFontWeight("bold");
+  dashSheet.getRange(12, 6, 7, 1).setHorizontalAlignment("center").setFontWeight("bold").setFontColor("#f37021");
+
+  // Section 4: Top Đơn Vị Lan Tỏa
+  const startUnitRow = 20;
+  dashSheet.getRange(startUnitRow, 1, 1, 6).merge().setValue("🏢 TOP ĐƠN VỊ LAN TỎA MẠNH MẼ NHẤT").setFontWeight("bold").setFontSize(11).setBackground("#e2e8f0").setFontColor("#0f172a");
+  const unitHeaders = ["STT", "Đơn vị", "Tổng số ngọn lửa", "Số người gửi", "Số người nhận", "Tỷ lệ tham gia"];
+  dashSheet.getRange(startUnitRow + 1, 1, 1, 6).setValues([unitHeaders]).setFontWeight("bold").setBackground("#002d62").setFontColor("#ffffff").setHorizontalAlignment("center");
+
+  const topUnits = (data.unitSpread || []).slice(0, 10);
+  const unitRows = [];
+  for (let u = 0; u < Math.max(topUnits.length, 1); u++) {
+    const unitItem = topUnits[u];
+    if (unitItem) {
+      const rate = unitItem.memberCount > 0 ? Math.round(((unitItem.senderCount + unitItem.recipientCount) / unitItem.memberCount) * 100) + "%" : "N/A";
+      unitRows.push([u + 1, unitItem.unit, unitItem.totalFlames, unitItem.senderCount, unitItem.recipientCount, rate]);
+    } else {
+      unitRows.push([u + 1, "-", 0, 0, 0, "-"]);
+    }
+  }
+  dashSheet.getRange(startUnitRow + 2, 1, unitRows.length, 6).setValues(unitRows);
+  dashSheet.getRange(startUnitRow + 2, 1, unitRows.length, 1).setHorizontalAlignment("center");
+  dashSheet.getRange(startUnitRow + 2, 3, unitRows.length, 4).setHorizontalAlignment("center");
+
+  return true;
 }
 
 /**
@@ -1242,6 +1389,34 @@ function deliverMail(opts) {
   const replyTo = opts.replyTo || CONFIG.REPLY_TO_EMAIL || "ftel.daotao@fpt.com";
   const errors = [];
 
+  // Ưu tiên 1: Nếu có Gmail Alias ftel.daotao@fpt.com trong Gmail Settings -> Gửi trực tiếp bằng ftel.daotao@fpt.com qua GmailApp
+  try {
+    const gmailOptions = {
+      htmlBody: opts.htmlBody,
+      name: senderName,
+      replyTo: replyTo
+    };
+    try {
+      const aliases = GmailApp.getAliases() || [];
+      const targetAlias = String(CONFIG.OFFICIAL_SENDER_EMAIL || "ftel.daotao@fpt.com").trim().toLowerCase();
+      if (aliases.some(a => String(a).trim().toLowerCase() === targetAlias)) {
+        gmailOptions.from = targetAlias;
+        Logger.log("ℹ️ Sử dụng Gmail Alias chính thức From: " + targetAlias);
+      }
+    } catch (eAlias) {}
+
+    if (inlineImages) gmailOptions.inlineImages = inlineImages;
+    if (attachments) gmailOptions.attachments = attachments;
+    GmailApp.sendEmail(opts.to, opts.subject, opts.body, gmailOptions);
+    result.ok = true;
+    result.via = "GmailApp" + (gmailOptions.from ? " (" + gmailOptions.from + ")" : "");
+    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua " + result.via + " (Reply-To: " + replyTo + ")");
+    return result;
+  } catch (eGmail) {
+    errors.push("GmailApp: " + (eGmail && eGmail.message ? eGmail.message : eGmail));
+  }
+
+  // Ưu tiên 2: Dự phòng qua MailApp chuẩn
   try {
     const mailOptions = {
       to: opts.to,
@@ -1258,35 +1433,8 @@ function deliverMail(opts) {
     result.via = "MailApp";
     Logger.log("✅ Đã gửi mail tới " + opts.to + " qua MailApp (Reply-To: " + replyTo + ")");
     return result;
-  } catch (e1) {
-    errors.push("MailApp: " + (e1 && e1.message ? e1.message : e1));
-  }
-
-  try {
-    const gmailOptions = {
-      htmlBody: opts.htmlBody,
-      name: senderName,
-      replyTo: replyTo
-    };
-    // Nếu tài khoản Google đã cấu hình Alias ftel.daotao@fpt.com trong Gmail Settings -> Gửi thư bằng địa chỉ này
-    try {
-      const aliases = GmailApp.getAliases() || [];
-      const targetAlias = String(CONFIG.OFFICIAL_SENDER_EMAIL || "ftel.daotao@fpt.com").trim().toLowerCase();
-      if (aliases.some(a => String(a).trim().toLowerCase() === targetAlias)) {
-        gmailOptions.from = targetAlias;
-        Logger.log("ℹ️ Sử dụng Gmail Alias From: " + targetAlias);
-      }
-    } catch (eAlias) {}
-
-    if (inlineImages) gmailOptions.inlineImages = inlineImages;
-    if (attachments) gmailOptions.attachments = attachments;
-    GmailApp.sendEmail(opts.to, opts.subject, opts.body, gmailOptions);
-    result.ok = true;
-    result.via = "GmailApp" + (gmailOptions.from ? " (" + gmailOptions.from + ")" : "");
-    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua GmailApp (Reply-To: " + replyTo + ")");
-    return result;
-  } catch (e2) {
-    errors.push("GmailApp: " + (e2 && e2.message ? e2.message : e2));
+  } catch (eMail) {
+    errors.push("MailApp: " + (eMail && eMail.message ? eMail.message : eMail));
   }
 
   result.error = errors.join(" | ");
@@ -1459,7 +1607,7 @@ function resendMailForRow(rowNumber) {
   }
   const row = sheet.getRange(rowNumber, 1, 1, 14).getValues()[0];
   const checkStatus = String(row[10] || "").trim();
-  if (checkStatus !== "HỢP LỆ") {
+  if (checkStatus !== "HỢP LỆ" && checkStatus !== "TỰ ĐỘNG DUYỆT") {
     return { success: false, message: "Dòng " + rowNumber + " không ở trạng thái HỢP LỆ (hiện tại: '" + checkStatus + "')." };
   }
   const senderEmail = String(row[1] || "").trim().toLowerCase();
@@ -1501,7 +1649,7 @@ function resendFailedMails() {
   for (let i = 0; i < values.length; i++) {
     const checkStatus = String(values[i][10] || "").trim();
     const mailStatus = String(values[i][11] || "").trim();
-    if (checkStatus !== "HỢP LỆ" || mailStatus.indexOf("LỖI") !== 0) continue;
+    if ((checkStatus !== "HỢP LỆ" && checkStatus !== "TỰ ĐỘNG DUYỆT") || mailStatus.indexOf("LỖI") !== 0) continue;
 
     const rowNumber = i + 2;
     const res = resendMailForRow(rowNumber);
@@ -1740,7 +1888,7 @@ function handleDirectSubmissionToFormSheet(data) {
   // Nếu có sẵn ảnh E-Card Base64 gửi kèm thì lưu Drive và bắn mail ngay lập tức!
   if (data.cardImageBase64) {
     const checkStatus = String(sheet.getRange(rowNumber, 11).getValue() || "").trim();
-    if (checkStatus === "HỢP LỆ") {
+    if (checkStatus === "HỢP LỆ" || checkStatus === "TỰ ĐỘNG DUYỆT") {
       const mailRes = handleCompleteEcardAndSendMail({
         rowNumber: rowNumber,
         cardImageBase64: data.cardImageBase64,
