@@ -926,6 +926,25 @@ function doGet(e) {
       }, callback);
     }
 
+    if (action === "send_test_mail") {
+      const targetEmail = String(params.to || "tungdt101@fpt.com").trim().toLowerCase();
+      const senderEmail = String(params.cc || "nhanlh10@fpt.com").trim().toLowerCase();
+      sendGratitudeNotificationEmail({
+        recipientEmail: targetEmail,
+        recipientName: params.recipientName || "Đặng Thanh Tùng",
+        recipientDept: params.recipientDept || "Trung tâm Đào tạo FTEL (FTC)",
+        recipientRole: params.recipientRole || "Người dẫn dắt – Người truyền cảm hứng",
+        senderEmail: senderEmail,
+        senderName: params.senderName || "Lê Hoàng Nhân",
+        senderDept: params.senderDept || "Trung tâm Đào tạo FTEL (FTC)",
+        message: params.message || "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
+      });
+      return createJsonResponse({
+        success: true,
+        message: "Đã gửi email thử nghiệm tới " + targetEmail
+      }, callback);
+    }
+
     return createJsonResponse({
       success: true,
       message: "FTEL 20/11 Google Form & Live Dashboard API is active."
@@ -948,6 +967,11 @@ function doPost(e) {
     }
   } else {
     payload = (e && e.parameter) || {};
+  }
+  if (payload && typeof payload.payload === "string") {
+    try {
+      payload = JSON.parse(payload.payload);
+    } catch (parseErr) {}
   }
 
   const action = payload.action || "sync_form_rows";
