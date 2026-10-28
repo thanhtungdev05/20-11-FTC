@@ -1185,33 +1185,70 @@ function loadHrDirectoryMap(ss) {
 
   // Tự động nhận diện vị trí cột Email, Họ và tên, Đơn vị, Ảnh đại diện trên Sheet gid=1084168011
   let emailCol = -1;
+  let accountCol = -1;
   let nameCol = -1;
   let deptCol = -1;
   let avatarCol = -1;
+  const ignoredCols = {};
 
   for (let c = 0; c < headers.length; c++) {
     const h = headers[c];
-    if (emailCol === -1 && (h.indexOf("email") !== -1 || h.indexOf("mail") !== -1 || h.indexOf("account") !== -1 || h.indexOf("tài khoản") !== -1)) {
-      emailCol = c;
-    } else if (nameCol === -1 && (h.indexOf("họ và tên") !== -1 || h.indexOf("họ tên") !== -1 || h.indexOf("tên") !== -1 || h.indexOf("name") !== -1 || h.indexOf("nhân sự") !== -1 || h.indexOf("cbnv") !== -1)) {
-      nameCol = c;
-    } else if (deptCol === -1 && (h.indexOf("đơn vị") !== -1 || h.indexOf("phòng ban") !== -1 || h.indexOf("bộ phận") !== -1 || h.indexOf("chi nhánh") !== -1 || h.indexOf("trung tâm") !== -1 || h.indexOf("khối") !== -1 || h.indexOf("ban") !== -1 || h.indexOf("vùng") !== -1 || h.indexOf("dept") !== -1 || h.indexOf("unit") !== -1)) {
+    if (!h) continue;
+    if (h === "stt" || h === "no" || h === "id" || h.indexOf("mã ") !== -1 || h.indexOf("mã") === 0 || h.indexOf("msnv") !== -1) {
+      ignoredCols[c] = true;
+      continue;
+    }
+    if (deptCol === -1 && (h.indexOf("đơn vị") !== -1 || h.indexOf("phòng ban") !== -1 || h.indexOf("bộ phận") !== -1 || h.indexOf("chi nhánh") !== -1 || h.indexOf("trung tâm") !== -1 || h.indexOf("khối") !== -1 || h.indexOf("ban") !== -1 || h.indexOf("vùng") !== -1 || h.indexOf("miền") !== -1 || h.indexOf("dept") !== -1 || h.indexOf("unit") !== -1)) {
       deptCol = c;
+    } else if (emailCol === -1 && (h.indexOf("email") !== -1 || h.indexOf("mail") !== -1)) {
+      emailCol = c;
+    } else if (accountCol === -1 && (h.indexOf("account") !== -1 || h.indexOf("tài khoản") !== -1 || h.indexOf("user") !== -1)) {
+      accountCol = c;
+    } else if (nameCol === -1 && (h.indexOf("họ và tên") !== -1 || h.indexOf("họ tên") !== -1 || h.indexOf("full name") !== -1 || h.indexOf("fullname") !== -1 || h.indexOf("tên nhân viên") !== -1 || h.indexOf("tên nhân sự") !== -1 || h.indexOf("tên cbnv") !== -1 || h === "tên" || h === "name" || h === "nhân sự" || h === "cbnv")) {
+      nameCol = c;
     } else if (avatarCol === -1 && (h.indexOf("ảnh") !== -1 || h.indexOf("avatar") !== -1 || h.indexOf("hình") !== -1)) {
       avatarCol = c;
     }
   }
 
-  // Nếu tiêu đề cột không rõ, tự động quét dòng dữ liệu đầu tiên để tìm cột chứa "@"
-  if (emailCol === -1 && data.length > 1) {
-    for (let r = 1; r < Math.min(data.length, 6); r++) {
+  if (emailCol === -1 && accountCol !== -1) {
+    emailCol = accountCol;
+  }
+
+  // Quét dòng dữ liệu mẫu để xác nhận chính xác cột chứa "@" (Email) và cột chứa Họ tên
+  const sampleLimit = Math.min(data.length, 30);
+  if (data.length > 1) {
+    for (let r = 1; r < sampleLimit; r++) {
       for (let c = 0; c < data[r].length; c++) {
         if (String(data[r][c] || "").indexOf("@") !== -1) {
           emailCol = c;
           break;
         }
       }
-      if (emailCol !== -1) break;
+      if (emailCol !== -1 && String(data[1][emailCol] || "").indexOf("@") !== -1) break;
+    }
+
+    if (nameCol === -1 || nameCol === emailCol || nameCol === deptCol || ignoredCols[nameCol]) {
+      let bestCol = -1;
+      let bestScore = -1;
+      const numCols = data[0].length;
+      for (let c = 0; c < numCols; c++) {
+        if (c === emailCol || c === deptCol || c === accountCol || ignoredCols[c]) continue;
+        let score = 0;
+        for (let r = 1; r < sampleLimit; r++) {
+          const v = String(data[r][c] || "").trim();
+          if (v && v.indexOf("@") === -1 && !/^\d+$/.test(v)) {
+            score += v.indexOf(" ") !== -1 ? 3 : 1;
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestCol = c;
+        }
+      }
+      if (bestCol !== -1 && bestScore > 0) {
+        nameCol = bestCol;
+      }
     }
   }
 

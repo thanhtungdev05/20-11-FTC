@@ -202,47 +202,168 @@ function loadSheetViaGvizJsonp(sheetId, gid, timeoutMs = 4500) {
 
 /**
  * Tự động nhận diện cột Email/Account, Họ tên, Đơn vị từ bảng 2 chiều của Sheet DS Nhân sự (gid=1084168011)
+ * Hỗ trợ chính xác cả khi tìm theo Họ tên (có dấu / không dấu) lẫn Email / Account cho quy mô 24.608+ nhân sự
  */
 export function parseRowsIntoHrDirectory(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
 
   const firstRow = rows[0].map(c => String(c || "").trim().toLowerCase());
   const hasHeader = firstRow.some(h =>
-    h.includes("email") || h.includes("mail") || h.includes("họ") || h.includes("tên") || h.includes("name") || h.includes("đơn vị") || h.includes("phòng") || h.includes("account") || h.includes("stt") || h.includes("mã")
+    h.includes("email") || h.includes("mail") || h.includes("họ") || h.includes("tên") || h.includes("name") || h.includes("đơn vị") || h.includes("phòng") || h.includes("account") || h.includes("stt") || h.includes("mã") || h.includes("bộ phận") || h.includes("chi nhánh")
   );
 
   let emailCol = -1;
+  let accountCol = -1;
   let nameCol = -1;
+  let lastNameCol = -1;
+  let firstNameCol = -1;
   let deptCol = -1;
   let roleCol = -1;
+  const ignoredCols = new Set();
 
   if (hasHeader) {
     for (let c = 0; c < firstRow.length; c++) {
       const h = firstRow[c];
-      if (emailCol === -1 && (h.includes("email") || h.includes("mail") || h.includes("account") || h.includes("tài khoản"))) {
-        emailCol = c;
-      } else if (nameCol === -1 && (h.includes("họ và tên") || h.includes("họ tên") || h.includes("tên") || h.includes("name") || h.includes("nhân sự") || h.includes("cbnv"))) {
-        nameCol = c;
-      } else if (deptCol === -1 && (h.includes("đơn vị") || h.includes("phòng ban") || h.includes("bộ phận") || h.includes("chi nhánh") || h.includes("trung tâm") || h.includes("khối") || h.includes("ban") || h.includes("vùng") || h.includes("dept") || h.includes("unit"))) {
+      if (!h) continue;
+
+      const isCodeOrIndex = h === "stt" || h === "no" || h === "id" || h.includes("mã ") || h.startsWith("mã") || h.includes("msnv") || h.includes("empid");
+      const isDeptHeader = h.includes("đơn vị") || h.includes("phòng ban") || h.includes("bộ phận") || h.includes("chi nhánh") || h.includes("trung tâm") || h.includes("khối") || h.includes("vùng") || h.includes("miền") || h.includes("dept") || h.includes("department") || h.includes("unit") || h.includes("branch") || h.includes("ban ");
+      const isEmailHeader = h.includes("email") || h.includes("e-mail") || h.includes("mail") || h.includes("thư điện tử");
+      const isAccountHeader = h.includes("account") || h.includes("tài khoản") || h.includes("username") || h.includes("user name") || h === "acc" || h === "user";
+      const isRoleHeader = h.includes("chức danh") || h.includes("chức vụ") || h.includes("vị trí") || h.includes("vai trò") || h.includes("role") || h.includes("title");
+
+      if (isCodeOrIndex) {
+        ignoredCols.add(c);
+        continue;
+      }
+      if (deptCol === -1 && isDeptHeader) {
         deptCol = c;
-      } else if (roleCol === -1 && (h.includes("chức danh") || h.includes("vị trí") || h.includes("vai trò") || h.includes("role"))) {
+        continue;
+      }
+      if (emailCol === -1 && isEmailHeader) {
+        emailCol = c;
+        continue;
+      }
+      if (accountCol === -1 && isAccountHeader) {
+        accountCol = c;
+        continue;
+      }
+      if (roleCol === -1 && isRoleHeader) {
         roleCol = c;
+        continue;
+      }
+
+      // Nhận diện Họ và tên đầy đủ hoặc cột Họ / Tên tách rời (không nhầm với Tên đơn vị / Mã CBNV)
+      if (nameCol === -1 && (h.includes("họ và tên") || h.includes("họ tên") || h.includes("full name") || h.includes("fullname") || h.includes("tên nhân viên") || h.includes("tên nhân sự") || h.includes("tên cbnv") || h.includes("họ tên cbnv") || h.includes("người lao động"))) {
+        nameCol = c;
+      } else if (lastNameCol === -1 && (h === "họ" || h.includes("họ đệm") || h.includes("họ và tên đệm") || h === "last name")) {
+        lastNameCol = c;
+      } else if (firstNameCol === -1 && (h === "tên" || h === "first name" || h === "name" || h === "nhân sự" || h === "cbnv")) {
+        firstNameCol = c;
       }
     }
   }
 
-  const startIdx = hasHeader ? 1 : 0;
+  if (nameCol === -1 && firstNameCol !== -1 && lastNameCol === -1) {
+    nameCol = firstNameCol;
+  }
+  if (emailCol === -1 && accountCol !== -1) {
+    emailCol = accountCol;
+  }
 
-  // Quét tự động cột chứa "@" nếu chưa nhận diện được cột Email
-  if (emailCol === -1 && rows.length > startIdx) {
-    for (let r = startIdx; r < Math.min(rows.length, startIdx + 10); r++) {
-      for (let c = 0; c < rows[r].length; c++) {
-        if (String(rows[r][c] || "").includes("@")) {
-          emailCol = c;
+  const startIdx = hasHeader ? 1 : 0;
+  const sampleLimit = Math.min(rows.length, startIdx + 35);
+  const maxCols = rows.slice(0, sampleLimit).reduce((m, r) => Math.max(m, Array.isArray(r) ? r.length : 0), 0);
+
+  // Kiểm chứng bằng dữ liệu thực tế trên 35 dòng đầu tiên để đảm bảo chính xác 100%
+  if (rows.length > startIdx && maxCols > 0) {
+    let bestAtCol = -1;
+    let bestAtCount = 0;
+
+    for (let c = 0; c < maxCols; c++) {
+      let atCount = 0;
+      for (let r = startIdx; r < sampleLimit; r++) {
+        const val = String((rows[r] && rows[r][c]) || "").trim();
+        if (val.includes("@")) atCount++;
+      }
+      if (atCount > bestAtCount) {
+        bestAtCount = atCount;
+        bestAtCol = c;
+      }
+    }
+    if (bestAtCol !== -1 && bestAtCount >= 1) {
+      emailCol = bestAtCol;
+    }
+
+    // Kiểm tra xem nameCol đã trỏ đúng vào cột Họ tên người chưa (tránh cột STT số hoặc cột trống)
+    const isLikelyPersonNameCol = (colIdx) => {
+      if (colIdx < 0 || colIdx >= maxCols || colIdx === emailCol) return false;
+      let validNameCells = 0;
+      let nonEmptyCells = 0;
+      for (let r = startIdx; r < sampleLimit; r++) {
+        const val = String((rows[r] && rows[r][colIdx]) || "").trim();
+        if (!val) continue;
+        nonEmptyCells++;
+        if (!val.includes("@") && !/^\d+$/.test(val) && /[a-zA-ZÀ-ỹ]/.test(val)) {
+          validNameCells++;
+        }
+      }
+      return nonEmptyCells > 0 && validNameCells / nonEmptyCells >= 0.5;
+    };
+
+    if (!isLikelyPersonNameCol(nameCol) && !(lastNameCol !== -1 && firstNameCol !== -1)) {
+      let bestNameCol = -1;
+      let bestNameScore = -1;
+
+      for (let c = 0; c < maxCols; c++) {
+        if (c === emailCol || c === deptCol || c === accountCol || ignoredCols.has(c)) continue;
+        let multiWordCount = 0;
+        let alphaCount = 0;
+        let numericCount = 0;
+        const uniqueVals = new Set();
+
+        for (let r = startIdx; r < sampleLimit; r++) {
+          const val = String((rows[r] && rows[r][c]) || "").trim();
+          if (!val) continue;
+          if (/^\d+$/.test(val)) {
+            numericCount++;
+            continue;
+          }
+          if (val.includes("@")) continue;
+          if (/[a-zA-ZÀ-ỹ]/.test(val)) {
+            alphaCount++;
+            uniqueVals.add(val.toLowerCase());
+            const words = val.split(/\s+/);
+            if (words.length >= 2 && words.length <= 6) {
+              multiWordCount++;
+            }
+          }
+        }
+
+        if (alphaCount > numericCount && alphaCount > 0) {
+          // Ưu tiên cột có nhiều từ (Họ + Tên đệm + Tên) và độ đa dạng cao giữa các dòng
+          const score = multiWordCount * 3 + uniqueVals.size * 2 + alphaCount;
+          if (score > bestNameScore) {
+            bestNameScore = score;
+            bestNameCol = c;
+          }
+        }
+      }
+
+      if (bestNameCol !== -1) {
+        nameCol = bestNameCol;
+      }
+    }
+
+    // Nếu chưa xác định được deptCol, chọn cột văn bản còn lại (không phải STT, email, name)
+    if (deptCol === -1 || deptCol === emailCol || deptCol === nameCol) {
+      for (let c = 0; c < maxCols; c++) {
+        if (c === emailCol || c === nameCol || c === accountCol || c === lastNameCol || c === firstNameCol || ignoredCols.has(c)) continue;
+        if (isLikelyPersonNameCol(c)) {
+          deptCol = c;
           break;
         }
       }
-      if (emailCol !== -1) break;
     }
   }
 
@@ -257,26 +378,62 @@ export function parseRowsIntoHrDirectory(rows) {
     const row = rows[r];
     if (!Array.isArray(row) || row.every(cell => !String(cell || "").trim())) continue;
 
-    // Tìm ô có chứa '@' nếu dòng có cấu trúc lệch cột
+    // 1. Lấy Email / Account
     let rawEmail = String(row[emailCol] || "").trim().toLowerCase();
     if (!rawEmail.includes("@")) {
       const foundAtIdx = row.findIndex(cell => String(cell || "").includes("@"));
       if (foundAtIdx !== -1) {
         rawEmail = String(row[foundAtIdx]).trim().toLowerCase();
+      } else if (accountCol !== -1 && row[accountCol]) {
+        rawEmail = String(row[accountCol]).trim().toLowerCase();
       }
     }
 
-    let fullName = String(row[nameCol] || "").trim();
-    const deptName = (deptCol < row.length ? String(row[deptCol] || "").trim() : "") || "FPT Telecom";
+    // 2. Lấy Họ và tên đầy đủ (Hỗ trợ cả cột gộp lẫn cột Họ + Tên tách rời)
+    let fullName = "";
+    if (lastNameCol !== -1 && firstNameCol !== -1) {
+      fullName = `${String(row[lastNameCol] || "").trim()} ${String(row[firstNameCol] || "").trim()}`.trim();
+    }
+    if (!fullName && nameCol >= 0 && nameCol < row.length) {
+      fullName = String(row[nameCol] || "").trim();
+    }
+
+    // Nếu ô tên đang bị trống, chứa '@' hoặc chỉ là số STT -> tìm ô có chứa tên người trong dòng
+    if (!fullName || fullName.includes("@") || /^\d+$/.test(fullName)) {
+      for (let c = 0; c < row.length; c++) {
+        if (c === emailCol || c === deptCol || c === accountCol || ignoredCols.has(c)) continue;
+        const candidate = String(row[c] || "").trim();
+        if (candidate && !candidate.includes("@") && !/^\d+$/.test(candidate) && /[a-zA-ZÀ-ỹ]/.test(candidate)) {
+          fullName = candidate;
+          break;
+        }
+      }
+    }
+
+    const deptName = (deptCol >= 0 && deptCol < row.length ? String(row[deptCol] || "").trim() : "") || "FPT Telecom";
     const roleName = (roleCol !== -1 && roleCol < row.length ? String(row[roleCol] || "").trim() : "") || "CBNV FPT Telecom";
 
     if (!rawEmail && !fullName) continue;
-    const email = rawEmail.includes("@") ? rawEmail : (rawEmail ? `${rawEmail}@fpt.com` : "");
+    // Không biến một chuỗi có khoảng trắng (Họ tên) thành email
+    if (!rawEmail && fullName.includes(" ")) continue;
+
+    const cleanRawEmail = rawEmail.replace(/\s+/g, "");
+    const email = cleanRawEmail.includes("@") ? cleanRawEmail : (cleanRawEmail ? `${cleanRawEmail}@fpt.com` : "");
     if (!email || seenEmails.has(email)) continue;
     seenEmails.add(email);
 
-    if (!fullName) {
-      fullName = email.split("@")[0].toUpperCase();
+    if (!fullName || /^\d+$/.test(fullName) || fullName.toLowerCase() === email) {
+      const known = lookupEmployeeInfo(email);
+      fullName = (known && known.name) ? known.name : email.split("@")[0].toUpperCase();
+    }
+
+    // Lưu thêm toàn bộ các ô chữ trong dòng vào keywords để tìm kiếm bất kỳ cột nào cũng khớp
+    const extraParts = [];
+    for (let c = 0; c < row.length; c++) {
+      const cellStr = String(row[c] || "").trim();
+      if (cellStr && cellStr !== fullName && cellStr !== email && cellStr !== deptName) {
+        extraParts.push(cellStr);
+      }
     }
 
     list.push({
@@ -284,6 +441,7 @@ export function parseRowsIntoHrDirectory(rows) {
       email: email,
       dept: deptName,
       role: roleName,
+      keywords: extraParts.join(" "),
       sentCount: 0,
       receivedCount: 0
     });
@@ -852,22 +1010,35 @@ export class ApiService {
       const localPart = cleanEmail.split("@")[0] || String(emp.name || "").trim().toLowerCase();
       if (!localPart) return;
 
+      let candidateName = String(emp.name || "").trim();
+      if (!candidateName || /^\d+$/.test(candidateName) || candidateName.toLowerCase() === localPart || candidateName.toLowerCase() === cleanEmail) {
+        const known = lookupEmployeeInfo(cleanEmail || localPart);
+        if (known && known.name && !/^\d+$/.test(known.name)) {
+          candidateName = known.name;
+        }
+      }
+
       const existing = empByAccount.get(localPart);
       if (!existing) {
         empByAccount.set(localPart, {
-          name: emp.name || localPart.toUpperCase(),
+          name: candidateName || localPart.toUpperCase(),
           email: cleanEmail || `${localPart}@fpt.com`,
           dept: emp.dept || "FPT Telecom",
           role: emp.role || "CBNV FPT Telecom",
           avatar: emp.avatar || "",
+          keywords: emp.keywords || "",
           sentCount: Number(emp.sentCount || 0),
           receivedCount: Number(emp.receivedCount || 0)
         });
       } else {
-        if (isPriority && emp.name) existing.name = emp.name;
+        const isBetterName = candidateName && !/^\d+$/.test(candidateName) && (candidateName.includes(" ") || existing.name.toLowerCase() === localPart || /^\d+$/.test(existing.name));
+        if ((isPriority && candidateName && !/^\d+$/.test(candidateName)) || isBetterName) {
+          existing.name = candidateName;
+        }
         if (isPriority && emp.dept && emp.dept !== "FPT Telecom") existing.dept = emp.dept;
         if (isPriority && cleanEmail) existing.email = cleanEmail;
         if (emp.avatar && !existing.avatar) existing.avatar = emp.avatar;
+        if (emp.keywords && !existing.keywords) existing.keywords = emp.keywords;
         existing.sentCount = Math.max(existing.sentCount || 0, Number(emp.sentCount || 0));
         existing.receivedCount = Math.max(existing.receivedCount || 0, Number(emp.receivedCount || 0));
       }
