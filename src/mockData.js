@@ -160,6 +160,32 @@ export function cleanAndCorrectVietnameseText(text) {
   s = s.replace(/\n{3,}/g, "\n\n");
 
   const replacements = [
+    // 1. Cụm từ và ngữ cảnh dễ gõ sai phụ âm cuối / dấu hỏi ngã
+    [/\bchút mừng\b/gi, "chúc mừng"],
+    [/\bchút anh\b/gi, "chúc anh"],
+    [/\bchút chị\b/gi, "chúc chị"],
+    [/\bchút bạn\b/gi, "chúc bạn"],
+    [/\bchút thầy\b/gi, "chúc thầy"],
+    [/\bchút cô\b/gi, "chúc cô"],
+    [/\bchút em\b/gi, "chúc em"],
+    [/\bchút cbnv\b/gi, "chúc CBNV"],
+    [/\bngọn lữa\b/gi, "ngọn lửa"],
+    [/\btruyền lữa\b/gi, "truyền lửa"],
+    [/\bthắp lữa\b/gi, "thắp lửa"],
+    [/\bchia sẽ\b/gi, "chia sẻ"],
+    [/\bsẻ chia\b/gi, "sẻ chia"],
+    [/\bchi ân\b/gi, "tri ân"],
+    [/\bdồi giàu\b/gi, "dồi dào"],
+    [/\bdồi dào\b/gi, "dồi dào"],
+    [/\bnhiệt huyểt\b/gi, "nhiệt huyết"],
+    [/\bsức khoẻ\b/gi, "sức khỏe"],
+    [/\bthắp xáng\b/gi, "thắp sáng"],
+    [/\bgiản viên\b/gi, "giảng viên"],
+    [/\bđòng nghiệp\b/gi, "đồng nghiệp"],
+    [/\bchúc mưng\b/gi, "chúc mừng"],
+    [/\bchuc mung\b/gi, "chúc mừng"],
+
+    // 2. Viết tắt và telex thông dụng
     [/\bko\b/gi, "không"],
     [/\bkhg\b/gi, "không"],
     [/\bhok\b/gi, "không"],
@@ -191,10 +217,7 @@ export function cleanAndCorrectVietnameseText(text) {
     [/\bsk\b/gi, "sức khỏe"],
     [/\btc\b/gi, "thành công"],
     [/\bcam on\b/gi, "cảm ơn"],
-    [/\bcám ơn\b/gi, "cảm ơn"],
-    [/\btruyền lữa\b/gi, "truyền lửa"],
-    [/\bnhiệt huyểt\b/gi, "nhiệt huyết"],
-    [/\bsức khoẻ\b/gi, "sức khỏe"]
+    [/\bcám ơn\b/gi, "cảm ơn"]
   ];
 
   replacements.forEach(([regex, target]) => {

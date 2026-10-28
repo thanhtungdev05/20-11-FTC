@@ -51,7 +51,8 @@ const CONFIG = {
 
   // Tiêu đề email chính thức theo yêu cầu của BTC
   EMAIL_SUBJECT_SUCCESS: "MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN",
-  EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo lời cảm ơn bị trùng lặp"
+  EMAIL_SUBJECT_SENDER: "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
+  EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo: Mỗi tài khoản chỉ gửi 1 lần cho cùng một đồng nghiệp"
 };
 
 /**
@@ -146,8 +147,8 @@ function processAllUnprocessedRows() {
   const values = dataRange.getValues();
   const hrMap = loadHrDirectoryMap(ss);
 
-  // Tập hợp các bộ (senderEmail | recipientEmail | normalizedMsg) đã hợp lệ trước đó để check trùng
-  const seenTriplets = new Set();
+  // Tập hợp các cặp (senderEmail | recipientEmail) đã hợp lệ trước đó để check trùng (Mỗi người chỉ gửi 1 lần cho 1 đồng nghiệp)
+  const seenPairs = new Set();
   let processedCount = 0;
   const pendingRenderList = [];
 
@@ -165,7 +166,7 @@ function processAllUnprocessedRows() {
 
     const currentCheckStatus = String(row[10] || "").trim(); // Cột K: Trạng thái kiểm tra
     const currentMailStatus = String(row[11] || "").trim();  // Cột L: Trạng thái gửi Mail
-    const tripletKey = buildDuplicateKey(senderEmail, recipientEmail, rawMessage);
+    const pairKey = buildDuplicateKey(senderEmail, recipientEmail);
 
     const senderHr = lookupHrByEmail(hrMap, senderEmail) || {
       name: String(row[5] || "").trim() || fallbackNameFromEmail(senderEmail),
@@ -178,7 +179,7 @@ function processAllUnprocessedRows() {
 
     // Nếu dòng này đã được xử lý trước đó:
     if (currentCheckStatus === "HỢP LỆ") {
-      seenTriplets.add(tripletKey);
+      seenPairs.add(pairKey);
       // Tự động cập nhật bổ sung Họ tên & Đơn vị từ Sheet DS nhân sự (gid=1084168011) nếu dòng cũ chưa có tên chuẩn
       const existingSName = String(row[5] || "").trim();
       const existingRName = String(row[7] || "").trim();
@@ -216,8 +217,8 @@ function processAllUnprocessedRows() {
       continue;
     }
 
-    // Kiểm tra trùng 3 thông tin: Người gửi + Người nhận + Thông điệp
-    const isDuplicate = seenTriplets.has(tripletKey);
+    // Kiểm tra trùng: Mỗi tài khoản người gửi chỉ được gửi cho mỗi người nhận 1 lần duy nhất trong toàn chiến dịch
+    const isDuplicate = seenPairs.has(pairKey);
 
     if (isDuplicate) {
       const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
@@ -250,7 +251,7 @@ function processAllUnprocessedRows() {
     }
 
     // Dòng HỢP LỆ -> Ghi nhận vào tập đã thấy
-    seenTriplets.add(tripletKey);
+    seenPairs.add(pairKey);
 
     // Chỉnh sửa chính tả & chuẩn hóa câu chữ tiếng Việt
     const cleanedMessage = cleanAndCorrectVietnameseText(rawMessage);
@@ -397,8 +398,34 @@ function cleanAndCorrectVietnameseText(text) {
   s = s.replace(/([,.;!?])([^\s"”’)\]])/g, "$1 $2");
   s = s.replace(/\n{3,}/g, "\n\n");
 
-  // Sửa các từ viết tắt phổ biến và lỗi gõ phím hay gặp trong tiếng Việt (chỉ khớp nguyên từ)
+  // Sửa các từ viết tắt phổ biến và lỗi gõ phím hay gặp trong tiếng Việt (Cụm từ ghép và từ đồng âm sai ngữ cảnh)
   const replacements = [
+    // 1. Cụm từ và ngữ cảnh dễ gõ sai phụ âm cuối / dấu hỏi ngã
+    [/\bchút mừng\b/gi, "chúc mừng"],
+    [/\bchút anh\b/gi, "chúc anh"],
+    [/\bchút chị\b/gi, "chúc chị"],
+    [/\bchút bạn\b/gi, "chúc bạn"],
+    [/\bchút thầy\b/gi, "chúc thầy"],
+    [/\bchút cô\b/gi, "chúc cô"],
+    [/\bchút em\b/gi, "chúc em"],
+    [/\bchút cbnv\b/gi, "chúc CBNV"],
+    [/\bngọn lữa\b/gi, "ngọn lửa"],
+    [/\btruyền lữa\b/gi, "truyền lửa"],
+    [/\bthắp lữa\b/gi, "thắp lửa"],
+    [/\bchia sẽ\b/gi, "chia sẻ"],
+    [/\bsẻ chia\b/gi, "sẻ chia"],
+    [/\bchi ân\b/gi, "tri ân"],
+    [/\bdồi giàu\b/gi, "dồi dào"],
+    [/\bdồi dào\b/gi, "dồi dào"],
+    [/\bnhiệt huyểt\b/gi, "nhiệt huyết"],
+    [/\bsức khoẻ\b/gi, "sức khỏe"],
+    [/\bthắp xáng\b/gi, "thắp sáng"],
+    [/\bgiản viên\b/gi, "giảng viên"],
+    [/\bđòng nghiệp\b/gi, "đồng nghiệp"],
+    [/\bchúc mưng\b/gi, "chúc mừng"],
+    [/\bchuc mung\b/gi, "chúc mừng"],
+
+    // 2. Viết tắt và telex thông dụng
     [/\bko\b/gi, "không"],
     [/\bkhg\b/gi, "không"],
     [/\bhok\b/gi, "không"],
@@ -430,10 +457,7 @@ function cleanAndCorrectVietnameseText(text) {
     [/\bsk\b/gi, "sức khỏe"],
     [/\btc\b/gi, "thành công"],
     [/\bcam on\b/gi, "cảm ơn"],
-    [/\bcám ơn\b/gi, "cảm ơn"],
-    [/\btruyền lữa\b/gi, "truyền lửa"],
-    [/\bnhiệt huyểt\b/gi, "nhiệt huyết"],
-    [/\bsức khoẻ\b/gi, "sức khỏe"]
+    [/\bcám ơn\b/gi, "cảm ơn"]
   ];
 
   replacements.forEach(([regex, target]) => {
@@ -446,23 +470,25 @@ function cleanAndCorrectVietnameseText(text) {
     return p1 + p2.toUpperCase();
   });
 
-  // Tầng 2: Nếu BTC cấu hình GEMINI_API_KEY trong Script Properties thì gọi AI rà soát lỗi chính tả
+  // Tầng 2: Nếu BTC cấu hình GEMINI_API_KEY trong Script Properties thì gọi AI Gemini 1.5 Flash sửa chính tả theo ngữ cảnh toàn câu
   try {
     const geminiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
-    if (geminiKey && s.length >= 10) {
-      const aiFixed = callGeminiSpellCheck(s, geminiKey);
+    if (geminiKey && geminiKey.trim() && s.length >= 6) {
+      const aiFixed = callGeminiSpellCheck(s, geminiKey.trim());
       if (aiFixed && aiFixed.length >= s.length * 0.7) {
         return aiFixed;
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    Logger.log("Gemini Spell Check bypass error: " + e.toString());
+  }
 
   return s;
 }
 
 function callGeminiSpellCheck(text, apiKey) {
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
-  const prompt = "Hãy sửa lỗi chính tả tiếng Việt và lỗi gõ phím cho đoạn lời chúc 20/11 sau đây. QUY TẮC BẮT BUỘC: Giữ nguyên 100% văn phong, từ ngữ, cách xưng hô và cảm xúc của người viết, chỉ sửa từ sai chính tả hoặc viết tắt, chỉ trả về đúng nội dung đã sửa, không giải thích gì thêm:\n\n" + text;
+  const prompt = "Hãy đọc lời tri ân 20/11 sau đây và sửa tất cả các lỗi chính tả tiếng Việt, lỗi gõ Telex/VNI, từ đồng âm sai ngữ cảnh (ví dụ: 'chút mừng' -> 'chúc mừng', 'ngọn lữa' -> 'ngọn lửa', 'chia sẽ' -> 'chia sẻ', 'chi ân' -> 'tri ân', 'dồi giàu' -> 'dồi dào').\n\nQUY TẮC BẮT BUỘC:\n1. Giữ nguyên 100% văn phong, cách xưng hô, cảm xúc của người viết và các từ viết tắt nội bộ (FTC, FTEL, FPT, NOC, TIN, PNC, FTI...).\n2. Chỉ trả về duy nhất đoạn văn bản đã sửa hoàn chỉnh, KHÔNG viết thêm lời giải thích, KHÔNG đặt trong dấu ngoặc kép hay code block.\n\nVăn bản:\n" + text;
   const res = UrlFetchApp.fetch(url, {
     method: "post",
     contentType: "application/json",
@@ -474,8 +500,11 @@ function callGeminiSpellCheck(text, apiKey) {
   });
   if (res.getResponseCode() === 200) {
     const json = JSON.parse(res.getContentText());
-    const out = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (out) return out.trim().replace(/^["“]|["”]$/g, "");
+    let out = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (out) {
+      out = out.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim().replace(/^["“]|["”]$/g, "").trim();
+      if (out) return out;
+    }
   }
   return text;
 }
@@ -564,7 +593,7 @@ function getFullCampaignDashboardData() {
   }
 
   const values = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
-  const seenTriplets = new Set();
+  const seenPairs = new Set();
 
   let totalFlames = 0;
   const recipientSet = new Set();
@@ -590,10 +619,10 @@ function getFullCampaignDashboardData() {
     // Bỏ qua bản ghi bị đánh dấu TRÙNG LẶP
     if (checkStatus === "TRÙNG LẶP") return;
 
-    // Quy tắc dữ liệu: Mỗi bộ (người gửi, người nhận, thông điệp) chỉ tính 1 lần
-    const dupKey = buildDuplicateKey(senderEmail, recipientEmail, rawMessage);
-    if (seenTriplets.has(dupKey)) return;
-    seenTriplets.add(dupKey);
+    // Quy tắc dữ liệu: Mỗi cặp (người gửi, người nhận) chỉ tính 1 lần duy nhất trong toàn chiến dịch
+    const dupKey = buildDuplicateKey(senderEmail, recipientEmail);
+    if (seenPairs.has(dupKey)) return;
+    seenPairs.add(dupKey);
 
     const senderHr = lookupHrByEmail(hrMap, senderEmail) || {};
     const recipientHr = lookupHrByEmail(hrMap, recipientEmail) || {};
@@ -794,12 +823,10 @@ function getFullCampaignDashboardData() {
 
 /**
  * ==============================================================================
- * 5. GỬI EMAIL OUTLOOK (EMAIL KÈM THIỆP + CC NGƯỜI GỬI & EMAIL BÁO TRÙNG)
+ * 5. GỬI EMAIL OUTLOOK (GỬI ĐỘC LẬP TRỰC TIẾP CHO CẢ NGƯỜI NHẬN & NGƯỜI GỬI, NO CC)
  * ==============================================================================
  */
 function sendGratitudeNotificationEmail(params) {
-  // Tiêu đề chính thức theo yêu cầu: MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN
-  const subject = CONFIG.EMAIL_SUBJECT_SUCCESS;
   const googleFormUrl = CONFIG.GOOGLE_FORM_URL || "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform";
 
   const inlineImages = {};
@@ -820,99 +847,172 @@ function sendGratitudeNotificationEmail(params) {
     hasCardImage = true;
   }
 
-  const htmlBody = `
-    <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 660px; margin: 0 auto; background: #071226; color: #ffffff; border-radius: 18px; overflow: hidden; border: 2px solid #f37021; box-shadow: 0 12px 35px rgba(0,0,0,0.5);">
-      <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 24px 20px; text-align: center;">
-        <div style="color: #ffd700; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">
-          Trung tâm Đào tạo và Phát triển FPT Telecom (FTC)
+  // EMAIL 1: GỬI TRỰC TIẾP CHO NGƯỜI NHẬN (to: params.recipientEmail - KHÔNG DÙNG CC)
+  if (params.recipientEmail) {
+    const recipientHtmlBody = `
+      <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 660px; margin: 0 auto; background: #071226; color: #ffffff; border-radius: 18px; overflow: hidden; border: 2px solid #f37021; box-shadow: 0 12px 35px rgba(0,0,0,0.5);">
+        <div style="background: linear-gradient(135deg, #002d62 0%, #f37021 100%); padding: 24px 20px; text-align: center;">
+          <div style="color: #ffd700; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">
+            Trung tâm Đào tạo và Phát triển FPT Telecom (FTC)
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
+            &#128293; MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN &#128293;
+          </h1>
         </div>
-        <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
-          &#128293; MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN &#128293;
-        </h1>
-      </div>
 
-      <div style="padding: 28px 24px; line-height: 1.65; color: #e2e8f0;">
-        <p style="font-size: 17px; color: #ffffff; margin-top: 0;">
-          Kính gửi Anh/Chị <strong style="color: #ffd700;">${escapeHtml(params.recipientName)}</strong>,
-        </p>
-        <p style="font-size: 15px;">
-          Nhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch <strong>"Gửi lời cảm ơn – Thắp sáng tri thức"</strong>, Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp <strong style="color: #f37021;">${escapeHtml(params.senderName)}</strong> (${escapeHtml(params.senderDept || "FPT Telecom")}) với dấu ấn <em>"${escapeHtml(params.recipientRole)}"</em>:
-        </p>
+        <div style="padding: 28px 24px; line-height: 1.65; color: #e2e8f0;">
+          <p style="font-size: 17px; color: #ffffff; margin-top: 0;">
+            Kính gửi Anh/Chị <strong style="color: #ffd700;">${escapeHtml(params.recipientName)}</strong>,
+          </p>
+          <p style="font-size: 15px;">
+            Nhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch <strong>"Gửi lời cảm ơn – Thắp sáng tri thức"</strong>, Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp <strong style="color: #f37021;">${escapeHtml(params.senderName)}</strong> (${escapeHtml(params.senderDept || "FPT Telecom")}) với dấu ấn <em>"${escapeHtml(params.recipientRole)}"</em>:
+          </p>
 
-        ${hasCardImage ? `
-        <div style="text-align: center; margin: 24px 0;">
-          <img src="cid:tributeCard" alt="Thiệp Tri Ân 20/11" style="width: 100%; max-width: 540px; height: auto; border-radius: 14px; border: 1px solid rgba(255,215,0,0.5); box-shadow: 0 10px 30px rgba(0,0,0,0.6);" />
-        </div>
-        ` : `
-        <div style="background: rgba(255,255,255,0.06); border-left: 4px solid #ffd700; padding: 18px 20px; border-radius: 10px; margin: 20px 0; font-style: italic; font-size: 16px; color: #ffffff;">
-          "${escapeHtml(params.message)}"
-        </div>
-        `}
+          ${hasCardImage ? `
+          <div style="text-align: center; margin: 24px 0;">
+            <img src="cid:tributeCard" alt="Thiệp Tri Ân 20/11" style="width: 100%; max-width: 540px; height: auto; border-radius: 14px; border: 1px solid rgba(255,215,0,0.5); box-shadow: 0 10px 30px rgba(0,0,0,0.6);" />
+          </div>
+          ` : `
+          <div style="background: rgba(255,255,255,0.06); border-left: 4px solid #ffd700; padding: 18px 20px; border-radius: 10px; margin: 20px 0; font-style: italic; font-size: 16px; color: #ffffff;">
+            "${escapeHtml(params.message)}"
+          </div>
+          `}
 
-        ${params.driveFileUrl ? `
-        <div style="text-align: center; margin: 18px 0;">
-          <a href="${params.driveFileUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f37021, #ffd700); color: #080c18; font-weight: 800; text-decoration: none; border-radius: 10px; font-size: 14px;">
-            &#128229; Xem &amp; Tải Thiệp Độ Phân Giải Cao (Google Drive)
-          </a>
-        </div>
-        ` : ``}
+          ${params.driveFileUrl ? `
+          <div style="text-align: center; margin: 18px 0;">
+            <a href="${params.driveFileUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f37021, #ffd700); color: #080c18; font-weight: 800; text-decoration: none; border-radius: 10px; font-size: 14px;">
+              &#128229; Xem &amp; Tải Thiệp Độ Phân Giải Cao (Google Drive)
+            </a>
+          </div>
+          ` : ``}
 
-        <div style="text-align: center; margin: 28px 0 14px 0;">
-          <a href="${googleFormUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%); color: #ffffff; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 24px; font-size: 14px; box-shadow: 0 4px 15px rgba(243, 112, 33, 0.45);">
-            &#10022; [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN &#10140;
-          </a>
-          <p style="font-size: 12px; color: #94a3b8; margin: 8px 0 0 0;">
-            (Bấm vào nút trên để nhập và gửi tiếp lời chúc đáp lại hoặc gửi lời tri ân tới đồng nghiệp khác)
+          <div style="text-align: center; margin: 28px 0 14px 0;">
+            <a href="${googleFormUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%); color: #ffffff; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 24px; font-size: 14px; box-shadow: 0 4px 15px rgba(243, 112, 33, 0.45);">
+              &#10022; [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN &#10140;
+            </a>
+            <p style="font-size: 12px; color: #94a3b8; margin: 8px 0 0 0;">
+              (Bấm vào nút trên để gửi lời chúc đáp lại hoặc tiếp tục thắp lửa tri ân tới đồng nghiệp khác)
+            </p>
+          </div>
+
+          <p style="font-size: 14px; color: #cbd5e1; margin-top: 20px; text-align: center;">
+            Cảm ơn Anh/Chị vì đã luôn là ngọn lửa truyền cảm hứng, sẻ chia tri thức và đồng hành cùng đồng nghiệp trên hành trình phát triển tại FPT Telecom!
           </p>
         </div>
 
-        <p style="font-size: 14px; color: #cbd5e1; margin-top: 20px; text-align: center;">
-          Cảm ơn Anh/Chị vì đã luôn là ngọn lửa truyền cảm hứng, sẻ chia tri thức và đồng hành cùng đồng nghiệp trên hành trình phát triển tại FPT Telecom!
-        </p>
+        <div style="background: #040914; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
+          © 2026 Trung tâm Đào tạo và Phát triển FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11
+        </div>
       </div>
+    `;
 
-      <div style="background: #040914; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
-        © 2026 Trung tâm Đào tạo và Phát triển FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11
-      </div>
-    </div>
-  `;
+    const recMailOptions = {
+      to: params.recipientEmail,
+      subject: CONFIG.EMAIL_SUBJECT_SUCCESS,
+      htmlBody: recipientHtmlBody,
+      name: "FTC - Thắp Lửa Tri Ân 20/11"
+    };
+    if (Object.keys(inlineImages).length > 0) recMailOptions.inlineImages = inlineImages;
+    if (cardImageBlob) recMailOptions.attachments = [cardImageBlob];
 
-  const mailOptions = {
-    to: params.recipientEmail,
-    cc: params.senderEmail,
-    subject: subject,
-    htmlBody: htmlBody,
-    name: "FTC - Thắp Lửa Tri Ân 20/11"
-  };
-
-  if (Object.keys(inlineImages).length > 0) {
-    mailOptions.inlineImages = inlineImages;
-  }
-  if (cardImageBlob) {
-    mailOptions.attachments = [cardImageBlob];
+    MailApp.sendEmail(recMailOptions);
   }
 
-  MailApp.sendEmail(mailOptions);
+  // EMAIL 2: GỬI TRỰC TIẾP CHO NGƯỜI GỬI (to: params.senderEmail - KHÔNG DÙNG CC, BẬT THÔNG BÁO TING TING HỘP THƯ ĐẾN)
+  if (params.senderEmail && params.senderEmail !== params.recipientEmail) {
+    const senderHtmlBody = `
+      <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 660px; margin: 0 auto; background: #071226; color: #ffffff; border-radius: 18px; overflow: hidden; border: 2px solid #ffd700; box-shadow: 0 12px 35px rgba(0,0,0,0.5);">
+        <div style="background: linear-gradient(135deg, #002d62 0%, #1e3a8a 50%, #f37021 100%); padding: 24px 20px; text-align: center;">
+          <div style="color: #ffd700; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">
+            Trung tâm Đào tạo và Phát triển FPT Telecom (FTC)
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
+            &#128293; XÁC NHẬN THẮP SÁNG NGỌN LỬA TRI ÂN THÀNH CÔNG &#128293;
+          </h1>
+        </div>
+
+        <div style="padding: 28px 24px; line-height: 1.65; color: #e2e8f0;">
+          <p style="font-size: 17px; color: #ffffff; margin-top: 0;">
+            Kính gửi Anh/Chị <strong style="color: #ffd700;">${escapeHtml(params.senderName)}</strong>,
+          </p>
+          <p style="font-size: 15px;">
+            Hệ thống xác nhận Anh/Chị vừa thắp lên thành công một ngọn lửa tri ân ấm áp gửi tới đồng nghiệp <strong style="color: #f37021;">${escapeHtml(params.recipientName)}</strong> (${escapeHtml(params.recipientDept || "FPT Telecom")}) với dấu ấn <em>"${escapeHtml(params.recipientRole)}"</em>:
+          </p>
+
+          <div style="background: rgba(30, 58, 138, 0.35); border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: 14px; color: #bfdbfe;">
+            &#9989; Tấm thiệp Tri Ân dưới đây đã được chuyển phát thành công tới hộp thư Outlook của đồng nghiệp <strong>${escapeHtml(params.recipientName)}</strong> (<em>${escapeHtml(params.recipientEmail)}</em>).
+          </div>
+
+          ${hasCardImage ? `
+          <div style="text-align: center; margin: 24px 0;">
+            <img src="cid:tributeCard" alt="Thiệp Tri Ân 20/11" style="width: 100%; max-width: 540px; height: auto; border-radius: 14px; border: 1px solid rgba(255,215,0,0.5); box-shadow: 0 10px 30px rgba(0,0,0,0.6);" />
+          </div>
+          ` : `
+          <div style="background: rgba(255,255,255,0.06); border-left: 4px solid #ffd700; padding: 18px 20px; border-radius: 10px; margin: 20px 0; font-style: italic; font-size: 16px; color: #ffffff;">
+            "${escapeHtml(params.message)}"
+          </div>
+          `}
+
+          ${params.driveFileUrl ? `
+          <div style="text-align: center; margin: 18px 0;">
+            <a href="${params.driveFileUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f37021, #ffd700); color: #080c18; font-weight: 800; text-decoration: none; border-radius: 10px; font-size: 14px;">
+              &#128229; Xem &amp; Tải Thiệp Độ Phân Giải Cao (Google Drive)
+            </a>
+          </div>
+          ` : ``}
+
+          <div style="text-align: center; margin: 28px 0 14px 0;">
+            <a href="${googleFormUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%); color: #ffffff; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 24px; font-size: 14px; box-shadow: 0 4px 15px rgba(243, 112, 33, 0.45);">
+              &#10022; [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN &#10140;
+            </a>
+            <p style="font-size: 12px; color: #94a3b8; margin: 8px 0 0 0;">
+              (Bấm vào nút trên để tiếp tục thắp lửa tri ân cho những người thầy và đồng nghiệp khác nhé)
+            </p>
+          </div>
+
+          <p style="font-size: 14px; color: #cbd5e1; margin-top: 20px; text-align: center;">
+            Cảm ơn Anh/Chị đã lan tỏa năng lượng tích cực và sự tri ân trong đại gia đình FPT Telecom!
+          </p>
+        </div>
+
+        <div style="background: #040914; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
+          © 2026 Trung tâm Đào tạo và Phát triển FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11
+        </div>
+      </div>
+    `;
+
+    const senderMailOptions = {
+      to: params.senderEmail,
+      subject: CONFIG.EMAIL_SUBJECT_SENDER || "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
+      htmlBody: senderHtmlBody,
+      name: "FTC - Thắp Lửa Tri Ân 20/11"
+    };
+    if (Object.keys(inlineImages).length > 0) senderMailOptions.inlineImages = inlineImages;
+    if (cardImageBlob) senderMailOptions.attachments = [cardImageBlob];
+
+    MailApp.sendEmail(senderMailOptions);
+  }
 }
 
 /**
- * Gửi email thông báo cho Người gửi khi phát hiện gửi trùng 3 thông tin (Người gửi + Người nhận + Thông điệp)
+ * Gửi email thông báo cho Người gửi khi phát hiện gửi trùng (Mỗi tài khoản chỉ gửi 1 lần cho cùng 1 đồng nghiệp)
  */
 function sendDuplicateWarningEmail(params) {
   const googleFormUrl = CONFIG.GOOGLE_FORM_URL || "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform";
   const htmlBody = `
     <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f59e0b;">
       <div style="background: linear-gradient(135deg, #002d62 0%, #d97706 100%); padding: 20px; text-align: center;">
-        <h2 style="color: #ffffff; margin: 0; font-size: 18px;">THÔNG BÁO LỜI CẢM ƠN TRÙNG LẶP</h2>
+        <h2 style="color: #ffffff; margin: 0; font-size: 18px;">THÔNG BÁO: MỖI TÀI KHOẢN CHỈ GỬI 1 LẦN CHO CÙNG MỘT ĐỒNG NGHIỆP</h2>
       </div>
       <div style="padding: 24px; line-height: 1.6; color: #e2e8f0; font-size: 14px;">
         <p>Chào Anh/Chị <strong>${escapeHtml(params.senderName)}</strong>,</p>
-        <p>Hệ thống ghi nhận Anh/Chị vừa gửi một lời cảm ơn đến <strong>${escapeHtml(params.recipientName)} (${escapeHtml(params.recipientEmail)})</strong> với nội dung:</p>
+        <p>Hệ thống ghi nhận Anh/Chị vừa gửi thêm một lời tri ân đến đồng nghiệp <strong>${escapeHtml(params.recipientName)} (${escapeHtml(params.recipientEmail)})</strong> với nội dung:</p>
         <blockquote style="background: rgba(255,255,255,0.06); border-left: 3px solid #f59e0b; padding: 12px 16px; margin: 14px 0; font-style: italic;">
           "${escapeHtml(params.message)}"
         </blockquote>
-        <p>Nội dung này <strong>trùng khớp với một lời cảm ơn Anh/Chị đã gửi trước đó</strong> cho cùng người nhận. Để đảm bảo tính chính xác của dữ liệu chương trình, bản ghi trùng lặp này sẽ không được tính thêm một lần nữa.</p>
-        <p>Nếu Anh/Chị muốn gửi lời cảm ơn mới, vui lòng bấm vào nút dưới đây để chia sẻ một thông điệp khác hoặc gửi tới một đồng nghiệp khác nhé:</p>
+        <p>Theo thể lệ của Chiến dịch <strong>"Gửi lời cảm ơn – Thắp sáng tri thức" (FTEL 20/11)</strong>, nhằm đảm bảo sự trân trọng và tránh tình trạng gửi trùng lặp/spam, <strong>mỗi tài khoản chỉ được thắp một ngọn lửa tri ân duy nhất cho cùng một đồng nghiệp</strong> trong suốt chương trình.</p>
+        <p>Ngọn lửa tri ân đầu tiên của Anh/Chị dành cho <strong>${escapeHtml(params.recipientName)}</strong> đã được ghi nhận và chuyển phát thành công trước đó. Do đó, lượt gửi thêm này được hệ thống đánh dấu là <strong>TRÙNG LẶP</strong> và không tính thêm ngọn lửa mới.</p>
+        <p>Anh/Chị có thể bấm vào nút dưới đây để tiếp tục thắp sáng ngọn lửa tri ân cho những người thầy và đồng nghiệp khác nhé:</p>
         <div style="text-align: center; margin: 22px 0;">
           <a href="${googleFormUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%); color: #ffffff; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 24px; font-size: 14px;">
             &#10022; [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN &#10140;
@@ -1142,7 +1242,7 @@ function handleDirectSubmissionToFormSheet(data) {
       return {
         success: false,
         isDuplicate: true,
-        message: "Lời cảm ơn bị trùng lặp (cùng người gửi, người nhận và thông điệp). Hệ thống đã gửi email thông báo trùng lặp."
+        message: "Lời cảm ơn bị trùng lặp (theo thể lệ chương trình, mỗi tài khoản chỉ được gửi 1 lần cho cùng một đồng nghiệp). Hệ thống đã gửi email thông báo trùng lặp."
       };
     }
   }
@@ -1408,11 +1508,10 @@ function getOrCreateDriveFolder(folderName) {
   return DriveApp.createFolder(folderName);
 }
 
-function buildDuplicateKey(senderEmail, recipientEmail, message) {
+function buildDuplicateKey(senderEmail, recipientEmail) {
   const normSender = String(senderEmail || "").trim().toLowerCase();
   const normRec = String(recipientEmail || "").trim().toLowerCase();
-  const normMsg = String(message || "").trim().toLowerCase().replace(/\s+/g, " ");
-  return normSender + "|||" + normRec + "|||" + normMsg;
+  return normSender + "|||" + normRec;
 }
 
 function fallbackNameFromEmail(email) {

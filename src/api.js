@@ -516,27 +516,29 @@ export class ApiService {
   }
 
   /**
-   * Kiểm tra trùng 3 thông tin (Người gửi + Người nhận + Thông điệp)
+   * Kiểm tra trùng lặp: Mỗi tài khoản người gửi chỉ được gửi cho mỗi người nhận 1 lần duy nhất trong toàn chiến dịch
    */
-  static isDuplicateTriplet(senderEmail, recipientEmail, message) {
+  static isDuplicatePair(senderEmail, recipientEmail) {
     try {
       const s = String(senderEmail || "").trim().toLowerCase();
       const r = String(recipientEmail || "").trim().toLowerCase();
-      const m = String(message || "").trim().toLowerCase().replace(/\s+/g, " ");
       const existing = JSON.parse(localStorage.getItem(STORAGE_KEY_SUBMISSIONS) || "[]");
       return existing.some(item => {
         const isSameSender = String(item.senderEmail || "").trim().toLowerCase() === s;
         const isSameRec = String(item.recipientEmail || "").trim().toLowerCase() === r;
-        const isSameMsg = String(item.rawMessage || item.message || "").trim().toLowerCase().replace(/\s+/g, " ") === m;
-        return isSameSender && isSameRec && isSameMsg;
+        return isSameSender && isSameRec;
       });
     } catch (e) {
       return false;
     }
   }
 
+  static isDuplicateTriplet(senderEmail, recipientEmail, message) {
+    return this.isDuplicatePair(senderEmail, recipientEmail);
+  }
+
   /**
-   * Gửi lời tri ân (kèm kiểm tra trùng 3 thông tin & chuẩn hóa chính tả tự động)
+   * Gửi lời tri ân (kèm kiểm tra trùng theo cặp người gửi - người nhận & chuẩn hóa chính tả tự động)
    */
   static async submitGratitude(payload) {
     // 1. Client-side Domain Validation
@@ -558,9 +560,9 @@ export class ApiService {
       throw new Error("Bạn không thể tự gửi lời cảm ơn cho chính mình!");
     }
 
-    // 2. Kiểm tra trùng lặp 3 thông tin: Người gửi + Người nhận + Thông điệp
-    if (this.isDuplicateTriplet(senderEmail, recipientEmail, rawMessage)) {
-      throw new Error("Phát hiện trùng lặp: Bạn đã gửi lời cảm ơn với cùng nội dung này cho người nhận trước đó!");
+    // 2. Kiểm tra trùng: Mỗi tài khoản chỉ được gửi cho 1 đồng nghiệp 1 lần duy nhất để tránh spam
+    if (this.isDuplicatePair(senderEmail, recipientEmail)) {
+      throw new Error("Phát hiện trùng lặp: Bạn đã gửi lời tri ân đến đồng nghiệp này rồi. Theo thể lệ chương trình, mỗi người chỉ gửi 1 lần cho cùng một đồng nghiệp để tránh spam!");
     }
 
     // 3. Tự động điền thêm thông tin từ DS nhân sự & chuẩn hóa chính tả
