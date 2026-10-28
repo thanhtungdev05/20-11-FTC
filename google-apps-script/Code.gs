@@ -52,7 +52,16 @@ const CONFIG = {
   // Tiêu đề email chính thức theo yêu cầu của BTC
   EMAIL_SUBJECT_SUCCESS: "MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN",
   EMAIL_SUBJECT_SENDER: "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
-  EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo: Mỗi tài khoản chỉ gửi 1 lần cho cùng một đồng nghiệp"
+  EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo: Mỗi tài khoản chỉ gửi 1 lần cho cùng một đồng nghiệp",
+
+  // Cấu hình nội dung email (chế độ "nhẹ" giúp Outlook/Exchange FPT ít chặn hơn)
+  // - EMAIL_EMBED_CARD_IMAGE: hiển thị ảnh thiệp ngay trong thân email
+  // - EMAIL_ATTACH_CARD_FILE: đính kèm thêm file ảnh thiệp (tắt mặc định để mail nhẹ, chỉ giữ link Drive)
+  EMAIL_EMBED_CARD_IMAGE: true,
+  EMAIL_ATTACH_CARD_FILE: false,
+
+  // Tên Script Property lưu ID file phôi thiệp trên Google Drive (tự động tạo ở lần tải đầu tiên)
+  CARD_TEMPLATE_PROP_KEY: "CARD_TEMPLATE_FILE_ID"
 };
 
 /**
@@ -112,17 +121,22 @@ function onOpen() {
       .addItem("1. Khởi tạo cột & Trigger tự động", "setupSystemAndTriggers")
       .addItem("2. Quét & Xử lý các dòng mới từ Google Form", "processAllUnprocessedRows")
       .addItem("3. Gửi thử nghiệm 1 Email về Outlook TungDT101@fpt.com", "testSendMailToTungDT")
+      .addSeparator()
+      .addItem("4. Chẩn đoán hệ thống gửi mail", "menuDiagnoseMailSystem")
+      .addItem("5. Gửi lại tất cả mail bị LỖI", "menuResendFailedMails")
+      .addItem("6. Gửi lại mail cho 1 dòng cụ thể", "menuResendMailForRow")
       .addToUi();
   } catch (e) {}
 }
 
 /**
  * Hàm kiểm tra nhanh: Bấm Chạy để gửi 1 email thử nghiệm trực tiếp về hộp thư Outlook của bạn
+ * (Trả về KẾT QUẢ THẬT: thành công / lỗi cụ thể, không còn báo "thành công" giả)
  */
 function testSendMailToTungDT() {
   const activeUser = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
   Logger.log("Đang gửi email thử nghiệm từ tài khoản Google: " + activeUser);
-  sendGratitudeNotificationEmail({
+  const res = sendGratitudeNotificationEmail({
     recipientEmail: "tungdt101@fpt.com",
     recipientName: "Đặng Thanh Tùng",
     recipientDept: "Trung tâm Đào tạo FTEL (FTC)",
@@ -132,7 +146,77 @@ function testSendMailToTungDT() {
     senderDept: "Trung tâm Đào tạo FTEL (FTC)",
     message: "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
   });
-  Logger.log("✅ Đã kích hoạt lệnh gửi mail thành công tới tungdt101@fpt.com từ tài khoản Google: " + activeUser + "! Vui lòng kiểm tra Hộp thư đến (Inbox), thẻ 'Other' (Khác) hoặc thư mục 'Junk Email' trong Outlook.");
+  const summary = res.ok
+    ? "✅ Google ĐÃ GỬI mail đi thành công từ tài khoản: " + activeUser +
+      "\n\nNếu Outlook vẫn không thấy thư: hãy kiểm tra thẻ 'Khác' (Other), 'Thư rác' (Junk) và khu cách ly https://security.microsoft.com/quarantine. Nếu vẫn không có → hệ thống mail FPT đang chặn thư từ Google, cần nhờ IT cho phép địa chỉ gửi."
+    : "❌ GỬI MAIL THẤT BẠI từ tài khoản: " + activeUser + "\n\nLý do: " + buildMailStatusText(res);
+  Logger.log(summary + "\nHạn mức mail còn lại hôm nay: " + res.quotaRemaining);
+  showAdminAlert("Kết quả gửi mail thử nghiệm", summary + "\n\nHạn mức mail còn lại hôm nay: " + res.quotaRemaining);
+  return res;
+}
+
+/**
+ * Hiển thị hộp thoại trên Google Sheet (bỏ qua nếu chạy từ trình soạn thảo / Web App)
+ */
+function showAdminAlert(title, message) {
+  try {
+    SpreadsheetApp.getUi().alert(title, message, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {}
+}
+
+/**
+ * Menu 4: Chẩn đoán hệ thống gửi mail
+ */
+function menuDiagnoseMailSystem() {
+  const info = diagnoseMailSystem();
+  const lines = [
+    "Tài khoản gửi mail: " + info.effectiveUser,
+    "Loại tài khoản: " + info.accountType,
+    "Hạn mức mail còn lại hôm nay: " + info.remainingDailyQuota,
+    "Quyền truy cập: " + info.authorizationStatus,
+    "Trigger tự động Google Form: " + (info.formSubmitTriggerInstalled ? "ĐÃ CÀI" : "CHƯA CÀI"),
+    "Phôi thiệp lưu trên Drive: " + (info.cardTemplateFileId ? "CÓ" : "CHƯA (sẽ tự tạo ở lần gửi đầu)")
+  ];
+  if (info.warnings.length) {
+    lines.push("", "⚠️ CẢNH BÁO:");
+    info.warnings.forEach(w => lines.push("- " + w));
+  } else {
+    lines.push("", "✅ Không phát hiện lỗi phía Google Apps Script.");
+  }
+  Logger.log(lines.join("\n"));
+  showAdminAlert("Chẩn đoán hệ thống gửi mail", lines.join("\n"));
+  return info;
+}
+
+/**
+ * Menu 5: Gửi lại tất cả các dòng có trạng thái mail bị LỖI
+ */
+function menuResendFailedMails() {
+  const res = resendFailedMails();
+  const msg = "Đã thử gửi lại: " + res.attempted + " dòng\nThành công: " + res.succeeded + "\nVẫn lỗi: " + res.failed +
+    (res.details.length ? "\n\nChi tiết:\n" + res.details.slice(0, 15).join("\n") : "");
+  Logger.log(msg);
+  showAdminAlert("Gửi lại mail bị lỗi", msg);
+  return res;
+}
+
+/**
+ * Menu 6: Gửi lại mail cho 1 dòng cụ thể (dùng cho các dòng cũ bị ghi "ĐÃ GỬI MAIL" nhưng thực tế chưa nhận được)
+ */
+function menuResendMailForRow() {
+  let ui;
+  try {
+    ui = SpreadsheetApp.getUi();
+  } catch (e) {
+    Logger.log("Chỉ chạy được từ menu Google Sheet.");
+    return;
+  }
+  const answer = ui.prompt("Gửi lại mail cho 1 dòng", "Nhập số dòng trên Sheet câu trả lời (ví dụ: 3):", ui.ButtonSet.OK_CANCEL);
+  if (answer.getSelectedButton() !== ui.Button.OK) return;
+  const rowNumber = Number(String(answer.getResponseText() || "").trim());
+  const res = resendMailForRow(rowNumber);
+  ui.alert("Kết quả gửi lại mail dòng " + rowNumber, res.message, ui.ButtonSet.OK);
+  return res;
 }
 
 /**
@@ -215,25 +299,22 @@ function processAllUnprocessedRows() {
         ]]);
       }
 
-      // Tự động kiểm tra: Nếu dòng hợp lệ này chưa gửi mail thì bắn mail trực tiếp ngay
-      if (currentMailStatus !== "ĐÃ GỬI MAIL") {
-        try {
-          sendGratitudeNotificationEmail({
-            recipientEmail: recipientEmail,
-            recipientName: recipientHr.name || existingRName || fallbackNameFromEmail(recipientEmail),
-            recipientDept: recipientHr.dept || String(row[8] || "FPT Telecom"),
-            senderEmail: senderEmail,
-            senderName: senderHr.name || existingSName || fallbackNameFromEmail(senderEmail),
-            senderDept: senderHr.dept || String(row[6] || "FPT Telecom"),
-            recipientRole: recipientRole,
-            message: String(row[9] || rawMessage),
-            cardBlob: null,
-            driveFileUrl: String(row[12] || "")
-          });
-          sheet.getRange(rowNumber, 12).setValue("ĐÃ GỬI MAIL");
-        } catch (eMail) {
-          Logger.log("Lỗi gửi mail dòng " + rowNumber + ": " + eMail.toString());
-        }
+      // Tự động gửi mail cho dòng hợp lệ CHƯA TỪNG GỬI (trống / chờ xuất thiệp).
+      // Các dòng "LỖI MAIL" KHÔNG tự gửi lại mỗi lần mở Dashboard (tránh đốt hạn mức) → dùng menu "5. Gửi lại tất cả mail bị LỖI".
+      if (currentMailStatus === "" || currentMailStatus === "CHỜ XUẤT THIỆP") {
+        const mailRes = sendGratitudeNotificationEmail({
+          recipientEmail: recipientEmail,
+          recipientName: recipientHr.name || existingRName || fallbackNameFromEmail(recipientEmail),
+          recipientDept: recipientHr.dept || String(row[8] || "FPT Telecom"),
+          senderEmail: senderEmail,
+          senderName: senderHr.name || existingSName || fallbackNameFromEmail(senderEmail),
+          senderDept: senderHr.dept || String(row[6] || "FPT Telecom"),
+          recipientRole: recipientRole,
+          message: String(row[9] || rawMessage),
+          cardBlob: null,
+          driveFileUrl: String(row[12] || "")
+        });
+        sheet.getRange(rowNumber, 12).setValue(buildMailStatusText(mailRes));
       }
 
       // Nếu chưa có ảnh thiệp Drive thì đưa vào danh sách chờ Web Canvas xuất thiệp
@@ -264,18 +345,16 @@ function processAllUnprocessedRows() {
 
     if (isDuplicate) {
       const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
-      let dupMailStatus = "ĐÃ BÁO TRÙNG";
-      try {
-        sendDuplicateWarningEmail({
-          senderEmail: senderEmail,
-          senderName: senderHr.name,
-          recipientName: recipientHr.name,
-          recipientEmail: recipientEmail,
-          message: rawMessage
-        });
-      } catch (mailErr) {
-        dupMailStatus = "LỖI GỬI BÁO TRÙNG: " + mailErr.message;
-      }
+      const dupRes = sendDuplicateWarningEmail({
+        senderEmail: senderEmail,
+        senderName: senderHr.name,
+        recipientName: recipientHr.name,
+        recipientEmail: recipientEmail,
+        message: rawMessage
+      });
+      const dupMailStatus = dupRes.ok
+        ? "ĐÃ BÁO TRÙNG"
+        : "LỖI GỬI BÁO TRÙNG: " + truncateText(dupRes.error, 250);
 
       sheet.getRange(rowNumber, 6, 1, 9).setValues([[
         senderHr.name,
@@ -300,23 +379,20 @@ function processAllUnprocessedRows() {
     const submissionId = "FTEL-" + Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "yyyyMMdd-HHmmss") + "-R" + rowNumber;
 
     // TỰ ĐỘNG GỬI EMAIL NGAY LẬP TỨC CHO CẢ NGƯỜI NHẬN & NGƯỜI GỬI (ĐỘC LẬP TO:, KHÔNG CẦN CHỜ WEB)
-    let mailStatus = "ĐÃ GỬI MAIL";
-    try {
-      sendGratitudeNotificationEmail({
-        recipientEmail: recipientEmail,
-        recipientName: recipientHr.name,
-        recipientDept: recipientHr.dept,
-        senderEmail: senderEmail,
-        senderName: senderHr.name,
-        senderDept: senderHr.dept,
-        recipientRole: recipientRole,
-        message: cleanedMessage,
-        cardBlob: null,
-        driveFileUrl: ""
-      });
-    } catch (mailErr) {
-      mailStatus = "LỖI MAIL: " + mailErr.message;
-    }
+    // Ghi TRẠNG THÁI THẬT vào cột L (ĐÃ GỬI MAIL / LỖI MAIL: lý do cụ thể)
+    const mailRes = sendGratitudeNotificationEmail({
+      recipientEmail: recipientEmail,
+      recipientName: recipientHr.name,
+      recipientDept: recipientHr.dept,
+      senderEmail: senderEmail,
+      senderName: senderHr.name,
+      senderDept: senderHr.dept,
+      recipientRole: recipientRole,
+      message: cleanedMessage,
+      cardBlob: null,
+      driveFileUrl: ""
+    });
+    const mailStatus = buildMailStatusText(mailRes);
 
     // Ghi thông tin HR + chính tả vào cột F -> N
     sheet.getRange(rowNumber, 6, 1, 9).setValues([[
@@ -413,24 +489,20 @@ function handleCompleteEcardAndSendMail(payload) {
   const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
 
   if (mailStatus !== "ĐÃ GỬI MAIL") {
-    try {
-      sendGratitudeNotificationEmail({
-        recipientEmail: recipientEmail,
-        recipientName: recipientName,
-        recipientDept: recipientDept,
-        senderEmail: senderEmail,
-        senderName: senderName,
-        senderDept: senderDept,
-        recipientRole: recipientRole,
-        message: message,
-        cardImageBase64: cardImageBase64,
-        cardBlob: cardBlob,
-        driveFileUrl: driveFileUrl
-      });
-      mailStatus = "ĐÃ GỬI MAIL";
-    } catch (mailErr) {
-      mailStatus = "LỖI MAIL: " + mailErr.message;
-    }
+    const mailRes = sendGratitudeNotificationEmail({
+      recipientEmail: recipientEmail,
+      recipientName: recipientName,
+      recipientDept: recipientDept,
+      senderEmail: senderEmail,
+      senderName: senderName,
+      senderDept: senderDept,
+      recipientRole: recipientRole,
+      message: message,
+      cardImageBase64: cardImageBase64,
+      cardBlob: cardBlob,
+      driveFileUrl: driveFileUrl
+    });
+    mailStatus = buildMailStatusText(mailRes);
   }
 
   // 3. Cập nhật Trạng thái gửi mail (Cột L) & Link Google Drive (Cột M) vào Google Sheet
@@ -907,20 +979,27 @@ function sendGratitudeNotificationEmail(params) {
     } catch (e) {}
   }
 
-  // Tự động tải phôi thiệp Key Visual chuẩn từ CDN nếu chưa có ảnh thiệp canvas tùy chỉnh
-  if (!cardImageBlob && CONFIG.CARD_TEMPLATE_URL) {
-    try {
-      const resp = UrlFetchApp.fetch(CONFIG.CARD_TEMPLATE_URL, { muteHttpExceptions: true });
-      if (resp.getResponseCode() === 200) {
-        cardImageBlob = resp.getBlob().setName("Thiep_Tri_An_20_11.jpg");
-      }
-    } catch (e) {}
+  // Lấy phôi thiệp Key Visual chuẩn (ưu tiên bản lưu trên Google Drive, không phụ thuộc Render đang "ngủ")
+  if (!cardImageBlob && CONFIG.EMAIL_EMBED_CARD_IMAGE) {
+    cardImageBlob = getCardTemplateBlob();
   }
 
-  if (cardImageBlob) {
+  if (cardImageBlob && CONFIG.EMAIL_EMBED_CARD_IMAGE) {
     inlineImages.tributeCard = cardImageBlob;
     hasCardImage = true;
   }
+  // Chế độ mail nhẹ: chỉ đính kèm file khi bật cấu hình EMAIL_ATTACH_CARD_FILE
+  const mailAttachments = (cardImageBlob && CONFIG.EMAIL_ATTACH_CARD_FILE) ? [cardImageBlob] : [];
+
+  const quotaBefore = getRemainingMailQuota();
+  const result = {
+    ok: false,
+    recipient: null,
+    sender: null,
+    quotaBefore: quotaBefore,
+    quotaRemaining: quotaBefore,
+    effectiveUser: getEffectiveUserEmail()
+  };
 
   // EMAIL 1: GỬI TRỰC TIẾP CHO NGƯỜI NHẬN (to: params.recipientEmail - KHÔNG DÙNG CC)
   if (params.recipientEmail) {
@@ -989,30 +1068,15 @@ function sendGratitudeNotificationEmail(params) {
 
     const plainTextRec = `Kính gửi Anh/Chị ${params.recipientName},\n\nNhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch "Gửi lời cảm ơn – Thắp sáng tri thức", Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp ${params.senderName} (${params.senderDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
 
-    const recMailOptions = {
+    result.recipient = deliverMail({
       to: params.recipientEmail,
       subject: CONFIG.EMAIL_SUBJECT_SUCCESS,
       body: plainTextRec,
       htmlBody: recipientHtmlBody,
-      name: "FTC - Thắp Lửa Tri Ân 20/11"
-    };
-    if (Object.keys(inlineImages).length > 0) recMailOptions.inlineImages = inlineImages;
-    if (cardImageBlob) recMailOptions.attachments = [cardImageBlob];
-
-    try {
-      MailApp.sendEmail(recMailOptions);
-    } catch (eMailApp) {
-      try {
-        GmailApp.sendEmail(params.recipientEmail, recMailOptions.subject, plainTextRec, {
-          htmlBody: recipientHtmlBody,
-          name: recMailOptions.name,
-          inlineImages: inlineImages,
-          attachments: cardImageBlob ? [cardImageBlob] : []
-        });
-      } catch (eGmail) {
-        Logger.log("Send recipient email error: " + eGmail.toString());
-      }
-    }
+      name: "FTC - Thắp Lửa Tri Ân 20/11",
+      inlineImages: inlineImages,
+      attachments: mailAttachments
+    });
   }
 
   // EMAIL 2: GỬI TRỰC TIẾP CHO NGƯỜI GỬI (to: params.senderEmail - KHÔNG DÙNG CC, BẬT THÔNG BÁO TING TING HỘP THƯ ĐẾN)
@@ -1086,31 +1150,20 @@ function sendGratitudeNotificationEmail(params) {
 
     const plainTextSender = `Kính gửi Anh/Chị ${params.senderName},\n\nHệ thống xác nhận Anh/Chị vừa thắp lên thành công ngọn lửa tri ân gửi tới đồng nghiệp ${params.recipientName} (${params.recipientDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nTấm thiệp đã được chuyển phát thành công tới hộp thư Outlook của đồng nghiệp.\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
 
-    const senderMailOptions = {
+    result.sender = deliverMail({
       to: params.senderEmail,
       subject: CONFIG.EMAIL_SUBJECT_SENDER || "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
       body: plainTextSender,
       htmlBody: senderHtmlBody,
-      name: "FTC - Thắp Lửa Tri Ân 20/11"
-    };
-    if (Object.keys(inlineImages).length > 0) senderMailOptions.inlineImages = inlineImages;
-    if (cardImageBlob) senderMailOptions.attachments = [cardImageBlob];
-
-    try {
-      MailApp.sendEmail(senderMailOptions);
-    } catch (eMailApp) {
-      try {
-        GmailApp.sendEmail(params.senderEmail, senderMailOptions.subject, plainTextSender, {
-          htmlBody: senderHtmlBody,
-          name: senderMailOptions.name,
-          inlineImages: inlineImages,
-          attachments: cardImageBlob ? [cardImageBlob] : []
-        });
-      } catch (eGmail) {
-        Logger.log("Send sender email error: " + eGmail.toString());
-      }
-    }
+      name: "FTC - Thắp Lửa Tri Ân 20/11",
+      inlineImages: inlineImages,
+      attachments: mailAttachments
+    });
   }
+
+  result.ok = !!(result.recipient && result.recipient.ok) && (!result.sender || result.sender.ok);
+  result.quotaRemaining = getRemainingMailQuota();
+  return result;
 }
 
 /**
@@ -1144,24 +1197,290 @@ function sendDuplicateWarningEmail(params) {
 
   const plainText = `Chào Anh/Chị ${params.senderName},\n\nHệ thống ghi nhận Anh/Chị vừa gửi thêm một lời tri ân đến đồng nghiệp ${params.recipientName} (${params.recipientEmail}):\n"${params.message}"\n\nTheo thể lệ chương trình, mỗi tài khoản chỉ được gửi 1 lần duy nhất cho cùng một đồng nghiệp để tránh trùng lặp/spam. Ngọn lửa tri ân đầu tiên của bạn đã được ghi nhận thành công trước đó.\n\nTiếp tục gửi lời tri ân tới đồng nghiệp khác tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
 
+  return deliverMail({
+    to: params.senderEmail,
+    subject: CONFIG.EMAIL_SUBJECT_DUPLICATE,
+    body: plainText,
+    htmlBody: htmlBody,
+    name: "FTC - Thắp Lửa Tri Ân 20/11"
+  });
+}
+
+/**
+ * ==============================================================================
+ * 5b. BỘ CÔNG CỤ GỬI MAIL CÓ BÁO LỖI THẬT + CHẨN ĐOÁN + GỬI LẠI
+ * ==============================================================================
+ */
+
+/**
+ * Gửi 1 email (MailApp → dự phòng GmailApp). KHÔNG nuốt lỗi: luôn trả về { ok, via, error }.
+ */
+function deliverMail(opts) {
+  const result = { to: opts.to, ok: false, via: "", error: "" };
+  if (!opts.to) {
+    result.error = "Thiếu địa chỉ người nhận";
+    return result;
+  }
+
+  const quota = getRemainingMailQuota();
+  if (quota === 0) {
+    result.error = "HẾT HẠN MỨC GỬI MAIL HÔM NAY của tài khoản " + getEffectiveUserEmail() +
+      " (Gmail cá nhân ~100 người nhận/ngày, Google Workspace ~1.500/ngày). Hạn mức sẽ được làm mới sau 24 giờ.";
+    Logger.log("❌ " + opts.to + ": " + result.error);
+    return result;
+  }
+
+  const inlineImages = opts.inlineImages && Object.keys(opts.inlineImages).length ? opts.inlineImages : null;
+  const attachments = opts.attachments && opts.attachments.length ? opts.attachments : null;
+  const errors = [];
+
   try {
-    MailApp.sendEmail({
-      to: params.senderEmail,
-      subject: CONFIG.EMAIL_SUBJECT_DUPLICATE,
-      body: plainText,
-      htmlBody: htmlBody,
-      name: "FTC - Thắp Lửa Tri Ân 20/11"
-    });
+    const mailOptions = {
+      to: opts.to,
+      subject: opts.subject,
+      body: opts.body,
+      htmlBody: opts.htmlBody,
+      name: opts.name
+    };
+    if (inlineImages) mailOptions.inlineImages = inlineImages;
+    if (attachments) mailOptions.attachments = attachments;
+    MailApp.sendEmail(mailOptions);
+    result.ok = true;
+    result.via = "MailApp";
+    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua MailApp");
+    return result;
   } catch (e1) {
+    errors.push("MailApp: " + (e1 && e1.message ? e1.message : e1));
+  }
+
+  try {
+    const gmailOptions = { htmlBody: opts.htmlBody, name: opts.name };
+    if (inlineImages) gmailOptions.inlineImages = inlineImages;
+    if (attachments) gmailOptions.attachments = attachments;
+    GmailApp.sendEmail(opts.to, opts.subject, opts.body, gmailOptions);
+    result.ok = true;
+    result.via = "GmailApp";
+    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua GmailApp (MailApp lỗi: " + errors.join(" | ") + ")");
+    return result;
+  } catch (e2) {
+    errors.push("GmailApp: " + (e2 && e2.message ? e2.message : e2));
+  }
+
+  result.error = errors.join(" | ");
+  Logger.log("❌ Gửi mail tới " + opts.to + " THẤT BẠI: " + result.error);
+  return result;
+}
+
+/**
+ * Chuyển kết quả gửi mail thành chuỗi trạng thái ghi vào cột L
+ */
+function buildMailStatusText(mailRes) {
+  if (!mailRes) return "LỖI MAIL: Không có kết quả gửi";
+  if (mailRes.ok) return "ĐÃ GỬI MAIL";
+  const parts = [];
+  if (mailRes.recipient && !mailRes.recipient.ok) parts.push("Người nhận (" + mailRes.recipient.to + "): " + mailRes.recipient.error);
+  if (mailRes.sender && !mailRes.sender.ok) parts.push("Người gửi (" + mailRes.sender.to + "): " + mailRes.sender.error);
+  if (!mailRes.recipient) parts.push("Thiếu email người nhận");
+  return "LỖI MAIL: " + truncateText(parts.join(" || "), 400);
+}
+
+function truncateText(text, maxLen) {
+  const s = String(text || "");
+  return s.length > maxLen ? s.substring(0, maxLen - 3) + "..." : s;
+}
+
+function getRemainingMailQuota() {
+  try {
+    return MailApp.getRemainingDailyQuota();
+  } catch (e) {
+    return -1; // Không đọc được hạn mức (thiếu quyền)
+  }
+}
+
+function getEffectiveUserEmail() {
+  try {
+    return Session.getEffectiveUser().getEmail() || "(không xác định)";
+  } catch (e) {
+    return "(không xác định)";
+  }
+}
+
+/**
+ * Lấy ảnh phôi thiệp: ưu tiên file đã lưu trên Google Drive (nhanh, ổn định).
+ * Lần đầu tiên sẽ tải từ CONFIG.CARD_TEMPLATE_URL rồi lưu lại vào Drive để dùng cho các lần sau.
+ */
+let __cardTemplateBlobCache = null;
+function getCardTemplateBlob() {
+  if (__cardTemplateBlobCache) return __cardTemplateBlobCache;
+  const props = PropertiesService.getScriptProperties();
+
+  const fileId = props.getProperty(CONFIG.CARD_TEMPLATE_PROP_KEY);
+  if (fileId) {
     try {
-      GmailApp.sendEmail(params.senderEmail, CONFIG.EMAIL_SUBJECT_DUPLICATE, plainText, {
-        htmlBody: htmlBody,
-        name: "FTC - Thắp Lửa Tri Ân 20/11"
-      });
-    } catch (e2) {
-      Logger.log("Send duplicate warning email error: " + e2.toString());
+      __cardTemplateBlobCache = DriveApp.getFileById(fileId).getBlob().setName("Thiep_Tri_An_20_11.jpg");
+      return __cardTemplateBlobCache;
+    } catch (e) {
+      Logger.log("Không đọc được phôi thiệp trên Drive (" + fileId + "), sẽ tải lại: " + e);
+      props.deleteProperty(CONFIG.CARD_TEMPLATE_PROP_KEY);
     }
   }
+
+  if (!CONFIG.CARD_TEMPLATE_URL) return null;
+  try {
+    const resp = UrlFetchApp.fetch(CONFIG.CARD_TEMPLATE_URL, { muteHttpExceptions: true, followRedirects: true });
+    if (resp.getResponseCode() !== 200) {
+      Logger.log("Tải phôi thiệp lỗi HTTP " + resp.getResponseCode());
+      return null;
+    }
+    const blob = resp.getBlob().setName("Thiep_Tri_An_20_11.jpg");
+    try {
+      const folder = getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
+      const file = folder.createFile(blob.copyBlob().setName("PHOI_THIEP_KEY_VISUAL_20_11.jpg"));
+      props.setProperty(CONFIG.CARD_TEMPLATE_PROP_KEY, file.getId());
+    } catch (saveErr) {
+      Logger.log("Không lưu được phôi thiệp lên Drive: " + saveErr);
+    }
+    __cardTemplateBlobCache = blob;
+    return blob;
+  } catch (e) {
+    Logger.log("Tải phôi thiệp từ " + CONFIG.CARD_TEMPLATE_URL + " lỗi: " + e);
+    return null;
+  }
+}
+
+/**
+ * Chẩn đoán toàn bộ hệ thống gửi mail (tài khoản gửi, hạn mức, quyền, trigger, phôi thiệp)
+ */
+function diagnoseMailSystem() {
+  const warnings = [];
+  const effectiveUser = getEffectiveUserEmail();
+  const domain = (effectiveUser.split("@")[1] || "").toLowerCase();
+
+  let accountType;
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    accountType = "Gmail cá nhân (hạn mức ~100 người nhận/ngày)";
+    warnings.push("Mail được gửi từ địa chỉ Gmail cá nhân " + effectiveUser + ". Hệ thống mail FPT (Microsoft 365) có thể đưa vào Thư rác/khu cách ly. Hãy nhờ IT FPT cho phép (allowlist) địa chỉ này.");
+  } else if (CONFIG.ALLOWED_DOMAINS.indexOf(domain) !== -1) {
+    accountType = "Tài khoản Google dùng email FPT (" + domain + ")";
+    warnings.push("Tài khoản Google " + effectiveUser + " dùng email FPT nhưng mail lại đi từ máy chủ Google → bộ kiểm tra danh tính email (SPF/DMARC) của " + domain + " sẽ báo lỗi và Outlook FPT dễ từ chối hoặc cách ly thư. Nên dùng một tài khoản Gmail riêng làm chủ script, hoặc gửi qua Power Automate/Outlook nội bộ.");
+  } else {
+    accountType = "Google Workspace (" + domain + ") – hạn mức ~1.500 người nhận/ngày";
+  }
+
+  const quota = getRemainingMailQuota();
+  if (quota === 0) warnings.push("ĐÃ HẾT hạn mức gửi mail hôm nay. Phải chờ 24 giờ hoặc đổi tài khoản chủ script.");
+  else if (quota === -1) warnings.push("Không đọc được hạn mức mail → script có thể chưa được cấp quyền gửi mail. Hãy chạy hàm testSendMailToTungDT trong trình soạn thảo để cấp quyền.");
+  else if (quota < 10) warnings.push("Hạn mức mail hôm nay sắp hết (còn " + quota + ").");
+
+  let authorizationStatus = "Không xác định";
+  try {
+    const status = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL).getAuthorizationStatus();
+    authorizationStatus = status === ScriptApp.AuthorizationStatus.REQUIRED ? "CẦN CẤP THÊM QUYỀN" : "Đã đủ quyền";
+    if (status === ScriptApp.AuthorizationStatus.REQUIRED) {
+      warnings.push("Script cần cấp thêm quyền (Gmail/Drive/UrlFetch). Mở Apps Script → chạy hàm testSendMailToTungDT → bấm Cho phép, sau đó Triển khai lại phiên bản mới.");
+    }
+  } catch (e) {
+    authorizationStatus = "Lỗi kiểm tra: " + e;
+  }
+
+  let formSubmitTriggerInstalled = false;
+  try {
+    formSubmitTriggerInstalled = ScriptApp.getProjectTriggers().some(t =>
+      t.getHandlerFunction() === "onFormSubmitTrigger" && t.getEventType() === ScriptApp.EventType.ON_FORM_SUBMIT
+    );
+  } catch (e) {}
+  if (!formSubmitTriggerInstalled) {
+    warnings.push("CHƯA cài Trigger tự động khi nộp Google Form → mail chỉ được gửi khi có người mở Dashboard. Vào menu 🔥 FTC 20/11 - Quản Trị → 1. Khởi tạo cột & Trigger tự động.");
+  }
+
+  let cardTemplateFileId = "";
+  try {
+    cardTemplateFileId = PropertiesService.getScriptProperties().getProperty(CONFIG.CARD_TEMPLATE_PROP_KEY) || "";
+  } catch (e) {}
+
+  return {
+    effectiveUser: effectiveUser,
+    accountType: accountType,
+    remainingDailyQuota: quota,
+    authorizationStatus: authorizationStatus,
+    formSubmitTriggerInstalled: formSubmitTriggerInstalled,
+    cardTemplateFileId: cardTemplateFileId,
+    emailEmbedCardImage: CONFIG.EMAIL_EMBED_CARD_IMAGE,
+    emailAttachCardFile: CONFIG.EMAIL_ATTACH_CARD_FILE,
+    warnings: warnings
+  };
+}
+
+/**
+ * Gửi lại mail cho 1 dòng hợp lệ trên Sheet câu trả lời (bất kể trạng thái cũ)
+ */
+function resendMailForRow(rowNumber) {
+  rowNumber = Number(rowNumber);
+  const ss = getSpreadsheet();
+  const sheet = getFormResponseSheet(ss);
+  if (!rowNumber || rowNumber <= 1 || rowNumber > sheet.getLastRow()) {
+    return { success: false, message: "Số dòng không hợp lệ: " + rowNumber };
+  }
+  const row = sheet.getRange(rowNumber, 1, 1, 14).getValues()[0];
+  const checkStatus = String(row[10] || "").trim();
+  if (checkStatus !== "HỢP LỆ") {
+    return { success: false, message: "Dòng " + rowNumber + " không ở trạng thái HỢP LỆ (hiện tại: '" + checkStatus + "')." };
+  }
+  const senderEmail = String(row[1] || "").trim().toLowerCase();
+  const recipientEmail = String(row[2] || "").trim().toLowerCase();
+  const mailRes = sendGratitudeNotificationEmail({
+    recipientEmail: recipientEmail,
+    recipientName: String(row[7] || fallbackNameFromEmail(recipientEmail)).trim(),
+    recipientDept: String(row[8] || "FPT Telecom").trim(),
+    senderEmail: senderEmail,
+    senderName: String(row[5] || fallbackNameFromEmail(senderEmail)).trim(),
+    senderDept: String(row[6] || "FPT Telecom").trim(),
+    recipientRole: String(row[3] || "Giảng viên – Người truyền tri thức").trim(),
+    message: String(row[9] || row[4] || "").trim(),
+    cardBlob: null,
+    driveFileUrl: String(row[12] || "").trim()
+  });
+  const status = buildMailStatusText(mailRes);
+  sheet.getRange(rowNumber, 12).setValue(status);
+  return {
+    success: mailRes.ok,
+    rowNumber: rowNumber,
+    status: status,
+    quotaRemaining: mailRes.quotaRemaining,
+    message: (mailRes.ok ? "✅ " : "❌ ") + status + "\nHạn mức mail còn lại hôm nay: " + mailRes.quotaRemaining
+  };
+}
+
+/**
+ * Gửi lại mail cho tất cả các dòng HỢP LỆ đang có trạng thái "LỖI MAIL..."
+ */
+function resendFailedMails() {
+  const ss = getSpreadsheet();
+  const sheet = getFormResponseSheet(ss);
+  const lastRow = sheet.getLastRow();
+  const summary = { attempted: 0, succeeded: 0, failed: 0, details: [] };
+  if (lastRow <= 1) return summary;
+
+  const values = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
+  for (let i = 0; i < values.length; i++) {
+    const checkStatus = String(values[i][10] || "").trim();
+    const mailStatus = String(values[i][11] || "").trim();
+    if (checkStatus !== "HỢP LỆ" || mailStatus.indexOf("LỖI") !== 0) continue;
+
+    const rowNumber = i + 2;
+    const res = resendMailForRow(rowNumber);
+    summary.attempted++;
+    if (res.success) summary.succeeded++;
+    else summary.failed++;
+    summary.details.push("Dòng " + rowNumber + ": " + res.status);
+
+    // Dừng sớm nếu đã hết hạn mức để không ghi lỗi hàng loạt
+    if (res.quotaRemaining === 0) {
+      summary.details.push("⛔ Đã hết hạn mức gửi mail hôm nay, dừng gửi lại.");
+      break;
+    }
+  }
+  return summary;
 }
 
 /**
@@ -1194,7 +1513,7 @@ function doGet(e) {
     if (action === "send_test_mail") {
       const targetEmail = String(params.to || "tungdt101@fpt.com").trim().toLowerCase();
       const senderEmail = String(params.cc || "nhanlh10@fpt.com").trim().toLowerCase();
-      sendGratitudeNotificationEmail({
+      const mailRes = sendGratitudeNotificationEmail({
         recipientEmail: targetEmail,
         recipientName: params.recipientName || "Đặng Thanh Tùng",
         recipientDept: params.recipientDept || "Trung tâm Đào tạo FTEL (FTC)",
@@ -1205,9 +1524,38 @@ function doGet(e) {
         message: params.message || "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
       });
       return createJsonResponse({
-        success: true,
-        message: "Đã gửi email thử nghiệm tới " + targetEmail
+        success: mailRes.ok,
+        message: mailRes.ok
+          ? "Google đã gửi mail đi thành công tới " + targetEmail + " (và " + senderEmail + "). Nếu Outlook không thấy, thư đang bị hệ thống mail FPT chặn/cách ly."
+          : buildMailStatusText(mailRes),
+        sentFrom: mailRes.effectiveUser,
+        quotaRemaining: mailRes.quotaRemaining,
+        recipient: mailRes.recipient,
+        sender: mailRes.sender
       }, callback);
+    }
+
+    // Chẩn đoán hệ thống gửi mail: ...exec?action=mail_diagnose
+    if (action === "mail_diagnose") {
+      return createJsonResponse({
+        success: true,
+        data: diagnoseMailSystem()
+      }, callback);
+    }
+
+    // Gửi lại mail (yêu cầu mã Admin): ...exec?action=resend_failed_mails&key=...  hoặc  &row=3
+    if (action === "resend_failed_mails") {
+      if (String(params.key || "") !== CONFIG.ADMIN_SECRET_KEY) {
+        return createJsonResponse({ success: false, message: "Sai mã Admin (key)." }, callback);
+      }
+      const lock = LockService.getScriptLock();
+      lock.waitLock(20000);
+      try {
+        const data = params.row ? resendMailForRow(params.row) : resendFailedMails();
+        return createJsonResponse({ success: true, data: data }, callback);
+      } finally {
+        lock.releaseLock();
+      }
     }
 
     return createJsonResponse({
@@ -1268,7 +1616,7 @@ function doPost(e) {
 
     // Action 3b: Chỉ gửi Email Thiệp thử nghiệm (KHÔNG lưu kết quả vào Google Sheet chính thức)
     if (action === "send_test_email_only") {
-      sendGratitudeNotificationEmail({
+      const mailRes = sendGratitudeNotificationEmail({
         recipientEmail: String(payload.recipientEmail || "tungdt101@fpt.com").trim().toLowerCase(),
         recipientName: payload.recipientName || "Đặng Thanh Tùng",
         recipientDept: payload.recipientDept || "Trung tâm Đào tạo FTEL (FTC)",
@@ -1280,10 +1628,12 @@ function doPost(e) {
         cardImageBase64: payload.cardImageBase64 || ""
       });
       return createJsonResponse({
-        success: true,
+        success: mailRes.ok,
         savedToSheet: false,
-        emailSentStatus: "SENT_SUCCESS",
-        message: "Đã gửi email thử nghiệm (không lưu vào Google Sheet)."
+        emailSentStatus: mailRes.ok ? "SENT_SUCCESS" : "SEND_FAILED",
+        message: mailRes.ok ? "Đã gửi email thử nghiệm (không lưu vào Google Sheet)." : buildMailStatusText(mailRes),
+        sentFrom: mailRes.effectiveUser,
+        quotaRemaining: mailRes.quotaRemaining
       });
     }
 
