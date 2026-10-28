@@ -31,12 +31,6 @@ const CONFIG = {
   HR_SHEET_GID: 1084168011,
   HR_SHEET_NAME: "DS nhân sự",
 
-  // Tên tab lưu trữ từ Web (dự phòng nếu gửi trực tiếp từ Web)
-  LEGACY_SHEET_NAME: "DanhSachTriAn",
-
-  // Tên tab cấu hình Admin
-  ADMIN_SHEET: "AdminConfig",
-
   // Tên thư mục Google Drive lưu trữ ảnh thiệp E-Card (1080x1440)
   DRIVE_FOLDER_NAME: "FTEL_20_11_ECards_2026",
 
@@ -102,7 +96,8 @@ function setupSystemAndTriggers() {
   // Xóa trigger cũ (nếu có) để tránh nhân đôi
   const triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(t => {
-    if (t.getHandlerFunction() === "onFormSubmitTrigger") {
+    const fn = t.getHandlerFunction();
+    if (fn === "onFormSubmitTrigger" || fn === "onFormSubmit") {
       ScriptApp.deleteTrigger(t);
     }
   });
@@ -558,7 +553,6 @@ function cleanAndCorrectVietnameseText(text) {
     [/\bsẻ chia\b/gi, "sẻ chia"],
     [/\bchi ân\b/gi, "tri ân"],
     [/\bdồi giàu\b/gi, "dồi dào"],
-    [/\bdồi dào\b/gi, "dồi dào"],
     [/\bnhiệt huyểt\b/gi, "nhiệt huyết"],
     [/\bsức khoẻ\b/gi, "sức khỏe"],
     [/\bthắp xáng\b/gi, "thắp sáng"],
@@ -722,6 +716,7 @@ function getFullCampaignDashboardData() {
     });
     return {
       totalFlames: 0,
+      totalSubmissions: 0,
       uniqueRecipients: 0,
       uniqueSenders: 0,
       uniqueUnits: emptyUnits.length,
@@ -730,6 +725,7 @@ function getFullCampaignDashboardData() {
       early100Senders: [],
       unitSpread: emptyUnits,
       hrCompact: hrCompact,
+      recentTributes: [],
       pendingRender: []
     };
   }
@@ -1841,11 +1837,8 @@ function getHrDirectorySheet(ss) {
   // 2. Dự phòng tìm theo tên tab phổ biến (DS nhân sự, DS_NhanSu, Danh sách nhân sự...)
   const candidateNames = [
     CONFIG.HR_SHEET_NAME,
-    "DS nhân sự",
-    "DS Nhân sự",
     "DS_NhanSu",
     "Danh sách nhân sự",
-    "Danh sach nhan su",
     "NhanSu",
     "HR"
   ];
@@ -1867,8 +1860,6 @@ function ensureHrDirectorySheet(ss) {
   if (!hrSheet) {
     hrSheet = ss.insertSheet(CONFIG.HR_SHEET_NAME);
     hrSheet.appendRow(["Email", "Họ và tên", "Đơn vị", "Ảnh đại diện (URL)"]);
-    hrSheet.appendRow(["tungdt101@fpt.com", "Đặng Thanh Tùng", "Trung tâm Đào tạo FTEL (FTC)", ""]);
-    hrSheet.appendRow(["duyennnt3@fpt.com", "Nguyễn Ngọc Thảo Duyên", "Trung tâm Đào tạo FTEL (FTC)", ""]);
   }
   return hrSheet;
 }
