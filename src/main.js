@@ -26,6 +26,7 @@ class App {
     // 2. Setup Config & Admin Portal Modals
     this.setupModals();
     this.setupAdminPortal();
+    this.setupBackToTopButton();
 
     // 3. Setup Campaign Action Bar & Initialize Live Dashboard (Khu vực A - B - C - D)
     this.setupCampaignActionBar();
@@ -103,6 +104,34 @@ class App {
     }
     if (adminSyncFormBtn) {
       adminSyncFormBtn.addEventListener('click', () => handleManualSync(adminSyncFormBtn));
+    }
+  }
+
+  setupBackToTopButton() {
+    const floatingBtn = document.getElementById('back-to-top-floating-btn');
+    const footerBtn = document.getElementById('footer-back-to-top-btn');
+
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    if (footerBtn) {
+      footerBtn.addEventListener('click', scrollToTop);
+    }
+
+    if (floatingBtn) {
+      floatingBtn.addEventListener('click', scrollToTop);
+      const handleScroll = () => {
+        if (window.scrollY > 260) {
+          floatingBtn.classList.remove('hidden');
+          floatingBtn.classList.add('flex');
+        } else {
+          floatingBtn.classList.add('hidden');
+          floatingBtn.classList.remove('flex');
+        }
+      };
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      handleScroll();
     }
   }
 

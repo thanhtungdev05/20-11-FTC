@@ -934,6 +934,32 @@ export class DashboardModule {
               `;
             }).join('')}
           </div>
+
+          <!-- AdminLTE Card Footer: Điều hướng nhanh cuối trang -->
+          <div class="lte-card-footer flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="text-xs text-slate-400">
+              Bạn muốn tiếp tục gửi lời cảm ơn hoặc quay về đầu trang?
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-2.5">
+              <a
+                href="https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-flame px-4 py-2 rounded-xl font-extrabold text-xs flex items-center gap-1.5 shadow-lg hover:scale-[1.02] transition-all"
+              >
+                <span>✦</span>
+                <span>[20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN ➜</span>
+              </a>
+              <button
+                type="button"
+                id="dash-bottom-back-to-top-btn"
+                class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-amber-500/20 border border-amber-400/50 text-amber-300 font-extrabold text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+              >
+                <span>⬆️</span>
+                <span>Quay về đầu trang</span>
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     `;
@@ -1391,6 +1417,14 @@ export class DashboardModule {
         this.renderInline();
       });
     });
+
+    // Nút Quay về đầu trang ở cuối Dashboard
+    const bottomBackToTopBtn = this.container.querySelector('#dash-bottom-back-to-top-btn');
+    if (bottomBackToTopBtn) {
+      bottomBackToTopBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
   }
 
   renderPodiumCard(item, rank) {
@@ -1555,6 +1589,20 @@ export class DashboardModule {
                       "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
                     </div>
                     <p class="text-[11px] text-slate-400">*(Trong Outlook, tấm thiệp 1080x1440 ở cột bên trái được nhúng trực tiếp ngay tại đây kèm nút Xem & Tải Thiệp Độ Phân Giải Cao trên Google Drive)*</p>
+                    <div class="pt-2 text-center space-y-1.5">
+                      <a
+                        href="https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-block px-5 py-2.5 rounded-full font-extrabold text-xs text-white shadow-lg"
+                        style="background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%);"
+                      >
+                        ✦ [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN ➜
+                      </a>
+                      <div class="text-[11px] text-slate-400">
+                        (Bấm vào nút trên để nhập và gửi tiếp lời chúc đáp lại hoặc gửi lời tri ân tới đồng nghiệp khác)
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

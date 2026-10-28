@@ -784,6 +784,7 @@ function getFullCampaignDashboardData() {
 function sendGratitudeNotificationEmail(params) {
   // Tiêu đề chính thức theo yêu cầu: MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN
   const subject = CONFIG.EMAIL_SUBJECT_SUCCESS;
+  const googleFormUrl = CONFIG.GOOGLE_FORM_URL || "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform";
 
   const inlineImages = {};
   let cardImageBlob = params.cardBlob || null;
@@ -810,7 +811,7 @@ function sendGratitudeNotificationEmail(params) {
           Trung tâm Đào tạo và Phát triển FPT Telecom (FTC)
         </div>
         <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
-          🔥 MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN 🔥
+          &#128293; MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN &#128293;
         </h1>
       </div>
 
@@ -835,12 +836,21 @@ function sendGratitudeNotificationEmail(params) {
         ${params.driveFileUrl ? `
         <div style="text-align: center; margin: 18px 0;">
           <a href="${params.driveFileUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f37021, #ffd700); color: #080c18; font-weight: 800; text-decoration: none; border-radius: 10px; font-size: 14px;">
-            📥 Xem & Tải Thiệp Độ Phân Giải Cao (Google Drive)
+            &#128229; Xem &amp; Tải Thiệp Độ Phân Giải Cao (Google Drive)
           </a>
         </div>
         ` : ``}
 
-        <p style="font-size: 14px; color: #cbd5e1; margin-top: 20px;">
+        <div style="text-align: center; margin: 28px 0 14px 0;">
+          <a href="${googleFormUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%); color: #ffffff; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 24px; font-size: 14px; box-shadow: 0 4px 15px rgba(243, 112, 33, 0.45);">
+            &#10022; [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN &#10140;
+          </a>
+          <p style="font-size: 12px; color: #94a3b8; margin: 8px 0 0 0;">
+            (Bấm vào nút trên để nhập và gửi tiếp lời chúc đáp lại hoặc gửi lời tri ân tới đồng nghiệp khác)
+          </p>
+        </div>
+
+        <p style="font-size: 14px; color: #cbd5e1; margin-top: 20px; text-align: center;">
           Cảm ơn Anh/Chị vì đã luôn là ngọn lửa truyền cảm hứng, sẻ chia tri thức và đồng hành cùng đồng nghiệp trên hành trình phát triển tại FPT Telecom!
         </p>
       </div>
@@ -873,6 +883,7 @@ function sendGratitudeNotificationEmail(params) {
  * Gửi email thông báo cho Người gửi khi phát hiện gửi trùng 3 thông tin (Người gửi + Người nhận + Thông điệp)
  */
 function sendDuplicateWarningEmail(params) {
+  const googleFormUrl = CONFIG.GOOGLE_FORM_URL || "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform";
   const htmlBody = `
     <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0c1427; color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f59e0b;">
       <div style="background: linear-gradient(135deg, #002d62 0%, #d97706 100%); padding: 20px; text-align: center;">
@@ -885,7 +896,12 @@ function sendDuplicateWarningEmail(params) {
           "${escapeHtml(params.message)}"
         </blockquote>
         <p>Nội dung này <strong>trùng khớp với một lời cảm ơn Anh/Chị đã gửi trước đó</strong> cho cùng người nhận. Để đảm bảo tính chính xác của dữ liệu chương trình, bản ghi trùng lặp này sẽ không được tính thêm một lần nữa.</p>
-        <p>Nếu Anh/Chị muốn gửi lời cảm ơn mới, vui lòng chia sẻ một thông điệp khác hoặc gửi tới một đồng nghiệp khác nhé!</p>
+        <p>Nếu Anh/Chị muốn gửi lời cảm ơn mới, vui lòng bấm vào nút dưới đây để chia sẻ một thông điệp khác hoặc gửi tới một đồng nghiệp khác nhé:</p>
+        <div style="text-align: center; margin: 22px 0;">
+          <a href="${googleFormUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #f37021 0%, #ff8c00 100%); color: #ffffff; font-weight: 800; text-decoration: none; padding: 12px 24px; border-radius: 24px; font-size: 14px;">
+            &#10022; [20/11] GỬI LỜI CẢM ƠN, THẮP LỬA TRI ÂN &#10140;
+          </a>
+        </div>
         <p style="margin-top: 18px; color: #94a3b8;">Trân trọng,<br/><strong>Trung tâm Đào tạo và Phát triển FPT Telecom (FTC)</strong></p>
       </div>
     </div>

@@ -176,12 +176,28 @@
             <img src="/assets/logoFPT.png" alt="FTC Logo" class="h-5 w-auto object-contain opacity-80" />
             <p>© 2026 Trung tâm Đào tạo FTEL (FTC) - FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center justify-center gap-3">
             <p>Hệ thống tự động hóa E-Card & Bảng Vinh Danh "30 Người Tiếp Lửa Tri Thức"</p>
-            <button id="footer-admin-link" class="text-slate-500 hover:text-amber-400 transition-colors text-xs cursor-pointer ml-2">🔒 Quản trị</button>
+            <button id="footer-back-to-top-btn" type="button" class="px-3 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 font-extrabold text-xs transition-all cursor-pointer flex items-center gap-1">
+              <span>⬆️</span>
+              <span>Về đầu trang</span>
+            </button>
+            <button id="footer-admin-link" class="text-slate-500 hover:text-amber-400 transition-colors text-xs cursor-pointer">🔒 Quản trị</button>
           </div>
         </div>
       </footer>
+
+      <!-- Nút nổi Quay về đầu trang (Floating Back-to-Top Button) -->
+      <button
+        id="back-to-top-floating-btn"
+        type="button"
+        aria-label="Quay về đầu trang"
+        title="Quay về đầu trang"
+        class="fixed bottom-5 right-5 z-40 hidden items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-400 text-slate-950 font-black text-xs sm:text-sm shadow-2xl shadow-orange-500/40 border border-amber-200/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+      >
+        <span class="text-base leading-none">↑</span>
+        <span>Đầu trang</span>
+      </button>
     </div>
 
     <!-- MODAL: Cấu hình Backend Google Sheets -->
