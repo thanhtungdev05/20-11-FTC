@@ -195,8 +195,30 @@ function processAllUnprocessedRows() {
         ]]);
       }
 
-      // Nếu hợp lệ nhưng chưa có ảnh thiệp Drive / chưa gửi mail thì đưa vào danh sách chờ Web Canvas xuất thiệp
+      // Tự động kiểm tra: Nếu dòng hợp lệ này chưa gửi mail thì bắn mail trực tiếp ngay
       if (currentMailStatus !== "ĐÃ GỬI MAIL") {
+        try {
+          sendGratitudeNotificationEmail({
+            recipientEmail: recipientEmail,
+            recipientName: recipientHr.name || existingRName || fallbackNameFromEmail(recipientEmail),
+            recipientDept: recipientHr.dept || String(row[8] || "FPT Telecom"),
+            senderEmail: senderEmail,
+            senderName: senderHr.name || existingSName || fallbackNameFromEmail(senderEmail),
+            senderDept: senderHr.dept || String(row[6] || "FPT Telecom"),
+            recipientRole: recipientRole,
+            message: String(row[9] || rawMessage),
+            cardBlob: null,
+            driveFileUrl: String(row[12] || "")
+          });
+          sheet.getRange(rowNumber, 12).setValue("ĐÃ GỬI MAIL");
+        } catch (eMail) {
+          Logger.log("Lỗi gửi mail dòng " + rowNumber + ": " + eMail.toString());
+        }
+      }
+
+      // Nếu chưa có ảnh thiệp Drive thì đưa vào danh sách chờ Web Canvas xuất thiệp
+      const existingDriveUrl = String(row[12] || "").trim();
+      if (!existingDriveUrl) {
         pendingRenderList.push({
           rowNumber: rowNumber,
           timestamp: formatTimestamp(timestamp),
@@ -257,6 +279,25 @@ function processAllUnprocessedRows() {
     const cleanedMessage = cleanAndCorrectVietnameseText(rawMessage);
     const submissionId = "FTEL-" + Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "yyyyMMdd-HHmmss") + "-R" + rowNumber;
 
+    // TỰ ĐỘNG GỬI EMAIL NGAY LẬP TỨC CHO CẢ NGƯỜI NHẬN & NGƯỜI GỬI (ĐỘC LẬP TO:, KHÔNG CẦN CHỜ WEB)
+    let mailStatus = "ĐÃ GỬI MAIL";
+    try {
+      sendGratitudeNotificationEmail({
+        recipientEmail: recipientEmail,
+        recipientName: recipientHr.name,
+        recipientDept: recipientHr.dept,
+        senderEmail: senderEmail,
+        senderName: senderHr.name,
+        senderDept: senderHr.dept,
+        recipientRole: recipientRole,
+        message: cleanedMessage,
+        cardBlob: null,
+        driveFileUrl: ""
+      });
+    } catch (mailErr) {
+      mailStatus = "LỖI MAIL: " + mailErr.message;
+    }
+
     // Ghi thông tin HR + chính tả vào cột F -> N
     sheet.getRange(rowNumber, 6, 1, 9).setValues([[
       senderHr.name,
@@ -265,7 +306,7 @@ function processAllUnprocessedRows() {
       recipientHr.dept,
       cleanedMessage,
       "HỢP LỆ",
-      "CHỜ XUẤT THIỆP",
+      mailStatus,
       "",
       submissionId
     ]]);
@@ -345,27 +386,31 @@ function handleCompleteEcardAndSendMail(payload) {
     }
   }
 
-  // 2. Gửi Email kèm thiệp cho Người nhận, CC Người gửi với tiêu đề chuẩn:
-  // "MỘT NGỌN LỬA TRI ÂN VỪA ĐƯỢC THẮP LÊN"
-  let mailStatus = "ĐÃ GỬI MAIL";
+  // 2. Kiểm tra trạng thái gửi email:
+  // Nếu đã gửi mail thành công ngay từ bước submit Form, chỉ cập nhật link Google Drive (tránh spam mail lần 2).
+  // Nếu chưa gửi được mail (hoặc bị lỗi trước đó), thực hiện gửi mail kèm file ảnh Drive.
+  let mailStatus = String(row[11] || "").trim();
   const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "dd/MM/yyyy HH:mm:ss");
 
-  try {
-    sendGratitudeNotificationEmail({
-      recipientEmail: recipientEmail,
-      recipientName: recipientName,
-      recipientDept: recipientDept,
-      senderEmail: senderEmail,
-      senderName: senderName,
-      senderDept: senderDept,
-      recipientRole: recipientRole,
-      message: message,
-      cardImageBase64: cardImageBase64,
-      cardBlob: cardBlob,
-      driveFileUrl: driveFileUrl
-    });
-  } catch (mailErr) {
-    mailStatus = "LỖI MAIL: " + mailErr.message;
+  if (mailStatus !== "ĐÃ GỬI MAIL") {
+    try {
+      sendGratitudeNotificationEmail({
+        recipientEmail: recipientEmail,
+        recipientName: recipientName,
+        recipientDept: recipientDept,
+        senderEmail: senderEmail,
+        senderName: senderName,
+        senderDept: senderDept,
+        recipientRole: recipientRole,
+        message: message,
+        cardImageBase64: cardImageBase64,
+        cardBlob: cardBlob,
+        driveFileUrl: driveFileUrl
+      });
+      mailStatus = "ĐÃ GỬI MAIL";
+    } catch (mailErr) {
+      mailStatus = "LỖI MAIL: " + mailErr.message;
+    }
   }
 
   // 3. Cập nhật Trạng thái gửi mail (Cột L) & Link Google Drive (Cột M) vào Google Sheet
@@ -842,6 +887,16 @@ function sendGratitudeNotificationEmail(params) {
     } catch (e) {}
   }
 
+  // Tự động tải phôi thiệp Key Visual chuẩn từ CDN nếu chưa có ảnh thiệp canvas tùy chỉnh
+  if (!cardImageBlob && CONFIG.CARD_TEMPLATE_URL) {
+    try {
+      const resp = UrlFetchApp.fetch(CONFIG.CARD_TEMPLATE_URL, { muteHttpExceptions: true });
+      if (resp.getResponseCode() === 200) {
+        cardImageBlob = resp.getBlob().setName("Thiep_Tri_An_20_11.jpg");
+      }
+    } catch (e) {}
+  }
+
   if (cardImageBlob) {
     inlineImages.tributeCard = cardImageBlob;
     hasCardImage = true;
@@ -868,15 +923,21 @@ function sendGratitudeNotificationEmail(params) {
             Nhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch <strong>"Gửi lời cảm ơn – Thắp sáng tri thức"</strong>, Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp <strong style="color: #f37021;">${escapeHtml(params.senderName)}</strong> (${escapeHtml(params.senderDept || "FPT Telecom")}) với dấu ấn <em>"${escapeHtml(params.recipientRole)}"</em>:
           </p>
 
+          <!-- Khung thông điệp tri ân sang trọng -->
+          <div style="background: linear-gradient(135deg, rgba(243,112,33,0.15) 0%, rgba(255,215,0,0.1) 100%); border: 1px solid rgba(243,112,33,0.45); border-left: 5px solid #f37021; padding: 18px 20px; border-radius: 12px; margin: 20px 0;">
+            <div style="font-size: 13px; color: #ffd700; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+              &#128293; Lời tri ân gửi gắm:
+            </div>
+            <div style="font-size: 16px; font-style: italic; color: #ffffff; line-height: 1.7;">
+              "${escapeHtml(params.message)}"
+            </div>
+          </div>
+
           ${hasCardImage ? `
           <div style="text-align: center; margin: 24px 0;">
             <img src="cid:tributeCard" alt="Thiệp Tri Ân 20/11" style="width: 100%; max-width: 540px; height: auto; border-radius: 14px; border: 1px solid rgba(255,215,0,0.5); box-shadow: 0 10px 30px rgba(0,0,0,0.6);" />
           </div>
-          ` : `
-          <div style="background: rgba(255,255,255,0.06); border-left: 4px solid #ffd700; padding: 18px 20px; border-radius: 10px; margin: 20px 0; font-style: italic; font-size: 16px; color: #ffffff;">
-            "${escapeHtml(params.message)}"
-          </div>
-          `}
+          ` : ``}
 
           ${params.driveFileUrl ? `
           <div style="text-align: center; margin: 18px 0;">
@@ -943,15 +1004,21 @@ function sendGratitudeNotificationEmail(params) {
             &#9989; Tấm thiệp Tri Ân dưới đây đã được chuyển phát thành công tới hộp thư Outlook của đồng nghiệp <strong>${escapeHtml(params.recipientName)}</strong> (<em>${escapeHtml(params.recipientEmail)}</em>).
           </div>
 
+          <!-- Khung thông điệp tri ân sang trọng -->
+          <div style="background: linear-gradient(135deg, rgba(243,112,33,0.15) 0%, rgba(255,215,0,0.1) 100%); border: 1px solid rgba(243,112,33,0.45); border-left: 5px solid #ffd700; padding: 18px 20px; border-radius: 12px; margin: 20px 0;">
+            <div style="font-size: 13px; color: #ffd700; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+              &#128293; Lời tri ân đã gửi:
+            </div>
+            <div style="font-size: 16px; font-style: italic; color: #ffffff; line-height: 1.7;">
+              "${escapeHtml(params.message)}"
+            </div>
+          </div>
+
           ${hasCardImage ? `
           <div style="text-align: center; margin: 24px 0;">
             <img src="cid:tributeCard" alt="Thiệp Tri Ân 20/11" style="width: 100%; max-width: 540px; height: auto; border-radius: 14px; border: 1px solid rgba(255,215,0,0.5); box-shadow: 0 10px 30px rgba(0,0,0,0.6);" />
           </div>
-          ` : `
-          <div style="background: rgba(255,255,255,0.06); border-left: 4px solid #ffd700; padding: 18px 20px; border-radius: 10px; margin: 20px 0; font-style: italic; font-size: 16px; color: #ffffff;">
-            "${escapeHtml(params.message)}"
-          </div>
-          `}
+          ` : ``}
 
           ${params.driveFileUrl ? `
           <div style="text-align: center; margin: 18px 0;">
