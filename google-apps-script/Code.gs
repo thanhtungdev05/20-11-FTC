@@ -479,16 +479,64 @@ function getFullCampaignDashboardData() {
 
   const lastRow = sheet.getLastRow();
   const hrMap = loadHrDirectoryMap(ss);
+  const hrUniqueList = hrMap.__uniqueEmployees || [];
+
+  // Khởi tạo danh bạ nhân sự (kèm bộ đếm số ngọn lửa đã gửi / đã nhận) và khởi tạo các Đơn vị từ DS nhân sự (gid=1084168011)
+  const hrEmployeesByEmail = {};
+  const unitStatsMap = {};
+
+  const ensureUnitEntry = (unitName) => {
+    const key = String(unitName || "FPT Telecom").trim() || "FPT Telecom";
+    if (!unitStatsMap[key]) {
+      unitStatsMap[key] = {
+        unit: key,
+        totalFlames: 0,
+        sendersMap: {},
+        recipientsMap: {},
+        membersMap: {},
+        flamesList: []
+      };
+    }
+    return unitStatsMap[key];
+  };
+
+  hrUniqueList.forEach(emp => {
+    const emailKey = String(emp.email || "").trim().toLowerCase();
+    if (!emailKey) return;
+    const empObj = {
+      name: emp.name || fallbackNameFromEmail(emailKey),
+      email: emailKey,
+      dept: emp.dept || "FPT Telecom",
+      avatar: emp.avatar || "",
+      sentCount: 0,
+      receivedCount: 0
+    };
+    hrEmployeesByEmail[emailKey] = empObj;
+    const uEntry = ensureUnitEntry(empObj.dept);
+    uEntry.membersMap[emailKey] = empObj;
+  });
 
   if (lastRow <= 1) {
+    const emptyUnits = Object.values(unitStatsMap).map(u => ({
+      unit: u.unit,
+      totalFlames: 0,
+      senderCount: 0,
+      recipientCount: 0,
+      memberCount: Object.keys(u.membersMap).length,
+      flamesList: [],
+      sendersList: [],
+      recipientsList: [],
+      membersList: Object.values(u.membersMap)
+    }));
     return {
       totalFlames: 0,
       uniqueRecipients: 0,
       uniqueSenders: 0,
-      uniqueUnits: 0,
+      uniqueUnits: emptyUnits.length,
       top30Recipients: [],
       early100Senders: [],
-      unitSpread: [],
+      unitSpread: emptyUnits,
+      hrDirectory: Object.values(hrEmployeesByEmail),
       pendingRender: []
     };
   }
@@ -505,8 +553,6 @@ function getFullCampaignDashboardData() {
   const recipientStatsMap = {};
   // Danh sách lời cảm ơn hợp lệ theo thứ tự thời gian để lọc Top 100 người gửi sớm nhất
   const validChronologicalList = [];
-  // Map thống kê theo đơn vị (Khu vực D)
-  const unitStatsMap = {};
 
   values.forEach((row, idx) => {
     const rowNumber = idx + 2;
@@ -537,12 +583,38 @@ function getFullCampaignDashboardData() {
     const recipientAvatar = recipientHr.avatar || "";
     const cleanedMsg = String(row[9] || rawMessage).trim();
     const driveUrl = String(row[12] || "").trim();
+    const formattedTs = formatTimestamp(timestamp);
 
     totalFlames++;
     recipientSet.add(recipientEmail);
     senderSet.add(senderEmail);
     if (senderDept) unitSet.add(senderDept);
     if (recipientDept) unitSet.add(recipientDept);
+
+    // Cập nhật bộ đếm vào Danh sách nhân sự
+    if (!hrEmployeesByEmail[senderEmail]) {
+      hrEmployeesByEmail[senderEmail] = {
+        name: senderName,
+        email: senderEmail,
+        dept: senderDept,
+        avatar: senderHr.avatar || "",
+        sentCount: 0,
+        receivedCount: 0
+      };
+    }
+    hrEmployeesByEmail[senderEmail].sentCount++;
+
+    if (!hrEmployeesByEmail[recipientEmail]) {
+      hrEmployeesByEmail[recipientEmail] = {
+        name: recipientName,
+        email: recipientEmail,
+        dept: recipientDept,
+        avatar: recipientAvatar,
+        sentCount: 0,
+        receivedCount: 0
+      };
+    }
+    hrEmployeesByEmail[recipientEmail].receivedCount++;
 
     // 1. Cộng dồn cho Người nhận (Bảng Top 30 Người Tiếp Lửa Tri Thức)
     if (!recipientStatsMap[recipientEmail]) {
@@ -563,7 +635,7 @@ function getFullCampaignDashboardData() {
     validChronologicalList.push({
       rowNumber: rowNumber,
       timeMs: timeMs,
-      timestamp: formatTimestamp(timestamp),
+      timestamp: formattedTs,
       senderEmail: senderEmail,
       senderName: senderName,
       senderDept: senderDept,
@@ -575,30 +647,58 @@ function getFullCampaignDashboardData() {
       driveUrl: driveUrl
     });
 
-    // 3. Thống kê theo Đơn vị (Khu vực D)
-    const unitKey = recipientDept || senderDept || "FPT Telecom";
-    if (!unitStatsMap[unitKey]) {
-      unitStatsMap[unitKey] = {
-        unit: unitKey,
-        totalFlames: 0,
-        senders: new Set(),
-        recipients: new Set()
+    // 3. Thống kê chi tiết theo Đơn vị (Khu vực D: Ngọn lửa, Người gửi, Người nhận, Thành viên)
+    const recUnitObj = ensureUnitEntry(recipientDept);
+    recUnitObj.totalFlames++;
+    recUnitObj.membersMap[recipientEmail] = hrEmployeesByEmail[recipientEmail];
+    recUnitObj.flamesList.push({
+      senderName: senderName,
+      senderEmail: senderEmail,
+      senderDept: senderDept,
+      recipientName: recipientName,
+      recipientEmail: recipientEmail,
+      recipientDept: recipientDept,
+      role: recipientRole,
+      timestamp: formattedTs
+    });
+
+    if (!recUnitObj.recipientsMap[recipientEmail]) {
+      recUnitObj.recipientsMap[recipientEmail] = {
+        name: recipientName,
+        email: recipientEmail,
+        dept: recipientDept,
+        role: recipientRole,
+        count: 0
       };
     }
-    unitStatsMap[unitKey].totalFlames++;
-    unitStatsMap[unitKey].senders.add(senderEmail);
-    unitStatsMap[unitKey].recipients.add(recipientEmail);
+    recUnitObj.recipientsMap[recipientEmail].count++;
 
-    if (senderDept && senderDept !== unitKey) {
-      if (!unitStatsMap[senderDept]) {
-        unitStatsMap[senderDept] = {
-          unit: senderDept,
-          totalFlames: 0,
-          senders: new Set(),
-          recipients: new Set()
-        };
-      }
-      unitStatsMap[senderDept].senders.add(senderEmail);
+    const sendUnitObj = ensureUnitEntry(senderDept);
+    sendUnitObj.membersMap[senderEmail] = hrEmployeesByEmail[senderEmail];
+    if (!sendUnitObj.sendersMap[senderEmail]) {
+      sendUnitObj.sendersMap[senderEmail] = {
+        name: senderName,
+        email: senderEmail,
+        dept: senderDept,
+        count: 0,
+        latestTimestamp: formattedTs
+      };
+    }
+    sendUnitObj.sendersMap[senderEmail].count++;
+    sendUnitObj.sendersMap[senderEmail].latestTimestamp = formattedTs;
+
+    // Nếu người gửi khác đơn vị nhưng gửi vào đơn vị này, vẫn ghi nhận người gửi cho đơn vị nhận nếu chưa có
+    if (!recUnitObj.sendersMap[senderEmail]) {
+      recUnitObj.sendersMap[senderEmail] = {
+        name: senderName,
+        email: senderEmail,
+        dept: senderDept,
+        count: 0,
+        latestTimestamp: formattedTs
+      };
+    }
+    if (senderDept !== recipientDept) {
+      recUnitObj.sendersMap[senderEmail].count++;
     }
   });
 
@@ -617,7 +717,6 @@ function getFullCampaignDashboardData() {
   const early100Senders = [];
   const seenEarlySenders = new Set();
   for (const item of validChronologicalList) {
-    // Ghi nhận theo thứ tự lượt gửi hợp lệ sớm nhất (mỗi CBNV gửi sớm)
     if (!seenEarlySenders.has(item.senderEmail)) {
       seenEarlySenders.add(item.senderEmail);
       early100Senders.push({
@@ -632,15 +731,25 @@ function getFullCampaignDashboardData() {
     }
   }
 
-  // Sắp xếp Khu vực D: Lan tỏa theo đơn vị (Giảm dần theo totalFlames)
+  // Sắp xếp Khu vực D: Lan tỏa theo đơn vị (Giảm dần theo totalFlames, kèm danh sách chi tiết Thành viên, Người gửi, Người nhận, Ngọn lửa)
   const unitSpread = Object.values(unitStatsMap)
-    .map(u => ({
-      unit: u.unit,
-      totalFlames: u.totalFlames,
-      senderCount: u.senders.size,
-      recipientCount: u.recipients.size
-    }))
-    .sort((a, b) => b.totalFlames - a.totalFlames || b.senderCount - a.senderCount);
+    .map(u => {
+      const sendersList = Object.values(u.sendersMap).sort((a, b) => b.count - a.count);
+      const recipientsList = Object.values(u.recipientsMap).sort((a, b) => b.count - a.count);
+      const membersList = Object.values(u.membersMap).sort((a, b) => (b.receivedCount + b.sentCount) - (a.receivedCount + a.sentCount));
+      return {
+        unit: u.unit,
+        totalFlames: u.totalFlames,
+        senderCount: sendersList.length,
+        recipientCount: recipientsList.length,
+        memberCount: membersList.length,
+        flamesList: u.flamesList.slice().reverse(),
+        sendersList: sendersList,
+        recipientsList: recipientsList,
+        membersList: membersList
+      };
+    })
+    .sort((a, b) => b.totalFlames - a.totalFlames || b.senderCount - a.senderCount || b.memberCount - a.memberCount);
 
   return {
     totalFlames: totalFlames,
@@ -651,6 +760,7 @@ function getFullCampaignDashboardData() {
     top30Recipients: top30Recipients,
     early100Senders: early100Senders,
     unitSpread: unitSpread,
+    hrDirectory: Object.values(hrEmployeesByEmail),
     recentTributes: validChronologicalList.slice(-20).reverse(),
     pendingRender: syncInfo.pendingRender || []
   };
@@ -1099,6 +1209,9 @@ function loadHrDirectoryMap(ss) {
   if (nameCol === -1) nameCol = emailCol === 0 ? 1 : 0;
   if (deptCol === -1) deptCol = Math.max(emailCol, nameCol) + 1;
 
+  const uniqueEmployees = [];
+  const seenAccounts = new Set();
+
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
     const rawEmail = String(row[emailCol] || "").trim().toLowerCase();
@@ -1108,7 +1221,9 @@ function loadHrDirectoryMap(ss) {
 
     if (!rawEmail && !fullName) continue;
 
+    const canonicalEmail = rawEmail.indexOf("@") !== -1 ? rawEmail : (rawEmail ? rawEmail + "@fpt.com" : "");
     const record = {
+      email: canonicalEmail,
       name: fullName,
       dept: deptName,
       avatar: avatarUrl
@@ -1118,6 +1233,10 @@ function loadHrDirectoryMap(ss) {
       map[rawEmail] = record;
       const localPart = rawEmail.split("@")[0].trim();
       if (localPart) {
+        if (!seenAccounts.has(localPart)) {
+          seenAccounts.add(localPart);
+          uniqueEmployees.push(record);
+        }
         if (!map[localPart]) map[localPart] = record;
         if (!map[localPart + "@fpt.com"]) map[localPart + "@fpt.com"] = record;
         if (!map[localPart + "@fpt.net"]) map[localPart + "@fpt.net"] = record;
@@ -1126,6 +1245,7 @@ function loadHrDirectoryMap(ss) {
     }
   }
 
+  map.__uniqueEmployees = uniqueEmployees;
   return map;
 }
 

@@ -1,11 +1,12 @@
 import { ApiService } from './api.js';
-import { GOOGLE_FORM_URL, GOOGLE_SHEET_URL } from './mockData.js';
+import { GOOGLE_FORM_URL, GOOGLE_HR_SHEET_URL } from './mockData.js';
 
 /**
- * Module Live Dashboard Chiến Dịch 20/11 (Khu vực A - B - C - D)
+ * Module Live Dashboard Chiến Dịch 20/11 (Khu vực A - B - C - D + Tìm kiếm DS Nhân sự & Chi tiết Đơn vị)
  * - Khu vực B: Tổng quan chiến dịch (4 chỉ số KPI thời gian thực)
+ * - Khu vực Tra cứu DS Nhân sự: Tìm kiếm nhân sự theo Họ tên, Email, Account, Đơn vị từ Sheet DS nhân sự (gid=1084168011)
  * - Khu vực C: Bảng xếp hạng ("30 NGƯỜI TIẾP LỬA TRI THỨC" với Top 3 nổi bật + "100 NGƯỜI TIẾP LỬA SỚM NHẤT" dạng Timeline)
- * - Khu vực D: Lan tỏa theo đơn vị (Biểu đồ thanh ngang + Thống kê Người gửi/Người nhận + Bộ lọc theo đơn vị)
+ * - Khu vực D: Lan tỏa theo đơn vị (Theo đúng DS nhân sự - Bấm vào đơn vị hoặc từng chỉ số 🔥 Ngọn lửa / 💌 Người gửi / 🎓 Người nhận để xem danh sách chi tiết)
  */
 export class DashboardModule {
   constructor() {
@@ -13,6 +14,15 @@ export class DashboardModule {
     this.selectedUnitFilter = 'ALL';
     this.searchQuery = '';
     this.activeRankingTab = 'top30'; // 'top30' | 'early100'
+
+    // Trạng thái Tìm kiếm Nhân sự trong DS Nhân sự
+    this.hrSearchQuery = '';
+    this.hrUnitFilter = 'ALL';
+
+    // Trạng thái mở chi tiết Đơn vị ở Khu vực D
+    this.expandedUnit = 'Trung tâm Đào tạo FTEL (FTC)'; // Mở sẵn đơn vị dẫn đầu để người dùng thấy ngay chi tiết, có thể đóng/mở bất kỳ đơn vị nào
+    this.expandedUnitTab = 'overview_all'; // 'overview_all' | 'flames' | 'senders' | 'recipients' | 'members'
+    this.unitMemberSearch = '';
   }
 
   /**
@@ -27,6 +37,13 @@ export class DashboardModule {
   async refreshData() {
     try {
       this.data = await ApiService.getFullDashboardData();
+      // Nếu đơn vị đang mở chưa có trong danh sách thì mặc định chọn đơn vị đầu tiên
+      if (this.data?.unitSpread?.length > 0 && this.expandedUnit) {
+        const exists = this.data.unitSpread.some(u => u.unit === this.expandedUnit);
+        if (!exists) {
+          this.expandedUnit = this.data.unitSpread[0].unit;
+        }
+      }
       this.renderInline();
     } catch (err) {
       console.error('Lỗi tải dữ liệu Dashboard:', err);
@@ -62,10 +79,11 @@ export class DashboardModule {
       uniqueUnits = 0,
       top30Recipients = [],
       early100Senders = [],
-      unitSpread = []
+      unitSpread = [],
+      hrDirectory = []
     } = this.data;
 
-    // Lọc theo đơn vị và từ khóa tìm kiếm
+    // Lọc theo đơn vị và từ khóa tìm kiếm cho Khu vực C
     const filterByUnitAndSearch = (list) => {
       return list.filter(item => {
         const matchUnit = this.selectedUnitFilter === 'ALL' || item.dept === this.selectedUnitFilter;
@@ -85,6 +103,19 @@ export class DashboardModule {
     const filteredUnits = this.selectedUnitFilter === 'ALL'
       ? unitSpread
       : unitSpread.filter(u => u.unit === this.selectedUnitFilter);
+
+    // Lọc Danh sách Nhân sự (Tra cứu DS Nhân sự gid=1084168011)
+    const filteredHrList = hrDirectory.filter(emp => {
+      const matchUnit = this.hrUnitFilter === 'ALL' || emp.dept === this.hrUnitFilter;
+      if (!matchUnit) return false;
+      if (!this.hrSearchQuery.trim()) return true;
+      const q = this.hrSearchQuery.trim().toLowerCase();
+      return (
+        String(emp.name || '').toLowerCase().includes(q) ||
+        String(emp.email || '').toLowerCase().includes(q) ||
+        String(emp.dept || '').toLowerCase().includes(q)
+      );
+    });
 
     // Tách Top 3 và Hạng 4 - 30 cho Bảng "30 NGƯỜI TIẾP LỬA TRI THỨC"
     const top1 = filteredTop30[0] || null;
@@ -170,6 +201,92 @@ export class DashboardModule {
         </section>
 
         <!-- ======================================================================= -->
+        <!-- KHU VỰC TRA CỨU NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ (SHEET GID=1084168011)  -->
+        <!-- ======================================================================= -->
+        <section class="glass-card rounded-3xl p-5 sm:p-7 border border-amber-500/30">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 mb-5 border-b border-white/10">
+            <div>
+              <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                <span>🔍</span>
+                <span>Danh Bạ Nhân Sự FTEL • Đồng Bộ Sheet DS Nhân Sự</span>
+              </div>
+              <h2 class="text-lg sm:text-2xl font-black text-white">TÌM KIẾM NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ</h2>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Tra cứu nhanh Họ và tên, Email FPT, Đơn vị công tác và số ngọn lửa đã gửi / đã nhận của từng CBNV
+              </p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div class="relative">
+                <input 
+                  type="text" 
+                  id="hr-directory-search-input" 
+                  value="${this.hrSearchQuery}"
+                  placeholder="🔍 Nhập tên, email (@fpt.com) hoặc đơn vị..." 
+                  class="custom-input rounded-xl px-4 py-2.5 text-xs sm:text-sm sm:w-72 border-amber-500/40"
+                />
+              </div>
+              <select id="hr-directory-unit-select" class="custom-input rounded-xl px-3 py-2.5 text-xs sm:text-sm">
+                <option value="ALL" ${this.hrUnitFilter === 'ALL' ? 'selected' : ''}>Tất cả đơn vị (${allUnitsList.length})</option>
+                ${allUnitsList.map(u => `
+                  <option value="${u}" ${this.hrUnitFilter === u ? 'selected' : ''}>${u}</option>
+                `).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-3">
+            <span>Hiển thị <strong class="text-amber-300">${Math.min(filteredHrList.length, 24)}</strong> / <strong class="text-white">${filteredHrList.length}</strong> nhân sự phù hợp</span>
+            <span class="text-[11px] text-slate-400">💡 Bấm vào Email để copy nhanh khi điền Google Form</span>
+          </div>
+
+          ${filteredHrList.length > 0 ? `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+              ${filteredHrList.slice(0, 24).map(emp => `
+                <div class="p-3.5 rounded-2xl bg-slate-950/75 border border-white/10 hover:border-amber-500/40 transition-all flex flex-col justify-between gap-2.5">
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500/30 to-amber-400/20 border border-amber-400/40 flex items-center justify-center text-xs font-black text-amber-300 shrink-0">
+                      ${this.getInitials(emp.name)}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <div class="font-bold text-white text-sm truncate">${emp.name}</div>
+                      <button 
+                        type="button"
+                        data-copy-email="${emp.email}"
+                        class="text-xs font-mono text-amber-300 hover:text-amber-200 flex items-center gap-1 truncate mt-0.5 cursor-pointer"
+                        title="Bấm để copy Email"
+                      >
+                        <span>📧 ${emp.email}</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-white/10 text-slate-300">Copy</span>
+                      </button>
+                      <div class="text-[11px] text-slate-400 truncate mt-1">🏢 ${emp.dept || 'FPT Telecom'}</div>
+                    </div>
+                  </div>
+                  <div class="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
+                    <div class="flex items-center gap-2.5">
+                      <span class="text-emerald-300 font-bold">🎓 Nhận: ${emp.receivedCount || 0} 🔥</span>
+                      <span class="text-sky-300 font-semibold">💌 Gửi: ${emp.sentCount || 0}</span>
+                    </div>
+                    <a 
+                      href="${GOOGLE_FORM_URL}" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 font-bold transition-all"
+                    >
+                      🔥 Tri ân
+                    </a>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : `
+            <div class="py-8 text-center text-slate-400 text-xs">
+              Không tìm thấy nhân sự nào khớp với từ khóa "<strong>${this.hrSearchQuery}</strong>".
+            </div>
+          `}
+        </section>
+
+        <!-- ======================================================================= -->
         <!-- KHU VỰC C: BẢNG XẾP HẠNG VINH DANH (TOP 30 & TOP 100 SỚM NHẤT)          -->
         <!-- ======================================================================= -->
         <section class="glass-card rounded-3xl p-5 sm:p-7">
@@ -205,7 +322,7 @@ export class DashboardModule {
                 type="text" 
                 id="dash-inline-search" 
                 value="${this.searchQuery}"
-                placeholder="Tìm họ tên, đơn vị..." 
+                placeholder="Tìm trong Bảng xếp hạng..." 
                 class="custom-input rounded-xl px-3.5 py-2 text-xs sm:w-52"
               />
             </div>
@@ -284,15 +401,18 @@ export class DashboardModule {
         </section>
 
         <!-- ======================================================================= -->
-        <!-- KHU VỰC D: LAN TỎA THEO ĐƠN VỊ (BIỂU ĐỒ THANH NGANG & BỘ LỌC ĐƠN VỊ)    -->
+        <!-- KHU VỰC D: THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ / PHÒNG BAN (CLICK XEM CHI TIẾT) -->
         <!-- ======================================================================= -->
         <section class="glass-card rounded-3xl p-5 sm:p-7">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b border-white/10">
             <div>
               <div class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1">
-                Khu vực D • Lan Tỏa Theo Đơn Vị
+                Khu vực D • Lan Tỏa Theo Đơn Vị (Đồng bộ Danh sách Nhân sự)
               </div>
               <h2 class="text-lg sm:text-2xl font-black text-white">THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ / PHÒNG BAN</h2>
+              <p class="text-xs text-slate-400 mt-0.5">
+                👆 <strong>Bấm vào từng Đơn vị</strong> hoặc bấm vào <strong>🔥 Ngọn lửa</strong>, <strong>💌 Người gửi</strong>, <strong>🎓 Người nhận</strong> để xem danh sách các thành viên chi tiết trong đơn vị đó
+              </p>
             </div>
 
             <!-- Bộ lọc theo đơn vị -->
@@ -307,31 +427,83 @@ export class DashboardModule {
             </div>
           </div>
 
-          <div class="space-y-3.5">
+          <div class="space-y-4">
             ${filteredUnits.map((u, idx) => {
               const widthPct = Math.max(6, Math.round((u.totalFlames / maxUnitFlames) * 100));
+              const isExpanded = this.expandedUnit === u.unit;
               return `
-                <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950/60 border border-white/10">
-                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
-                    <div class="flex items-center gap-2.5">
-                      <span class="w-6 h-6 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-300 text-xs font-black flex items-center justify-center">
-                        ${idx + 1}
-                      </span>
-                      <span class="font-bold text-white text-sm sm:text-base">${u.unit}</span>
+                <div class="rounded-2xl bg-slate-950/75 border ${isExpanded ? 'border-amber-400/60 shadow-xl shadow-amber-500/10' : 'border-white/10 hover:border-white/25'} transition-all overflow-hidden">
+                  <!-- Thanh tiêu đề Đơn vị (Bấm vào để đóng/mở chi tiết) -->
+                  <div 
+                    data-unit-toggle="${u.unit}"
+                    class="p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  >
+                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 mb-2.5">
+                      <div class="flex items-center gap-2.5">
+                        <span class="w-7 h-7 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-black flex items-center justify-center shrink-0">
+                          ${idx + 1}
+                        </span>
+                        <div>
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-extrabold text-white text-sm sm:text-base">${u.unit}</span>
+                            <span class="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-amber-300 font-semibold">
+                              ${isExpanded ? '▼ Đang mở chi tiết' : '▶ Bấm xem thành viên chi tiết'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 3 Nút Chỉ Số Trực Quan (Bấm vào từng chỉ số để mở thẳng tab chi tiết đó) -->
+                      <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button 
+                          type="button"
+                          data-unit-stat-btn="${u.unit}"
+                          data-stat-tab="flames"
+                          class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+                          title="Xem chi tiết ${u.totalFlames} ngọn lửa của đơn vị ${u.unit}"
+                        >
+                          <span>🔥 ${u.totalFlames} ngọn lửa</span>
+                        </button>
+                        <button 
+                          type="button"
+                          data-unit-stat-btn="${u.unit}"
+                          data-stat-tab="senders"
+                          class="px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                          title="Xem chi tiết ${u.senderCount} người gửi của đơn vị ${u.unit}"
+                        >
+                          <span>💌 ${u.senderCount} người gửi</span>
+                        </button>
+                        <button 
+                          type="button"
+                          data-unit-stat-btn="${u.unit}"
+                          data-stat-tab="recipients"
+                          class="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                          title="Xem chi tiết ${u.recipientCount} người nhận của đơn vị ${u.unit}"
+                        >
+                          <span>🎓 ${u.recipientCount} người nhận</span>
+                        </button>
+                        <button 
+                          type="button"
+                          data-unit-stat-btn="${u.unit}"
+                          data-stat-tab="overview_all"
+                          class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <span>👥 Xem tất cả</span>
+                        </button>
+                      </div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3 text-xs">
-                      <span class="text-amber-400 font-extrabold">🔥 ${u.totalFlames} ngọn lửa</span>
-                      <span class="text-sky-300">💌 ${u.senderCount} người gửi</span>
-                      <span class="text-emerald-300">🎓 ${u.recipientCount} người nhận</span>
+
+                    <!-- Biểu đồ thanh ngang -->
+                    <div class="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
+                      <div 
+                        class="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 transition-all duration-500"
+                        style="width: ${widthPct}%"
+                      ></div>
                     </div>
                   </div>
-                  <!-- Biểu đồ thanh ngang -->
-                  <div class="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden">
-                    <div 
-                      class="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 transition-all duration-500"
-                      style="width: ${widthPct}%"
-                    ></div>
-                  </div>
+
+                  <!-- KHUNG CHI TIẾT THÀNH VIÊN TRONG ĐƠN VỊ (HIỂN THỊ KHI BẤM VÀO ĐƠN VỊ) -->
+                  ${isExpanded ? this.renderUnitDetailPanel(u) : ''}
                 </div>
               `;
             }).join('')}
@@ -340,12 +512,262 @@ export class DashboardModule {
       </div>
     `;
 
-    // Gắn sự kiện tương tác cho Dashboard
+    this.attachDashboardEvents();
+  }
+
+  /**
+   * Hiển thị bảng chi tiết đầy đủ cho Đơn vị đang mở:
+   * - 🔥 Chi tiết Ngọn lửa (VD: 64 ngọn lửa)
+   * - 💌 Chi tiết Người gửi (VD: 45 người gửi)
+   * - 🎓 Chi tiết Người nhận (VD: 14 người nhận)
+   * - 👥 Danh sách thành viên thuộc đơn vị trong DS Nhân sự
+   */
+  renderUnitDetailPanel(u) {
+    const flamesList = u.flamesList || [];
+    const sendersList = u.sendersList || [];
+    const recipientsList = u.recipientsList || [];
+    const membersList = u.membersList || [];
+
+    const activeSubTab = this.expandedUnitTab || 'overview_all';
+
+    return `
+      <div class="border-t border-white/10 bg-slate-900/90 p-4 sm:p-5 space-y-4">
+        <!-- Thanh chọn chế độ xem chi tiết của Đơn vị -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div class="flex flex-wrap items-center gap-2">
+            <button 
+              type="button"
+              data-unit-subtab="overview_all"
+              class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${activeSubTab === 'overview_all' ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-md' : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'}"
+            >
+              📊 Xem đồng thời cả 3 cột (🔥 ${u.totalFlames} • 💌 ${u.senderCount} • 🎓 ${u.recipientCount})
+            </button>
+            <button 
+              type="button"
+              data-unit-subtab="flames"
+              class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSubTab === 'flames' ? 'bg-amber-500/25 text-amber-300 border border-amber-400' : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'}"
+            >
+              🔥 Chi tiết ${u.totalFlames} Ngọn lửa
+            </button>
+            <button 
+              type="button"
+              data-unit-subtab="senders"
+              class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSubTab === 'senders' ? 'bg-sky-500/25 text-sky-300 border border-sky-400' : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'}"
+            >
+              💌 Chi tiết ${u.senderCount} Người gửi
+            </button>
+            <button 
+              type="button"
+              data-unit-subtab="recipients"
+              class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSubTab === 'recipients' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400' : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'}"
+            >
+              🎓 Chi tiết ${u.recipientCount} Người nhận
+            </button>
+            <button 
+              type="button"
+              data-unit-subtab="members"
+              class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSubTab === 'members' ? 'bg-purple-500/25 text-purple-300 border border-purple-400' : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'}"
+            >
+              👥 Thành viên DS Nhân sự (${membersList.length})
+            </button>
+          </div>
+        </div>
+
+        <!-- CHẾ ĐỘ 1: HIỂN THỊ ĐỒNG THỜI CẢ 3 BẢNG CHI TIẾT (🎓 NGƯỜI NHẬN - 💌 NGƯỜI GỬI - 🔥 NGỌN LỬA) -->
+        ${activeSubTab === 'overview_all' ? `
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- CỘT 1: CHI TIẾT NGƯỜI NHẬN (VD: 🎓 14 người nhận) -->
+            <div class="p-3.5 rounded-2xl bg-slate-950/80 border border-emerald-500/30 flex flex-col">
+              <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+                <span class="text-xs font-extrabold uppercase text-emerald-300">🎓 ${u.recipientCount} Người Nhận Tri Ân</span>
+                <span class="text-[11px] text-slate-400">Xếp theo số lửa</span>
+              </div>
+              <div class="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                ${recipientsList.map((rec, rIdx) => `
+                  <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-2 text-xs">
+                    <div class="min-w-0">
+                      <div class="font-bold text-white truncate">${rIdx + 1}. ${rec.name}</div>
+                      <div class="text-[11px] font-mono text-slate-400 truncate">${rec.email}</div>
+                      <div class="text-[10px] text-emerald-300/80 truncate">${rec.role || 'Người truyền lửa'}</div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-300 font-black shrink-0">
+                      🔥 ${rec.count}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- CỘT 2: CHI TIẾT NGƯỜI GỬI (VD: 💌 45 người gửi) -->
+            <div class="p-3.5 rounded-2xl bg-slate-950/80 border border-sky-500/30 flex flex-col">
+              <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+                <span class="text-xs font-extrabold uppercase text-sky-300">💌 ${u.senderCount} Người Tham Gia Gửi</span>
+                <span class="text-[11px] text-slate-400">CBNV đơn vị</span>
+              </div>
+              <div class="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                ${sendersList.map((snd, sIdx) => `
+                  <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between gap-2 text-xs">
+                    <div class="min-w-0">
+                      <div class="font-bold text-white truncate">${sIdx + 1}. ${snd.name}</div>
+                      <div class="text-[11px] font-mono text-slate-400 truncate">${snd.email}</div>
+                      <div class="text-[10px] text-slate-500 truncate">🕒 ${snd.latestTimestamp || ''}</div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-lg bg-sky-500/20 border border-sky-500/30 text-sky-300 font-bold shrink-0">
+                      💌 ${snd.count} lượt
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- CỘT 3: CHI TIẾT NGỌN LỬA (VD: 🔥 64 ngọn lửa) -->
+            <div class="p-3.5 rounded-2xl bg-slate-950/80 border border-amber-500/30 flex flex-col">
+              <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+                <span class="text-xs font-extrabold uppercase text-amber-300">🔥 ${u.totalFlames} Ngọn Lửa Đã Thắp</span>
+                <span class="text-[11px] text-slate-400">Người gửi → Người nhận</span>
+              </div>
+              <div class="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                ${flamesList.map((fl, fIdx) => `
+                  <div class="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-xs space-y-1">
+                    <div class="flex items-center justify-between">
+                      <span class="font-black text-amber-400">🔥 Ngọn lửa #${fIdx + 1}</span>
+                      <span class="text-[10px] text-slate-400">${fl.timestamp || ''}</span>
+                    </div>
+                    <div class="text-slate-200">
+                      <strong class="text-sky-300">${fl.senderName}</strong>
+                      <span class="text-slate-400 mx-1">➔</span>
+                      <strong class="text-emerald-300">${fl.recipientName}</strong>
+                    </div>
+                    <div class="text-[10px] text-slate-400 truncate">${fl.role || ''}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- CHẾ ĐỘ 2: XEM RIÊNG BẢNG CHI TIẾT NGỌN LỬA -->
+        ${activeSubTab === 'flames' ? `
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+            ${flamesList.map((fl, fIdx) => `
+              <div class="p-3 rounded-xl bg-slate-950/80 border border-amber-500/30 text-xs space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black">🔥 Ngọn lửa #${fIdx + 1}</span>
+                  <span class="text-[11px] text-slate-400">🕒 ${fl.timestamp || ''}</span>
+                </div>
+                <div class="pt-1">
+                  <div class="text-slate-300">💌 Người gửi: <strong class="text-white">${fl.senderName}</strong> <span class="font-mono text-[11px] text-slate-400">(${fl.senderEmail})</span></div>
+                  <div class="text-slate-300 mt-0.5">🎓 Người nhận: <strong class="text-amber-300">${fl.recipientName}</strong> <span class="font-mono text-[11px] text-slate-400">(${fl.recipientEmail})</span></div>
+                </div>
+                <div class="text-[11px] text-emerald-300/90 truncate">✦ ${fl.role || 'Giảng viên – Người truyền tri thức'}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- CHẾ ĐỘ 3: XEM RIÊNG BẢNG CHI TIẾT NGƯỜI GỬI -->
+        ${activeSubTab === 'senders' ? `
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+            ${sendersList.map((snd, sIdx) => `
+              <div class="p-3 rounded-xl bg-slate-950/80 border border-sky-500/30 flex items-center justify-between gap-2 text-xs">
+                <div class="min-w-0">
+                  <div class="font-bold text-white truncate">#${sIdx + 1}. ${snd.name}</div>
+                  <div class="text-[11px] font-mono text-sky-300 truncate">${snd.email}</div>
+                  <div class="text-[10px] text-slate-400 mt-0.5">🕒 ${snd.latestTimestamp || ''}</div>
+                </div>
+                <span class="px-3 py-1.5 rounded-xl bg-sky-500/20 border border-sky-500/30 text-sky-300 font-extrabold shrink-0">
+                  💌 ${snd.count} lửa
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- CHẾ ĐỘ 4: XEM RIÊNG BẢNG CHI TIẾT NGƯỜI NHẬN -->
+        ${activeSubTab === 'recipients' ? `
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+            ${recipientsList.map((rec, rIdx) => `
+              <div class="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex items-center justify-between gap-2 text-xs">
+                <div class="min-w-0">
+                  <div class="font-bold text-white truncate">#${rIdx + 1}. ${rec.name}</div>
+                  <div class="text-[11px] font-mono text-emerald-300 truncate">${rec.email}</div>
+                  <div class="text-[10px] text-slate-400 truncate mt-0.5">${rec.role || 'Người truyền lửa'}</div>
+                </div>
+                <span class="px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 font-black shrink-0">
+                  🔥 ${rec.count} lửa
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- CHẾ ĐỘ 5: XEM DANH SÁCH THÀNH VIÊN TRONG ĐƠN VỊ (TỪ DS NHÂN SỰ) -->
+        ${activeSubTab === 'members' ? `
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+            ${membersList.map((mem, mIdx) => `
+              <div class="p-3 rounded-xl bg-slate-950/80 border border-white/10 flex items-center justify-between gap-2 text-xs">
+                <div class="min-w-0">
+                  <div class="font-bold text-white truncate">${mIdx + 1}. ${mem.name}</div>
+                  <div class="text-[11px] font-mono text-amber-300 truncate">${mem.email}</div>
+                  <div class="text-[10px] text-slate-400 truncate">${mem.dept || u.unit}</div>
+                </div>
+                <div class="text-right shrink-0 space-y-0.5">
+                  <div class="text-[11px] font-bold text-emerald-300">🎓 Nhận: ${mem.receivedCount || 0}</div>
+                  <div class="text-[11px] font-semibold text-sky-300">💌 Gửi: ${mem.sentCount || 0}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  attachDashboardEvents() {
     const refreshBtn = this.container.querySelector('#dash-refresh-btn');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => this.refreshData());
     }
 
+    // Sự kiện tìm kiếm Nhân sự trong DS Nhân sự
+    const hrSearchInput = this.container.querySelector('#hr-directory-search-input');
+    if (hrSearchInput) {
+      hrSearchInput.addEventListener('input', (e) => {
+        this.hrSearchQuery = e.target.value;
+        this.renderInline();
+        const nextInput = this.container.querySelector('#hr-directory-search-input');
+        if (nextInput) {
+          nextInput.focus();
+          nextInput.setSelectionRange(nextInput.value.length, nextInput.value.length);
+        }
+      });
+    }
+
+    const hrUnitSelect = this.container.querySelector('#hr-directory-unit-select');
+    if (hrUnitSelect) {
+      hrUnitSelect.addEventListener('change', (e) => {
+        this.hrUnitFilter = e.target.value;
+        this.renderInline();
+      });
+    }
+
+    // Nút Copy nhanh Email nhân sự
+    this.container.querySelectorAll('[data-copy-email]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const email = btn.getAttribute('data-copy-email');
+        if (email && navigator.clipboard) {
+          navigator.clipboard.writeText(email);
+          const orig = btn.innerHTML;
+          btn.innerHTML = `<span class="text-emerald-400 font-bold">✓ Đã copy: ${email}</span>`;
+          setTimeout(() => {
+            btn.innerHTML = orig;
+          }, 1500);
+        }
+      });
+    });
+
+    // Chuyển tab Bảng xếp hạng Khu vực C
     const tabBtns = this.container.querySelectorAll('.dash-tab-btn');
     tabBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -371,9 +793,47 @@ export class DashboardModule {
     if (unitFilter) {
       unitFilter.addEventListener('change', (e) => {
         this.selectedUnitFilter = e.target.value;
+        if (this.selectedUnitFilter !== 'ALL') {
+          this.expandedUnit = this.selectedUnitFilter;
+        }
         this.renderInline();
       });
     }
+
+    // Sự kiện bấm vào từng chỉ số (🔥 Ngọn lửa / 💌 Người gửi / 🎓 Người nhận) trên dòng Đơn vị
+    this.container.querySelectorAll('[data-unit-stat-btn]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targetUnit = btn.getAttribute('data-unit-stat-btn');
+        const targetTab = btn.getAttribute('data-stat-tab') || 'overview_all';
+        this.expandedUnit = targetUnit;
+        this.expandedUnitTab = targetTab;
+        this.renderInline();
+      });
+    });
+
+    // Sự kiện bấm vào dòng Đơn vị để đóng/mở chi tiết
+    this.container.querySelectorAll('[data-unit-toggle]').forEach(rowEl => {
+      rowEl.addEventListener('click', () => {
+        const targetUnit = rowEl.getAttribute('data-unit-toggle');
+        if (this.expandedUnit === targetUnit) {
+          this.expandedUnit = null;
+        } else {
+          this.expandedUnit = targetUnit;
+          this.expandedUnitTab = 'overview_all';
+        }
+        this.renderInline();
+      });
+    });
+
+    // Sự kiện chuyển tab con bên trong Khung Chi Tiết Đơn Vị
+    this.container.querySelectorAll('[data-unit-subtab]').forEach(subBtn => {
+      subBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.expandedUnitTab = subBtn.getAttribute('data-unit-subtab') || 'overview_all';
+        this.renderInline();
+      });
+    });
   }
 
   renderPodiumCard(item, rank) {

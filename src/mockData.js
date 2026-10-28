@@ -192,15 +192,175 @@ export const MOCK_EARLY_100 = [
 ];
 
 /**
- * Khu vực D: Lan tỏa theo đơn vị
+ * Khu vực D: Lan tỏa theo đơn vị & Danh bạ nhân sự chi tiết (Kèm chi tiết Ngọn lửa, Người gửi, Người nhận, Thành viên)
  */
-export const MOCK_UNIT_SPREAD = [
-  { unit: "Trung tâm Đào tạo FTEL (FTC)", totalFlames: 64, senderCount: 45, recipientCount: 14 },
-  { unit: "TIN - Viễn thông Quốc tế Miền Bắc", totalFlames: 52, senderCount: 38, recipientCount: 11 },
-  { unit: "PNC - Viễn thông Quốc tế Miền Nam", totalFlames: 46, senderCount: 34, recipientCount: 10 },
-  { unit: "FTI - Khách hàng Doanh nghiệp", totalFlames: 39, senderCount: 28, recipientCount: 8 },
-  { unit: "NOC - Trung tâm Vận hành Mạng", totalFlames: 34, senderCount: 25, recipientCount: 7 },
-  { unit: "CS - Trung tâm Chăm sóc Khách hàng", totalFlames: 31, senderCount: 22, recipientCount: 6 },
-  { unit: "Khối Công nghệ & Kỹ thuật", totalFlames: 26, senderCount: 19, recipientCount: 5 },
-  { unit: "FPL - FPT Play", totalFlames: 21, senderCount: 16, recipientCount: 4 }
+const BASE_UNIT_CONFIGS = [
+  { unit: "Trung tâm Đào tạo FTEL (FTC)", code: "ftc", totalFlames: 64, senderCount: 45, recipientCount: 14 },
+  { unit: "TIN - Viễn thông Quốc tế Miền Bắc", code: "tin", totalFlames: 52, senderCount: 38, recipientCount: 11 },
+  { unit: "PNC - Viễn thông Quốc tế Miền Nam", code: "pnc", totalFlames: 46, senderCount: 34, recipientCount: 10 },
+  { unit: "FTI - Khách hàng Doanh nghiệp", code: "fti", totalFlames: 39, senderCount: 28, recipientCount: 8 },
+  { unit: "NOC - Trung tâm Vận hành Mạng", code: "noc", totalFlames: 34, senderCount: 25, recipientCount: 7 },
+  { unit: "CS - Trung tâm Chăm sóc Khách hàng", code: "cs", totalFlames: 31, senderCount: 22, recipientCount: 6 },
+  { unit: "Khối Công nghệ & Kỹ thuật", code: "tech", totalFlames: 26, senderCount: 19, recipientCount: 5 },
+  { unit: "FPL - FPT Play", code: "fpl", totalFlames: 21, senderCount: 16, recipientCount: 4 }
 ];
+
+const LAST_NAMES = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Vũ", "Đặng", "Bùi", "Đỗ", "Ngô", "Phan", "Lý", "Trịnh", "Đinh"];
+const MID_NAMES = ["Văn", "Thị", "Hoàng", "Minh", "Ngọc", "Thanh", "Quốc", "Hải", "Thu", "Hữu", "Đức", "Gia", "Trọng", "Mai"];
+const FIRST_NAMES = ["Hùng", "Anh", "Phúc", "Hằng", "Bảo", "Đăng", "Vân", "Khiêm", "Lan", "Nghĩa", "Tùng", "Duyên", "Tuấn", "Nhung", "Châu", "Đạt", "Trang", "Phước", "Bình", "Thảo", "Khánh", "Linh", "Nam", "Phương"];
+
+function removeDiacritics(str) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+}
+
+function buildMockUnitSpreadAndHrDirectory() {
+  const hrDirectory = [];
+  const seenEmails = new Set();
+
+  // Đưa các nhân sự tiêu biểu từ EMPLOYEE_DIRECTORY và MOCK_LEADERBOARD vào trước
+  Object.entries(EMPLOYEE_DIRECTORY).forEach(([email, info]) => {
+    if (email.endsWith("@fpt.net") && seenEmails.has(email.replace("@fpt.net", "@fpt.com"))) return;
+    seenEmails.add(email);
+    hrDirectory.push({
+      name: info.name,
+      email: email,
+      dept: info.dept,
+      role: "CBNV / Giảng viên nội bộ",
+      sentCount: 2,
+      receivedCount: 5
+    });
+  });
+
+  const unitSpread = BASE_UNIT_CONFIGS.map((cfg, uIdx) => {
+    const recipientsList = [];
+    const sendersList = [];
+    const flamesList = [];
+    const membersMap = {};
+
+    // 1. Tạo danh sách Người nhận (đúng bằng cfg.recipientCount, VD: 14 người nhận cho FTC)
+    const knownUnitMentors = MOCK_LEADERBOARD.filter(m => m.dept === cfg.unit);
+    for (let r = 0; r < cfg.recipientCount; r++) {
+      let recName, recEmail, recRole;
+      if (r < knownUnitMentors.length) {
+        recName = knownUnitMentors[r].name;
+        recEmail = knownUnitMentors[r].email;
+        recRole = knownUnitMentors[r].role;
+      } else {
+        const ln = LAST_NAMES[(uIdx * 3 + r) % LAST_NAMES.length];
+        const mn = MID_NAMES[(uIdx * 5 + r) % MID_NAMES.length];
+        const fn = FIRST_NAMES[(uIdx * 7 + r) % FIRST_NAMES.length];
+        recName = `${ln} ${mn} ${fn}`;
+        recEmail = `${removeDiacritics(fn)}${removeDiacritics(ln)[0]}${removeDiacritics(mn)[0]}${r + 1}@fpt.com`;
+        recRole = ROLES[r % ROLES.length];
+      }
+      const recObj = {
+        name: recName,
+        email: recEmail,
+        dept: cfg.unit,
+        role: recRole,
+        count: 0
+      };
+      recipientsList.push(recObj);
+      membersMap[recEmail] = {
+        name: recName,
+        email: recEmail,
+        dept: cfg.unit,
+        role: recRole,
+        sentCount: 1,
+        receivedCount: 0
+      };
+    }
+
+    // 2. Tạo danh sách Người gửi (đúng bằng cfg.senderCount, VD: 45 người gửi cho FTC)
+    const knownUnitSenders = MOCK_EARLY_100.filter(s => s.dept === cfg.unit);
+    for (let s = 0; s < cfg.senderCount; s++) {
+      let sName, sEmail;
+      if (s < knownUnitSenders.length) {
+        sName = knownUnitSenders[s].name;
+        sEmail = knownUnitSenders[s].email;
+      } else {
+        const ln = LAST_NAMES[(uIdx * 2 + s + 4) % LAST_NAMES.length];
+        const mn = MID_NAMES[(uIdx * 4 + s + 2) % MID_NAMES.length];
+        const fn = FIRST_NAMES[(uIdx * 6 + s + 3) % FIRST_NAMES.length];
+        sName = `${ln} ${mn} ${fn}`;
+        sEmail = `${removeDiacritics(fn)}${removeDiacritics(ln)[0]}${removeDiacritics(mn)[0]}_${cfg.code}${s + 1}@fpt.com`;
+      }
+      const h = String(8 + (s % 10)).padStart(2, "0");
+      const m = String((s * 7) % 60).padStart(2, "0");
+      const sObj = {
+        name: sName,
+        email: sEmail,
+        dept: cfg.unit,
+        count: 0,
+        latestTimestamp: `${h}:${m} - 20/11/2026`
+      };
+      sendersList.push(sObj);
+      if (!membersMap[sEmail]) {
+        membersMap[sEmail] = {
+          name: sName,
+          email: sEmail,
+          dept: cfg.unit,
+          role: "CBNV Tiếp Lửa",
+          sentCount: 0,
+          receivedCount: 0
+        };
+      }
+    }
+
+    // 3. Phân bổ đúng cfg.totalFlames (VD: 64 ngọn lửa cho FTC) giữa sendersList và recipientsList
+    for (let f = 0; f < cfg.totalFlames; f++) {
+      const sender = sendersList[f % sendersList.length];
+      const recipient = recipientsList[f % recipientsList.length];
+      sender.count++;
+      recipient.count++;
+      if (membersMap[sender.email]) membersMap[sender.email].sentCount++;
+      if (membersMap[recipient.email]) membersMap[recipient.email].receivedCount++;
+
+      flamesList.push({
+        order: f + 1,
+        senderName: sender.name,
+        senderEmail: sender.email,
+        senderDept: sender.dept,
+        recipientName: recipient.name,
+        recipientEmail: recipient.email,
+        recipientDept: recipient.dept,
+        role: recipient.role,
+        timestamp: sender.latestTimestamp
+      });
+    }
+
+    recipientsList.sort((a, b) => b.count - a.count);
+    sendersList.sort((a, b) => b.count - a.count);
+    const membersList = Object.values(membersMap).sort((a, b) => (b.receivedCount + b.sentCount) - (a.receivedCount + a.sentCount));
+
+    membersList.forEach(mem => {
+      if (!seenEmails.has(mem.email)) {
+        seenEmails.add(mem.email);
+        hrDirectory.push(mem);
+      }
+    });
+
+    return {
+      unit: cfg.unit,
+      totalFlames: cfg.totalFlames,
+      senderCount: cfg.senderCount,
+      recipientCount: cfg.recipientCount,
+      memberCount: membersList.length,
+      flamesList,
+      sendersList,
+      recipientsList,
+      membersList
+    };
+  });
+
+  return { unitSpread, hrDirectory };
+}
+
+const BUILT_MOCK_DATA = buildMockUnitSpreadAndHrDirectory();
+export const MOCK_UNIT_SPREAD = BUILT_MOCK_DATA.unitSpread;
+export const MOCK_HR_DIRECTORY = BUILT_MOCK_DATA.hrDirectory;

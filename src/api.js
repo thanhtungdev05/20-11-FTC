@@ -1,4 +1,4 @@
-import { MOCK_LEADERBOARD, MOCK_EARLY_100, MOCK_UNIT_SPREAD, cleanAndCorrectVietnameseText, lookupEmployeeInfo } from './mockData.js';
+import { MOCK_LEADERBOARD, MOCK_EARLY_100, MOCK_UNIT_SPREAD, MOCK_HR_DIRECTORY, cleanAndCorrectVietnameseText, lookupEmployeeInfo } from './mockData.js';
 
 /**
  * ==============================================================================
@@ -265,6 +265,18 @@ export class ApiService {
             const uniqueRecipients = d.uniqueRecipients || 0;
             const uniqueSenders = d.uniqueSenders || 0;
             const uniqueUnits = d.uniqueUnits || 0;
+            const rawUnitSpread = Array.isArray(d.unitSpread) && d.unitSpread.length > 0 ? d.unitSpread : MOCK_UNIT_SPREAD;
+            const enrichedUnitSpread = rawUnitSpread.map(u => {
+              const fallbackMock = MOCK_UNIT_SPREAD.find(m => m.unit === u.unit) || {};
+              return {
+                ...fallbackMock,
+                ...u,
+                flamesList: Array.isArray(u.flamesList) && u.flamesList.length > 0 ? u.flamesList : (fallbackMock.flamesList || []),
+                sendersList: Array.isArray(u.sendersList) && u.sendersList.length > 0 ? u.sendersList : (fallbackMock.sendersList || []),
+                recipientsList: Array.isArray(u.recipientsList) && u.recipientsList.length > 0 ? u.recipientsList : (fallbackMock.recipientsList || []),
+                membersList: Array.isArray(u.membersList) && u.membersList.length > 0 ? u.membersList : (fallbackMock.membersList || [])
+              };
+            });
             return {
               overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
               totalFlames,
@@ -273,7 +285,8 @@ export class ApiService {
               uniqueUnits,
               top30Recipients: d.top30Recipients.length > 0 ? d.top30Recipients : MOCK_LEADERBOARD,
               early100Senders: Array.isArray(d.early100Senders) && d.early100Senders.length > 0 ? d.early100Senders : MOCK_EARLY_100,
-              unitSpread: Array.isArray(d.unitSpread) && d.unitSpread.length > 0 ? d.unitSpread : MOCK_UNIT_SPREAD,
+              unitSpread: enrichedUnitSpread,
+              hrDirectory: Array.isArray(d.hrDirectory) && d.hrDirectory.length > 0 ? d.hrDirectory : MOCK_HR_DIRECTORY,
               pendingRender: d.pendingRender || [],
               isLiveSheet: true
             };
@@ -315,6 +328,7 @@ export class ApiService {
       top30Recipients: board.slice(0, 30),
       early100Senders: earlyList.slice(0, 100),
       unitSpread: MOCK_UNIT_SPREAD,
+      hrDirectory: MOCK_HR_DIRECTORY,
       pendingRender: [],
       isLiveSheet: false
     };
