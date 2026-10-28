@@ -54,6 +54,11 @@ const CONFIG = {
   EMAIL_SUBJECT_SENDER: "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
   EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo: Mỗi tài khoản chỉ gửi 1 lần cho cùng một đồng nghiệp",
 
+  // Email nghiệp vụ chính thức của Ban tổ chức (Trung tâm Đào tạo FTEL - FTC)
+  OFFICIAL_SENDER_EMAIL: "ftel.daotao@fpt.com",
+  OFFICIAL_SENDER_NAME: "Trung tâm Đào tạo FTEL (FTC)",
+  REPLY_TO_EMAIL: "ftel.daotao@fpt.com",
+
   // Cấu hình nội dung email (chế độ "nhẹ" giúp Outlook/Exchange FPT ít chặn hơn)
   // - EMAIL_EMBED_CARD_IMAGE: hiển thị ảnh thiệp ngay trong thân email
   // - EMAIL_ATTACH_CARD_FILE: đính kèm thêm file ảnh thiệp (tắt mặc định để mail nhẹ, chỉ giữ link Drive)
@@ -141,8 +146,8 @@ function testSendMailToTungDT() {
     recipientName: "Đặng Thanh Tùng",
     recipientDept: "Trung tâm Đào tạo FTEL (FTC)",
     recipientRole: "Người dẫn dắt – Người truyền cảm hứng",
-    senderEmail: "nhanlh10@fpt.com",
-    senderName: "Lê Hoàng Nhân (FTC)",
+    senderEmail: CONFIG.OFFICIAL_SENDER_EMAIL || "ftel.daotao@fpt.com",
+    senderName: CONFIG.OFFICIAL_SENDER_NAME || "Trung tâm Đào tạo FTEL (FTC)",
     senderDept: "Trung tâm Đào tạo FTEL (FTC)",
     message: "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
   });
@@ -1060,20 +1065,22 @@ function sendGratitudeNotificationEmail(params) {
           </p>
         </div>
 
-        <div style="background: #040914; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
-          © 2026 Trung tâm Đào tạo và Phát triển FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11
+        <div style="background: #040914; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08); line-height: 1.6;">
+          © 2026 Trung tâm Đào tạo và Phát triển FPT Telecom (FTC) • Chiến dịch Thắp Lửa Tri Ân 20/11<br/>
+          <span style="color: #94a3b8;">Email nghiệp vụ BTC: <a href="mailto:ftel.daotao@fpt.com" style="color: #f37021; text-decoration: none;">ftel.daotao@fpt.com</a></span>
         </div>
       </div>
     `;
 
-    const plainTextRec = `Kính gửi Anh/Chị ${params.recipientName},\n\nNhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch "Gửi lời cảm ơn – Thắp sáng tri thức", Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp ${params.senderName} (${params.senderDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
+    const plainTextRec = `Kính gửi Anh/Chị ${params.recipientName},\n\nNhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch "Gửi lời cảm ơn – Thắp sáng tri thức", Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp ${params.senderName} (${params.senderDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC) - ftel.daotao@fpt.com`;
 
     result.recipient = deliverMail({
       to: params.recipientEmail,
       subject: CONFIG.EMAIL_SUBJECT_SUCCESS,
       body: plainTextRec,
       htmlBody: recipientHtmlBody,
-      name: "FTC - Thắp Lửa Tri Ân 20/11",
+      name: CONFIG.OFFICIAL_SENDER_NAME || "Trung tâm Đào tạo FTEL (FTC)",
+      replyTo: CONFIG.REPLY_TO_EMAIL || "ftel.daotao@fpt.com",
       inlineImages: inlineImages,
       attachments: mailAttachments
     });
@@ -1142,20 +1149,22 @@ function sendGratitudeNotificationEmail(params) {
           </p>
         </div>
 
-        <div style="background: #040914; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08);">
-          © 2026 Trung tâm Đào tạo và Phát triển FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11
+        <div style="background: #040914; padding: 14px 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid rgba(255,255,255,0.08); line-height: 1.6;">
+          © 2026 Trung tâm Đào tạo và Phát triển FPT Telecom • Chiến dịch Thắp Lửa Tri Ân 20/11<br/>
+          <span style="color: #94a3b8;">Email nghiệp vụ BTC: <a href="mailto:ftel.daotao@fpt.com" style="color: #f37021; text-decoration: none;">ftel.daotao@fpt.com</a></span>
         </div>
       </div>
     `;
 
-    const plainTextSender = `Kính gửi Anh/Chị ${params.senderName},\n\nHệ thống xác nhận Anh/Chị vừa thắp lên thành công ngọn lửa tri ân gửi tới đồng nghiệp ${params.recipientName} (${params.recipientDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nTấm thiệp đã được chuyển phát thành công tới hộp thư Outlook của đồng nghiệp.\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC)`;
+    const plainTextSender = `Kính gửi Anh/Chị ${params.senderName},\n\nHệ thống xác nhận Anh/Chị vừa thắp lên thành công ngọn lửa tri ân gửi tới đồng nghiệp ${params.recipientName} (${params.recipientDept || "FPT Telecom"}) với dấu ấn "${params.recipientRole}":\n\n"${params.message}"\n\nTấm thiệp đã được chuyển phát thành công tới hộp thư Outlook của đồng nghiệp.\n\nGửi tiếp lời tri ân tại: ${googleFormUrl}\n\nTrung tâm Đào tạo và Phát triển FPT Telecom (FTC) - ftel.daotao@fpt.com`;
 
     result.sender = deliverMail({
       to: params.senderEmail,
       subject: CONFIG.EMAIL_SUBJECT_SENDER || "XÁC NHẬN BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN 20/11",
       body: plainTextSender,
       htmlBody: senderHtmlBody,
-      name: "FTC - Thắp Lửa Tri Ân 20/11",
+      name: CONFIG.OFFICIAL_SENDER_NAME || "Trung tâm Đào tạo FTEL (FTC)",
+      replyTo: CONFIG.REPLY_TO_EMAIL || "ftel.daotao@fpt.com",
       inlineImages: inlineImages,
       attachments: mailAttachments
     });
@@ -1202,7 +1211,8 @@ function sendDuplicateWarningEmail(params) {
     subject: CONFIG.EMAIL_SUBJECT_DUPLICATE,
     body: plainText,
     htmlBody: htmlBody,
-    name: "FTC - Thắp Lửa Tri Ân 20/11"
+    name: CONFIG.OFFICIAL_SENDER_NAME || "Trung tâm Đào tạo FTEL (FTC)",
+    replyTo: CONFIG.REPLY_TO_EMAIL || "ftel.daotao@fpt.com"
   });
 }
 
@@ -1232,6 +1242,8 @@ function deliverMail(opts) {
 
   const inlineImages = opts.inlineImages && Object.keys(opts.inlineImages).length ? opts.inlineImages : null;
   const attachments = opts.attachments && opts.attachments.length ? opts.attachments : null;
+  const senderName = opts.name || CONFIG.OFFICIAL_SENDER_NAME || "Trung tâm Đào tạo FTEL (FTC)";
+  const replyTo = opts.replyTo || CONFIG.REPLY_TO_EMAIL || "ftel.daotao@fpt.com";
   const errors = [];
 
   try {
@@ -1240,27 +1252,42 @@ function deliverMail(opts) {
       subject: opts.subject,
       body: opts.body,
       htmlBody: opts.htmlBody,
-      name: opts.name
+      name: senderName,
+      replyTo: replyTo
     };
     if (inlineImages) mailOptions.inlineImages = inlineImages;
     if (attachments) mailOptions.attachments = attachments;
     MailApp.sendEmail(mailOptions);
     result.ok = true;
     result.via = "MailApp";
-    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua MailApp");
+    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua MailApp (Reply-To: " + replyTo + ")");
     return result;
   } catch (e1) {
     errors.push("MailApp: " + (e1 && e1.message ? e1.message : e1));
   }
 
   try {
-    const gmailOptions = { htmlBody: opts.htmlBody, name: opts.name };
+    const gmailOptions = {
+      htmlBody: opts.htmlBody,
+      name: senderName,
+      replyTo: replyTo
+    };
+    // Nếu tài khoản Google đã cấu hình Alias ftel.daotao@fpt.com trong Gmail Settings -> Gửi thư bằng địa chỉ này
+    try {
+      const aliases = GmailApp.getAliases() || [];
+      const targetAlias = String(CONFIG.OFFICIAL_SENDER_EMAIL || "ftel.daotao@fpt.com").trim().toLowerCase();
+      if (aliases.some(a => String(a).trim().toLowerCase() === targetAlias)) {
+        gmailOptions.from = targetAlias;
+        Logger.log("ℹ️ Sử dụng Gmail Alias From: " + targetAlias);
+      }
+    } catch (eAlias) {}
+
     if (inlineImages) gmailOptions.inlineImages = inlineImages;
     if (attachments) gmailOptions.attachments = attachments;
     GmailApp.sendEmail(opts.to, opts.subject, opts.body, gmailOptions);
     result.ok = true;
-    result.via = "GmailApp";
-    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua GmailApp (MailApp lỗi: " + errors.join(" | ") + ")");
+    result.via = "GmailApp" + (gmailOptions.from ? " (" + gmailOptions.from + ")" : "");
+    Logger.log("✅ Đã gửi mail tới " + opts.to + " qua GmailApp (Reply-To: " + replyTo + ")");
     return result;
   } catch (e2) {
     errors.push("GmailApp: " + (e2 && e2.message ? e2.message : e2));
@@ -1356,13 +1383,26 @@ function diagnoseMailSystem() {
   const effectiveUser = getEffectiveUserEmail();
   const domain = (effectiveUser.split("@")[1] || "").toLowerCase();
 
+  let officialSenderAliasActive = false;
+  try {
+    const aliases = GmailApp.getAliases() || [];
+    const target = String(CONFIG.OFFICIAL_SENDER_EMAIL || "ftel.daotao@fpt.com").trim().toLowerCase();
+    officialSenderAliasActive = aliases.some(a => String(a).trim().toLowerCase() === target);
+  } catch (e) {}
+
+  const isDirectOfficialAccount = (effectiveUser.toLowerCase() === String(CONFIG.OFFICIAL_SENDER_EMAIL || "").toLowerCase());
+
   let accountType;
-  if (domain === "gmail.com" || domain === "googlemail.com") {
+  if (isDirectOfficialAccount) {
+    accountType = "Tài khoản nghiệp vụ chính thức ftel.daotao@fpt.com (Chuẩn 100%)";
+  } else if (officialSenderAliasActive) {
+    accountType = "Tài khoản Google " + effectiveUser + " (Đã có Gmail Alias: " + CONFIG.OFFICIAL_SENDER_EMAIL + ")";
+  } else if (domain === "gmail.com" || domain === "googlemail.com") {
     accountType = "Gmail cá nhân (hạn mức ~100 người nhận/ngày)";
-    warnings.push("Mail được gửi từ địa chỉ Gmail cá nhân " + effectiveUser + ". Hệ thống mail FPT (Microsoft 365) có thể đưa vào Thư rác/khu cách ly. Hãy nhờ IT FPT cho phép (allowlist) địa chỉ này.");
+    warnings.push("Mail vật lý được gửi từ " + effectiveUser + " (với Reply-To và Tên đại diện là " + CONFIG.OFFICIAL_SENDER_EMAIL + "). Để From hiển thị trực tiếp là " + CONFIG.OFFICIAL_SENDER_EMAIL + ": Hãy đăng nhập và triển khai Apps Script bằng tài khoản ftel.daotao@fpt.com hoặc cấu hình 'Gửi thư bằng địa chỉ này' trong Gmail.");
   } else if (CONFIG.ALLOWED_DOMAINS.indexOf(domain) !== -1) {
     accountType = "Tài khoản Google dùng email FPT (" + domain + ")";
-    warnings.push("Tài khoản Google " + effectiveUser + " dùng email FPT nhưng mail lại đi từ máy chủ Google → bộ kiểm tra danh tính email (SPF/DMARC) của " + domain + " sẽ báo lỗi và Outlook FPT dễ từ chối hoặc cách ly thư. Nên dùng một tài khoản Gmail riêng làm chủ script, hoặc gửi qua Power Automate/Outlook nội bộ.");
+    warnings.push("Tài khoản Google " + effectiveUser + " đang gửi với Reply-To là " + CONFIG.OFFICIAL_SENDER_EMAIL + ". Nếu triển khai trực tiếp bằng tài khoản Google ftel.daotao@fpt.com thì thư gửi sẽ đồng bộ hoàn toàn với mail nghiệp vụ.");
   } else {
     accountType = "Google Workspace (" + domain + ") – hạn mức ~1.500 người nhận/ngày";
   }
@@ -1512,14 +1552,14 @@ function doGet(e) {
 
     if (action === "send_test_mail") {
       const targetEmail = String(params.to || "tungdt101@fpt.com").trim().toLowerCase();
-      const senderEmail = String(params.cc || "nhanlh10@fpt.com").trim().toLowerCase();
+      const senderEmail = String(params.cc || CONFIG.OFFICIAL_SENDER_EMAIL || "ftel.daotao@fpt.com").trim().toLowerCase();
       const mailRes = sendGratitudeNotificationEmail({
         recipientEmail: targetEmail,
         recipientName: params.recipientName || "Đặng Thanh Tùng",
         recipientDept: params.recipientDept || "Trung tâm Đào tạo FTEL (FTC)",
         recipientRole: params.recipientRole || "Người dẫn dắt – Người truyền cảm hứng",
         senderEmail: senderEmail,
-        senderName: params.senderName || "Lê Hoàng Nhân",
+        senderName: params.senderName || CONFIG.OFFICIAL_SENDER_NAME || "Trung tâm Đào tạo FTEL (FTC)",
         senderDept: params.senderDept || "Trung tâm Đào tạo FTEL (FTC)",
         message: params.message || "Cảm ơn Anh Đặng Thanh Tùng đã luôn là ngọn lửa nhiệt huyết truyền cảm hứng, tận tâm chia sẻ tri thức và đồng hành cùng anh em tại Trung tâm Đào tạo FTEL (FTC). Nhân dịp 20/11, chúc Anh luôn dồi dào sức khỏe, hạnh phúc và tiếp tục thắp sáng hành trình tri thức tại FPT Telecom!"
       });
@@ -1621,8 +1661,8 @@ function doPost(e) {
         recipientName: payload.recipientName || "Đặng Thanh Tùng",
         recipientDept: payload.recipientDept || "Trung tâm Đào tạo FTEL (FTC)",
         recipientRole: payload.recipientRole || "Người dẫn dắt – Người truyền cảm hứng",
-        senderEmail: String(payload.senderEmail || "nhanlh10@fpt.com").trim().toLowerCase(),
-        senderName: payload.senderName || "Lê Hoàng Nhân (FTC)",
+        senderEmail: String(payload.senderEmail || CONFIG.OFFICIAL_SENDER_EMAIL || "ftel.daotao@fpt.com").trim().toLowerCase(),
+        senderName: payload.senderName || CONFIG.OFFICIAL_SENDER_NAME || "Trung tâm Đào tạo FTEL (FTC)",
         senderDept: payload.senderDept || "Trung tâm Đào tạo FTEL (FTC)",
         message: payload.message || "",
         cardImageBase64: payload.cardImageBase64 || ""

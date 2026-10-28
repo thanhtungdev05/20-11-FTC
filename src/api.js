@@ -1320,8 +1320,8 @@ export class ApiService {
     const cleanTarget = String(targetEmail || "tungdt101@fpt.com").trim().toLowerCase();
     const uniqueSuffix = new Date().toLocaleTimeString("vi-VN");
     const testCardData = {
-      senderName: "Lê Hoàng Nhân (FTC)",
-      senderEmail: "nhanlh10@fpt.com",
+      senderName: "Trung tâm Đào tạo FTEL (FTC)",
+      senderEmail: "ftel.daotao@fpt.com",
       senderDept: "Trung tâm Đào tạo FTEL (FTC)",
       recipientName: "Đặng Thanh Tùng",
       recipientEmail: cleanTarget,
