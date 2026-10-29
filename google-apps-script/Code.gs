@@ -24,18 +24,20 @@ const CONFIG = {
   // Thư mục Google Drive lưu trữ ảnh thiệp E-Card
   DRIVE_FOLDER_NAME: "FTEL_20_11_ECards_2026",
 
-  // Email chính thức của Ban tổ chức (FTC)
+  // Tên hiển thị người gửi chuẩn nhận diện chiến dịch (Tránh từ khóa nhạy cảm để không bị Microsoft Defender cách ly)
+  OFFICIAL_SENDER_NAME: "FTC - Tri Ân 20/11",
   OFFICIAL_SENDER_EMAIL: "ftel.daotao@fpt.com",
-  OFFICIAL_SENDER_NAME: "Trung tâm Đào tạo FTEL (FTC)",
-  REPLY_TO_EMAIL: "ftel.daotao@fpt.com",
+
+  // Để trống REPLY_TO để tránh lỗi Domain Impersonation / Spoofing của Microsoft Exchange
+  REPLY_TO_EMAIL: "",
 
   // Các miền email FPT hợp lệ
   ALLOWED_DOMAINS: ["fpt.com", "fpt.net", "vienthongtin.com"],
 
-  // Tiêu đề Email chính thức
-  EMAIL_SUBJECT_RECIPIENT: "[FTEL 20/11] Bạn vừa nhận được một Ngọn Lửa Tri Ân từ đồng nghiệp!",
-  EMAIL_SUBJECT_SENDER: "[FTEL 20/11] Xác nhận bạn đã thắp lên một Ngọn Lửa Tri Ân thành công!",
-  EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo: Phát hiện thông điệp tri ân trùng lặp",
+  // Tiêu đề Email chuẩn hóa (Bỏ chữ in hoa toàn bộ và bỏ dấu chấm than ! để đạt điểm Spam = 0)
+  EMAIL_SUBJECT_RECIPIENT: "[FTEL 20/11] Thiệp tri ân gửi tặng bạn từ đồng nghiệp",
+  EMAIL_SUBJECT_SENDER: "[FTEL 20/11] Xác nhận bạn đã gửi lời tri ân thành công",
+  EMAIL_SUBJECT_DUPLICATE: "[FTEL 20/11] Thông báo về lời tri ân trùng lặp",
 
   // Link phôi thiệp mặc định
   CARD_TEMPLATE_URL: "https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/key-visual-card.jpg",
@@ -288,8 +290,10 @@ function getOfficialSenderFromAlias() {
 
 /**
  * Hàm gửi Email phổ quát (Dual Engine: Ưu tiên MailApp -> Fallback GmailApp)
- * Giải quyết triệt để lỗi "The script does not have permission to perform that action"
- * trong môi trường Google Workspace nội bộ FPT Telecom.
+ * Áp dụng giải pháp kỹ thuật tối ưu:
+ * 1. Không dùng replyTo mạo danh domain @fpt.com (tránh bị Microsoft Defender đưa vào Quarantine).
+ * 2. Tên người gửi nhận diện chiến dịch trung lập ("FTC - Tri Ân 20/11").
+ * 3. Hỗ trợ song song Plain-text MIME Body và HTML Table chuẩn Outlook.
  */
 function dispatchEmailUniversal(options) {
   const mailOptions = {
@@ -297,9 +301,13 @@ function dispatchEmailUniversal(options) {
     subject: options.subject,
     body: options.body || "Vui lòng mở email trên ứng dụng hỗ trợ HTML để xem thiệp tri ân.",
     htmlBody: options.htmlBody,
-    name: options.name || CONFIG.OFFICIAL_SENDER_NAME,
-    replyTo: options.replyTo || CONFIG.REPLY_TO_EMAIL
+    name: options.name || CONFIG.OFFICIAL_SENDER_NAME
   };
+
+  // Chỉ thêm replyTo nếu được chỉ định rõ và không rỗng (mặc định để trống để không bị cách ly)
+  if (options.replyTo && String(options.replyTo).trim() !== "") {
+    mailOptions.replyTo = options.replyTo;
+  }
 
   if (options.inlineImages && Object.keys(options.inlineImages).length > 0) {
     mailOptions.inlineImages = options.inlineImages;
@@ -319,9 +327,9 @@ function dispatchEmailUniversal(options) {
     try {
       const gmailOpts = {
         htmlBody: mailOptions.htmlBody,
-        name: mailOptions.name,
-        replyTo: mailOptions.replyTo
+        name: mailOptions.name
       };
+      if (mailOptions.replyTo) gmailOpts.replyTo = mailOptions.replyTo;
       if (options.from) gmailOpts.from = options.from;
       if (mailOptions.inlineImages) gmailOpts.inlineImages = mailOptions.inlineImages;
       if (mailOptions.attachments) gmailOpts.attachments = mailOptions.attachments;
@@ -358,14 +366,13 @@ function sendGratitudeNotificationEmail(params) {
     };
   }
 
-  // Chuẩn bị alias gửi thư
-  const activeAlias = getOfficialSenderFromAlias();
+  // Tên hiển thị người gửi chuẩn
   const baseOptions = {
-    name: CONFIG.OFFICIAL_SENDER_NAME,
-    replyTo: CONFIG.REPLY_TO_EMAIL
+    name: CONFIG.OFFICIAL_SENDER_NAME
   };
-  if (activeAlias) {
-    baseOptions.from = activeAlias;
+  // Chỉ gán replyTo nếu có cấu hình
+  if (CONFIG.REPLY_TO_EMAIL && CONFIG.REPLY_TO_EMAIL.trim() !== "") {
+    baseOptions.replyTo = CONFIG.REPLY_TO_EMAIL;
   }
 
   let recipientSent = false;
@@ -384,10 +391,23 @@ function sendGratitudeNotificationEmail(params) {
     driveFileUrl: driveFileUrl
   });
 
+  const plainTextRec = [
+    "Kính gửi Anh/Chị " + recipientName + ",",
+    "",
+    "Nhân dịp kỷ niệm Ngày Nhà giáo Việt Nam 20/11 – Chiến dịch \"Gửi lời cảm ơn – Thắp sáng tri thức\", Anh/Chị vừa nhận được một ngọn lửa tri ân ấm áp từ đồng nghiệp " + senderName + " (" + senderDept + ") với dấu ấn \"" + recipientRole + "\":",
+    "",
+    "\"" + message + "\"",
+    "",
+    driveFileUrl ? ("Xem và tải thiệp E-Card tại: " + driveFileUrl) : "",
+    "",
+    "Trân trọng,",
+    "Chiến dịch Thắp Lửa Tri Ân 20/11 – FPT Telecom"
+  ].filter(Boolean).join("\n");
+
   const recOpts = Object.assign({}, baseOptions, {
     to: recipientEmail,
     subject: CONFIG.EMAIL_SUBJECT_RECIPIENT,
-    body: message,
+    body: plainTextRec,
     htmlBody: recipientHtml
   });
   if (cardBlob) {
@@ -413,10 +433,23 @@ function sendGratitudeNotificationEmail(params) {
     driveFileUrl: driveFileUrl
   });
 
+  const plainTextSender = [
+    "Kính gửi Anh/Chị " + senderName + ",",
+    "",
+    "Hệ thống xác nhận Anh/Chị vừa thắp lên thành công ngọn lửa tri ân gửi tới đồng nghiệp " + recipientName + " (" + recipientDept + ") với dấu ấn \"" + recipientRole + "\":",
+    "",
+    "\"" + message + "\"",
+    "",
+    driveFileUrl ? ("Xem và tải thiệp E-Card tại: " + driveFileUrl) : "",
+    "",
+    "Trân trọng,",
+    "Chiến dịch Thắp Lửa Tri Ân 20/11 – FPT Telecom"
+  ].filter(Boolean).join("\n");
+
   const sendOpts = Object.assign({}, baseOptions, {
     to: senderEmail,
     subject: CONFIG.EMAIL_SUBJECT_SENDER,
-    body: message,
+    body: plainTextSender,
     htmlBody: senderHtml
   });
   if (cardBlob) {
@@ -445,17 +478,17 @@ function sendGratitudeNotificationEmail(params) {
  */
 function sendDuplicateWarningEmail(senderEmail, recipientEmail, message) {
   try {
-    const activeAlias = getOfficialSenderFromAlias();
-    const sendOpts = {
-      to: senderEmail,
-      subject: CONFIG.EMAIL_SUBJECT_DUPLICATE,
-      body: message,
-      name: CONFIG.OFFICIAL_SENDER_NAME,
-      replyTo: CONFIG.REPLY_TO_EMAIL
-    };
-    if (activeAlias) {
-      sendOpts.from = activeAlias;
-    }
+    const plainText = [
+      "Chào bạn (" + senderEmail + "),",
+      "",
+      "Hệ thống Chiến dịch FTEL 20/11 ghi nhận bạn đã gửi lời tri ân có cùng nội dung đến đồng nghiệp " + recipientEmail + " trước đó:",
+      "\"" + message + "\"",
+      "",
+      "Để đảm bảo tính chính xác và sự công bằng của chiến dịch, mỗi thông điệp gửi đến cùng một đồng nghiệp chỉ được ghi nhận 1 lần duy nhất.",
+      "",
+      "Trân trọng,",
+      "Chiến dịch Thắp Lửa Tri Ân 20/11 – FPT Telecom"
+    ].join("\n");
 
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -468,12 +501,19 @@ function sendDuplicateWarningEmail(senderEmail, recipientEmail, message) {
         <p>Để đảm bảo sự công bằng và số liệu chính xác của chiến dịch, mỗi thông điệp gửi đến cùng một đồng nghiệp chỉ được ghi nhận <strong>1 lần duy nhất</strong>.</p>
         <p style="margin-top: 25px; font-size: 13px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px;">
           Trân trọng,<br>
-          <strong>Trung tâm Đào tạo FTEL (FTC)</strong>
+          <strong>Chiến dịch Thắp Lửa Tri Ân 20/11 – FPT Telecom</strong>
         </p>
       </div>
     `;
 
-    sendOpts.htmlBody = htmlBody;
+    const sendOpts = {
+      to: senderEmail,
+      subject: CONFIG.EMAIL_SUBJECT_DUPLICATE,
+      body: plainText,
+      htmlBody: htmlBody,
+      name: CONFIG.OFFICIAL_SENDER_NAME
+    };
+
     const res = dispatchEmailUniversal(sendOpts);
     return res.ok;
   } catch (e) {
@@ -488,8 +528,8 @@ function sendDuplicateWarningEmail(senderEmail, recipientEmail, message) {
 function buildOutlookCompatibleHtmlEmail(data) {
   const isRecipient = data.isRecipientView;
   const headline = isRecipient
-    ? "BẠN VỪA NHẬN ĐƯỢC MỘT NGỌN LỬA TRI ÂN!"
-    : "BẠN ĐÃ THẮP LÊN MỘT NGỌN LỬA TRI ÂN THÀNH CÔNG!";
+    ? "Thiệp Tri Ân 20/11 – Thắp Sáng Tri Thức"
+    : "Xác Nhận Đã Gửi Lời Tri Ân Thành Công";
 
   const subline = isRecipient
     ? `Đồng nghiệp <strong>${escapeHtml(data.senderName)}</strong> (${escapeHtml(data.senderDept)}) vừa gửi gắm lời cảm ơn chân thành đến bạn.`
@@ -1262,7 +1302,7 @@ function diagnoseMailSystem() {
 function testSendCardToMyEmail() {
   // 👉 ĐỔI EMAIL BẠN MUỐN NHẬN THỬ TẠI ĐÂY (VD: tungdt101@fpt.com hoặc email cá nhân):
   const TEST_RECIPIENT_EMAIL = Session.getActiveUser().getEmail() || "tungdt101@fpt.com"; 
-  const TEST_SENDER_EMAIL = CONFIG.OFFICIAL_SENDER_EMAIL; // ftel.daotao@fpt.com
+  const TEST_SENDER_EMAIL = Session.getActiveUser().getEmail() || "tungdt101@fpt.com";
 
   Logger.log("Đang bắt đầu gửi email thử nghiệm tới: " + TEST_RECIPIENT_EMAIL);
 
