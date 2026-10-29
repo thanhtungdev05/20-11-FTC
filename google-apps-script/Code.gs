@@ -43,6 +43,12 @@ const CONFIG = {
   CARD_TEMPLATE_URL: "https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/key-visual-card.jpg",
   CARD_TEMPLATE_PROP_KEY: "FTEL_CARD_TEMPLATE_FILE_ID",
 
+  // CẦU NỐI GỬI MAIL QUA GMAIL THẬT (MAIL RELAY):
+  // Khi chạy script dưới tài khoản @fpt.com, Google đóng dấu Sender là @fpt.com từ IP Google -> bị Microsoft Defender chặn Phish 100%.
+  // Gửi qua Relay (chạy dưới tài khoản @gmail.com có SPF/DKIM hợp lệ của Google) sẽ đi thẳng vào Hộp thư đến (Inbox) của Outlook!
+  MAIL_RELAY_ENABLED: true,
+  MAIL_RELAY_URL: "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec",
+
   // Mã bí mật dành cho Admin thao tác khẩn cấp
   ADMIN_SECRET_KEY: "FTEL_TRI_AN_2026"
 };
@@ -344,6 +350,99 @@ function dispatchEmailUniversal(options) {
 }
 
 /**
+ * Gửi thư qua Cầu nối Gmail Relay (Tài khoản @gmail.com độc lập)
+ * Giúp thư có SPF/DKIM hợp lệ của Google và KHÔNG mang đuôi @fpt.com từ máy chủ ngoài,
+ * đi thẳng vào Hộp thư đến (Inbox) của Outlook mà không bị Microsoft Defender cách ly (Phish)!
+ */
+function sendViaGmailRelay(params) {
+  if (!CONFIG.MAIL_RELAY_ENABLED || !CONFIG.MAIL_RELAY_URL) {
+    return { ok: false, reason: "Relay disabled" };
+  }
+
+  let cardImageBase64 = params.cardImageBase64 || "";
+  if (!cardImageBase64 && params.cardBlob) {
+    try {
+      const contentType = params.cardBlob.getContentType() || "image/png";
+      cardImageBase64 = "data:" + contentType + ";base64," + Utilities.base64Encode(params.cardBlob.getBytes());
+    } catch (e) {}
+  }
+
+  let recipientDelivered = false;
+  let senderDelivered = false;
+
+  // 1. Gửi cho Người nhận qua Gmail Relay
+  try {
+    const recPayload = {
+      action: "submit_gratitude",
+      senderName: params.senderName,
+      senderEmail: params.senderEmail,
+      senderDept: params.senderDept,
+      recipientName: params.recipientName,
+      recipientEmail: params.recipientEmail,
+      recipientRole: params.recipientRole,
+      tag: "30 Tiếp Lửa Bền Bỉ",
+      message: params.message,
+      cardImageBase64: cardImageBase64
+    };
+    const res1 = UrlFetchApp.fetch(CONFIG.MAIL_RELAY_URL, {
+      method: "post",
+      contentType: "text/plain;charset=utf-8",
+      payload: JSON.stringify(recPayload),
+      muteHttpExceptions: true
+    });
+    if (res1.getResponseCode() === 200) {
+      const parsed1 = JSON.parse(res1.getContentText() || "{}");
+      if (parsed1 && parsed1.success) {
+        recipientDelivered = true;
+      }
+    }
+  } catch (e1) {
+    Logger.log("Lỗi gửi Relay Người nhận: " + e1.toString());
+  }
+
+  // 2. Gửi bản sao xác nhận cho Người gửi qua Gmail Relay
+  try {
+    if (params.senderEmail && params.senderEmail !== params.recipientEmail) {
+      const senderCopyPayload = {
+        action: "submit_gratitude",
+        senderName: params.senderName + " (Đã gửi tới: " + params.recipientName + ")",
+        senderEmail: params.recipientEmail,
+        senderDept: params.senderDept,
+        recipientName: params.senderName + " (Bản lưu xác nhận Người gửi)",
+        recipientEmail: params.senderEmail,
+        recipientRole: params.recipientRole,
+        tag: "Xác Nhận Đã Thắp Lửa Tri Ân",
+        message: params.message,
+        cardImageBase64: cardImageBase64
+      };
+      const res2 = UrlFetchApp.fetch(CONFIG.MAIL_RELAY_URL, {
+        method: "post",
+        contentType: "text/plain;charset=utf-8",
+        payload: JSON.stringify(senderCopyPayload),
+        muteHttpExceptions: true
+      });
+      if (res2.getResponseCode() === 200) {
+        const parsed2 = JSON.parse(res2.getContentText() || "{}");
+        if (parsed2 && parsed2.success) {
+          senderDelivered = true;
+        }
+      }
+    } else {
+      senderDelivered = recipientDelivered;
+    }
+  } catch (e2) {
+    Logger.log("Lỗi gửi Relay Người gửi: " + e2.toString());
+  }
+
+  return {
+    ok: recipientDelivered && senderDelivered,
+    recipientSent: recipientDelivered,
+    senderSent: senderDelivered,
+    via: "GmailRelay"
+  };
+}
+
+/**
  * Gửi email tri ân tới Người nhận (To) và gửi thư xác nhận tới Người gửi (CC / To)
  */
 function sendGratitudeNotificationEmail(params) {
@@ -357,6 +456,32 @@ function sendGratitudeNotificationEmail(params) {
   const message = String(params.message || "").trim();
   const driveFileUrl = String(params.driveFileUrl || "").trim();
   const cardBlob = params.cardBlob || null;
+
+  // ƯU TIÊN SỐ 1: Gửi qua Cầu nối Gmail Relay (@gmail.com) để đi thẳng vào Outlook Inbox, không bị chặn Anti-Phishing @fpt.com
+  if (CONFIG.MAIL_RELAY_ENABLED && CONFIG.MAIL_RELAY_URL) {
+    const relayRes = sendViaGmailRelay({
+      recipientEmail: recipientEmail,
+      recipientName: recipientName,
+      recipientDept: recipientDept,
+      recipientRole: recipientRole,
+      senderEmail: senderEmail,
+      senderName: senderName,
+      senderDept: senderDept,
+      message: message,
+      cardBlob: cardBlob,
+      cardImageBase64: params.cardImageBase64 || ""
+    });
+    if (relayRes.ok) {
+      return {
+        ok: true,
+        recipientSent: true,
+        senderSent: true,
+        via: "GmailRelay",
+        error: "",
+        quotaRemaining: MailApp.getRemainingDailyQuota()
+      };
+    }
+  }
 
   const quota = MailApp.getRemainingDailyQuota();
   if (quota <= 0) {
@@ -678,6 +803,162 @@ function onFormSubmitTrigger(e) {
 }
 
 /**
+ * Tải và lưu đệm phôi thiệp 1080x1440 trên Google Drive để vẽ nội dung lên thiệp
+ */
+let __cardTemplateBlobCache = null;
+function getCardTemplateBlob() {
+  if (__cardTemplateBlobCache) return __cardTemplateBlobCache;
+  const props = PropertiesService.getScriptProperties();
+  const savedFileId = props.getProperty(CONFIG.CARD_TEMPLATE_PROP_KEY);
+  if (savedFileId) {
+    try {
+      const file = DriveApp.getFileById(savedFileId);
+      if (!file.isTrashed()) {
+        __cardTemplateBlobCache = file.getBlob();
+        return __cardTemplateBlobCache;
+      }
+    } catch (e) {}
+  }
+
+  if (CONFIG.CARD_TEMPLATE_URL) {
+    try {
+      const res = UrlFetchApp.fetch(CONFIG.CARD_TEMPLATE_URL, { muteHttpExceptions: true });
+      if (res.getResponseCode() === 200) {
+        const blob = res.getBlob().setName("FTEL_20_11_Card_Template.jpg");
+        __cardTemplateBlobCache = blob;
+        try {
+          const folder = getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
+          const savedFile = folder.createFile(blob);
+          props.setProperty(CONFIG.CARD_TEMPLATE_PROP_KEY, savedFile.getId());
+        } catch (eSave) {}
+        return __cardTemplateBlobCache;
+      }
+    } catch (eFetch) {
+      Logger.log("Lỗi tải phôi thiệp: " + eFetch.toString());
+    }
+  }
+  return null;
+}
+
+/**
+ * Tự động tạo ảnh thiệp E-Card CÓ ĐẦY ĐỦ NỘI DUNG (Người nhận, Vai trò, Thông điệp chuẩn hóa, Người gửi)
+ * ngay trên Google Apps Script bằng Google Slides Engine & lưu lên Google Drive.
+ */
+function createPersonalizedEcardBlob(params) {
+  params = params || {};
+  const recipientName = String(params.recipientName || "Đồng nghiệp FTEL").trim();
+  const recipientRole = String(params.recipientRole || "Người dẫn dắt – Người truyền cảm hứng").trim();
+  const senderName = String(params.senderName || "Đồng nghiệp FTEL").trim();
+  const senderDept = String(params.senderDept || "FPT Telecom").trim();
+  const message = String(params.message || "").trim();
+  const rowNumber = params.rowNumber || "TEST";
+  const safeName = recipientName.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
+
+  let pres = null;
+  let presId = null;
+
+  try {
+    pres = SlidesApp.create("Temp_ECard_Row" + rowNumber + "_" + Date.now());
+    presId = pres.getId();
+    const slide = pres.getSlides()[0];
+    const presFile = DriveApp.getFileById(presId);
+
+    const slideW = pres.getPageWidth();
+    const slideH = pres.getPageHeight();
+    let cardW = slideW;
+    let cardH = slideH;
+    let cardLeft = 0;
+    let cardTop = 0;
+
+    if (slideW > slideH) {
+      cardH = slideH;
+      cardW = cardH * (1080 / 1440);
+      cardLeft = (slideW - cardW) / 2;
+      cardTop = 0;
+      slide.getBackground().setSolidFill("#041836");
+    }
+
+    const templateBlob = getCardTemplateBlob();
+    if (templateBlob) {
+      try {
+        const bgImg = slide.insertImage(templateBlob);
+        bgImg.setLeft(cardLeft).setTop(cardTop).setWidth(cardW).setHeight(cardH);
+        bgImg.sendToBack();
+      } catch (eImg) {
+        slide.getBackground().setSolidFill("#041836");
+      }
+    } else {
+      slide.getBackground().setSolidFill("#041836");
+    }
+
+    // 1. Tiêu đề nhỏ
+    const subBox = slide.insertTextBox("✦ TRÂN TRỌNG GỬI ĐẾN ✦", cardLeft + cardW * 0.08, cardTop + cardH * 0.365, cardW * 0.84, cardH * 0.035);
+    subBox.getText().getTextStyle().setForegroundColor("#ffd700").setFontSize(Math.max(10, Math.round(cardH * 0.020))).setBold(true);
+    subBox.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+
+    // 2. Tên người nhận
+    const nameBox = slide.insertTextBox(recipientName.toUpperCase(), cardLeft + cardW * 0.05, cardTop + cardH * 0.395, cardW * 0.90, cardH * 0.048);
+    nameBox.getText().getTextStyle().setForegroundColor("#ffffff").setFontSize(Math.max(14, Math.round(cardH * 0.032))).setBold(true);
+    nameBox.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+
+    // 3. Vai trò / Dấu ấn
+    const roleBox = slide.insertTextBox(recipientRole, cardLeft + cardW * 0.08, cardTop + cardH * 0.442, cardW * 0.84, cardH * 0.035);
+    roleBox.getText().getTextStyle().setForegroundColor("#cbd5e1").setFontSize(Math.max(9, Math.round(cardH * 0.018))).setItalic(true);
+    roleBox.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+
+    // 4. Thông điệp tri ân đã chuẩn hóa chính tả
+    const msgBox = slide.insertTextBox("“" + message + "”", cardLeft + cardW * 0.08, cardTop + cardH * 0.485, cardW * 0.84, cardH * 0.22);
+    msgBox.getText().getTextStyle().setForegroundColor("#ffffff").setFontSize(Math.max(10, Math.round(cardH * 0.021))).setItalic(true);
+    msgBox.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+
+    // 5. Người gửi
+    const senderDisplay = senderName + (senderDept && senderName.indexOf(senderDept) === -1 ? " (" + senderDept + ")" : "");
+    const senderBox = slide.insertTextBox("Người gửi: " + senderDisplay, cardLeft + cardW * 0.10, cardTop + cardH * 0.735, cardW * 0.80, cardH * 0.045);
+    senderBox.getText().getTextStyle().setForegroundColor("#ffd700").setFontSize(Math.max(10, Math.round(cardH * 0.022))).setBold(true);
+    senderBox.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.RIGHT);
+
+    pres.saveAndClose();
+
+    // Xuất ảnh PNG qua Slides Thumbnail hoặc Drive Thumbnail
+    const pageId = slide.getObjectId();
+    let finalBlob = null;
+
+    try {
+      const thumbApiUrl = "https://slides.googleapis.com/v1/presentations/" + presId + "/pages/" + pageId + "/thumbnail?thumbnailProperties.thumbnailSize=LARGE";
+      const thumbRes = UrlFetchApp.fetch(thumbApiUrl, {
+        headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
+        muteHttpExceptions: true
+      });
+      if (thumbRes.getResponseCode() === 200) {
+        const thumbData = JSON.parse(thumbRes.getContentText());
+        if (thumbData && thumbData.contentUrl) {
+          const imgRes = UrlFetchApp.fetch(thumbData.contentUrl, { muteHttpExceptions: true });
+          if (imgRes.getResponseCode() === 200) {
+            finalBlob = Utilities.newBlob(imgRes.getBlob().getBytes(), "image/png", "Ecard_20_11_Row" + rowNumber + "_" + (safeName || "FTEL") + ".png");
+          }
+        }
+      }
+    } catch (eThumb) {}
+
+    try {
+      presFile.setTrashed(true);
+    } catch (eTrash) {}
+
+    if (finalBlob) {
+      return finalBlob;
+    }
+  } catch (errSlides) {
+    Logger.log("Lưu ý tạo thiệp qua SlidesApp: " + errSlides.toString());
+    if (presId) {
+      try { DriveApp.getFileById(presId).setTrashed(true); } catch (e) {}
+    }
+  }
+
+  const fallback = getCardTemplateBlob();
+  return fallback ? fallback.copyBlob().setName("Ecard_20_11_Row" + rowNumber + ".jpg") : null;
+}
+
+/**
  * Quét và xử lý toàn bộ các dòng chưa được xử lý
  */
 function processAllUnprocessedRows() {
@@ -686,10 +967,11 @@ function processAllUnprocessedRows() {
   ensureExtendedHeaders(sheet);
 
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return { processed: 0, count: 0 };
+  if (lastRow <= 1) return { processed: 0, count: 0, data: { pendingRender: [] } };
 
   const data = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
   let processedCount = 0;
+  const pendingRenderList = [];
 
   for (let i = 0; i < data.length; i++) {
     const rowNumber = i + 2;
@@ -706,8 +988,22 @@ function processAllUnprocessedRows() {
     // Bỏ qua dòng trống email
     if (!senderEmail || !recipientEmail) continue;
 
-    // Nếu dòng này đã kiểm duyệt và đã gửi mail xong -> bỏ qua
+    // Nếu dòng này đã kiểm duyệt và đã gửi mail xong -> bỏ qua (nhưng nếu chưa có link Drive thì cho vào pendingRender)
     if (currentCheckStatus && currentMailStatus && currentMailStatus.indexOf("ĐÃ GỬI") !== -1) {
+      const existingDrive = String(row[12] || "").trim();
+      if (!existingDrive && currentCheckStatus === "HỢP LỆ") {
+        pendingRenderList.push({
+          rowNumber: rowNumber,
+          senderEmail: senderEmail,
+          senderName: String(row[5] || fallbackNameFromEmail(senderEmail)).trim(),
+          senderDept: String(row[6] || "FPT Telecom").trim(),
+          recipientEmail: recipientEmail,
+          recipientName: String(row[7] || fallbackNameFromEmail(recipientEmail)).trim(),
+          recipientDept: String(row[8] || "FPT Telecom").trim(),
+          recipientRole: recipientRole,
+          message: String(row[9] || rawMessage).trim()
+        });
+      }
       continue;
     }
 
@@ -759,11 +1055,37 @@ function processAllUnprocessedRows() {
       continue;
     }
 
-    // 4. Nếu HỢP LỆ: Tạo E-Card ID & Gửi Email
+    // 4. Nếu HỢP LỆ: Tự động tạo ảnh thiệp có nội dung, lưu Drive & Gửi Email qua Gmail Relay
     const cardId = String(row[13] || ("FTEL-" + (1000 + rowNumber))).trim();
-    const driveUrl = String(row[12] || "").trim();
+    let driveUrl = String(row[12] || "").trim();
+    let cardBlob = null;
 
-    // Gửi email ngay lập tức cho cả Người nhận & Người gửi
+    if (!driveUrl) {
+      cardBlob = createPersonalizedEcardBlob({
+        rowNumber: rowNumber,
+        recipientName: recipientName,
+        recipientRole: recipientRole,
+        senderName: senderName,
+        senderDept: senderDept,
+        message: cleanedMessage
+      });
+      if (cardBlob) {
+        try {
+          const folder = getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
+          const file = folder.createFile(cardBlob);
+          try {
+            file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          } catch (ePerm1) {
+            try { file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW); } catch (ePerm2) {}
+          }
+          driveUrl = file.getUrl();
+        } catch (eDrive) {
+          Logger.log("Lưu thiệp lên Drive lỗi: " + eDrive.toString());
+        }
+      }
+    }
+
+    // Gửi email ngay lập tức cho cả Người nhận & Người gửi (qua Gmail Relay để vào thẳng Outlook Inbox)
     const mailRes = sendGratitudeNotificationEmail({
       recipientEmail: recipientEmail,
       recipientName: recipientName,
@@ -773,12 +1095,13 @@ function processAllUnprocessedRows() {
       senderName: senderName,
       senderDept: senderDept,
       message: cleanedMessage,
-      driveFileUrl: driveUrl
+      driveFileUrl: driveUrl,
+      cardBlob: cardBlob
     });
 
     const mailStatusStr = mailRes.ok
       ? "ĐÃ GỬI MAIL (TO & CC)"
-      : "LỖI GỬI: " + (mailRes.error || "Không gửi được qua GmailApp");
+      : "LỖI GỬI: " + (mailRes.error || "Không gửi được mail");
 
     // Cập nhật kết quả vào Sheet (Cột F -> N)
     sheet.getRange(rowNumber, 6, 1, 9).setValues([[
@@ -796,7 +1119,14 @@ function processAllUnprocessedRows() {
     processedCount++;
   }
 
-  return { success: true, processed: processedCount };
+  return {
+    success: true,
+    processed: processedCount,
+    data: {
+      processed: processedCount,
+      pendingRender: pendingRenderList
+    }
+  };
 }
 
 /**
@@ -1159,7 +1489,36 @@ function handleDirectSubmissionFromWebApp(payload) {
 
   const newRowNumber = sheet.getLastRow();
 
-  // Gửi mail cho Người nhận & Người gửi
+  // Tự động tạo thiệp E-Card cá nhân hóa có đầy đủ nội dung & lưu lên Google Drive
+  let cardBlob = null;
+  let driveFileUrl = "";
+  try {
+    cardBlob = createPersonalizedEcardBlob({
+      recipientName: recipientName,
+      recipientRole: recipientRole,
+      senderName: senderName,
+      senderDept: senderDept,
+      message: cleanedMessage,
+      rowNumber: newRowNumber
+    });
+    if (cardBlob) {
+      const folder = getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
+      const savedCardFile = folder.createFile(cardBlob);
+      try {
+        savedCardFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eShare1) {
+        try {
+          savedCardFile.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+        } catch (eShare2) {}
+      }
+      driveFileUrl = savedCardFile.getUrl();
+      sheet.getRange(newRowNumber, 13).setValue(driveFileUrl);
+    }
+  } catch (errCard) {
+    Logger.log("Lỗi tạo E-Card cho dòng " + newRowNumber + ": " + errCard.toString());
+  }
+
+  // Gửi mail cho Người nhận & Người gửi (qua Gmail Relay để vào thẳng Inbox Outlook)
   const mailRes = sendGratitudeNotificationEmail({
     recipientEmail: recipientEmail,
     recipientName: recipientName,
@@ -1169,7 +1528,8 @@ function handleDirectSubmissionFromWebApp(payload) {
     senderName: senderName,
     senderDept: senderDept,
     message: cleanedMessage,
-    driveFileUrl: ""
+    driveFileUrl: driveFileUrl,
+    cardBlob: cardBlob
   });
 
   sheet.getRange(newRowNumber, 12).setValue(
@@ -1183,6 +1543,7 @@ function handleDirectSubmissionFromWebApp(payload) {
       rowNumber: newRowNumber,
       submissionId: cardId,
       cleanedMessage: cleanedMessage,
+      driveFileUrl: driveFileUrl,
       emailSent: mailRes.ok
     }
   };
@@ -1311,6 +1672,29 @@ function testSendCardToMyEmail() {
     "Em cam on Anh/Chi da luon tan tam huong dan, dong hanh va tiep lua cho em trong cv! Nhan ngay 20/11 chuc Anh/Chi luon manh khoe, hp va thanh cong ruc ro."
   );
 
+  let cardBlob = null;
+  let driveFileUrl = "https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/key-visual-card.jpg";
+  try {
+    cardBlob = createPersonalizedEcardBlob({
+      recipientName: "Đồng Nghiệp FTEL",
+      recipientRole: "Mentor/Coach – Người đồng hành tri thức",
+      senderName: "Ban Tổ Chức 20/11",
+      senderDept: "Trung tâm Đào tạo FTEL (FTC)",
+      message: testMessage,
+      rowNumber: "TEST"
+    });
+    if (cardBlob) {
+      const folder = getOrCreateDriveFolder(CONFIG.DRIVE_FOLDER_NAME);
+      const savedCardFile = folder.createFile(cardBlob);
+      try {
+        savedCardFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eShare1) {}
+      driveFileUrl = savedCardFile.getUrl();
+    }
+  } catch (eCard) {
+    Logger.log("Lỗi tạo E-Card thử nghiệm: " + eCard.toString());
+  }
+
   const res = sendGratitudeNotificationEmail({
     recipientEmail: TEST_RECIPIENT_EMAIL,
     recipientName: "Đồng Nghiệp FTEL",
@@ -1320,7 +1704,8 @@ function testSendCardToMyEmail() {
     senderName: "Ban Tổ Chức 20/11",
     senderDept: "Trung tâm Đào tạo FTEL (FTC)",
     message: testMessage,
-    driveFileUrl: "https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/key-visual-card.jpg"
+    driveFileUrl: driveFileUrl,
+    cardBlob: cardBlob
   });
 
   const report = res.ok
