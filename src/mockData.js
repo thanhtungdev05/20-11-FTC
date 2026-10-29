@@ -2,7 +2,8 @@
  * Dữ liệu cấu hình, Danh bạ nhân sự, Bộ chuẩn hóa chính tả & Dữ liệu mẫu cho Chiến dịch FTEL 20/11
  */
 
-export const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform";
+export const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/1ot14yO0FsBI0jVeySVhs1v4s_QX30e3iNiJg0WveJUI/viewform";
+export const GOOGLE_FORM_EDIT_URL = "https://docs.google.com/forms/d/1ot14yO0FsBI0jVeySVhs1v4s_QX30e3iNiJg0WveJUI/edit";
 export const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit?pli=1&gid=1557167031#gid=1557167031";
 export const GOOGLE_HR_SHEET_URL = "https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit?gid=1084168011#gid=1084168011";
 export const GOOGLE_SHEET_ID = "1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g";

@@ -933,7 +933,7 @@ export class DashboardModule {
             </div>
             <div class="flex flex-wrap items-center justify-center gap-2.5">
               <a
-                href="https://docs.google.com/forms/d/e/1FAIpQLScj0_gZJpGol1tWVUDGfyCB0s7sgr7AZ6k40VJ16yATluhVBA/viewform"
+                href="${GOOGLE_FORM_URL}"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="btn-flame px-4 py-2 rounded-xl font-extrabold text-xs flex items-center gap-1.5 shadow-lg hover:scale-[1.02] transition-all"

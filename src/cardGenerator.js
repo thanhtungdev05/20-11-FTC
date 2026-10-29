@@ -7,9 +7,9 @@
 export const fptLogoImg = new Image();
 fptLogoImg.src = '/assets/logoFPT.png';
 
-// Preload Official Key Visual 30 Năm Tiếp Lửa for E-Card (Cache-busted v2 template)
+// Preload Official Key Visual 30 Năm Tiếp Lửa for E-Card (Template mới nhất 20/11)
 export const keyVisualImg = new Image();
-keyVisualImg.src = '/assets/key-visual-card.jpg?v=2';
+keyVisualImg.src = '/assets/key-visual-card.jpg?v=3';
 
 export class CardGenerator {
   /**
@@ -149,15 +149,15 @@ export class CardGenerator {
       });
       ctx.restore();
 
-      // 3. Thông tin Người gửi (Căn chuẩn theo đường kẻ ngang màu vàng có sẵn ở góc phải dưới của phôi thiệp: X = 76.2%, Line Y = 75.0%)
+      // 3. Thông tin Người gửi (Căn chuẩn theo đường kẻ ngang màu vàng có sẵn ở góc phải dưới của phôi thiệp: X = 76.2%, Line Y = 74.5%)
       const sigCenterX = width * 0.762;
-      const maxSenderW = width * 0.33;
+      const maxSenderW = width * 0.35;
 
       ctx.save();
       ctx.textAlign = 'center';
       ctx.fillStyle = '#cbd5e1';
-      ctx.font = `500 ${17.5 * scale}px ${FONT_PRIMARY}`;
-      ctx.fillText('Ngọn lửa tri ân được thắp lên bởi', sigCenterX, height * 0.733);
+      ctx.font = `500 ${17 * scale}px ${FONT_PRIMARY}`;
+      ctx.fillText('Ngọn lửa tri ân được thắp lên bởi', sigCenterX, height * 0.718);
 
       let senderFontSize = 28 * scale;
       ctx.font = `bold ${senderFontSize}px ${FONT_PRIMARY}`;
@@ -168,7 +168,7 @@ export class CardGenerator {
       ctx.fillStyle = '#ffd700';
       ctx.shadowColor = 'rgba(0, 10, 35, 0.85)';
       ctx.shadowBlur = 10 * scale;
-      ctx.fillText(senderName, sigCenterX, height * 0.784);
+      ctx.fillText(senderName, sigCenterX, height * 0.772);
       ctx.restore();
 
       return;
