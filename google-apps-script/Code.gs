@@ -45,10 +45,10 @@ const CONFIG = {
   CARD_TEMPLATE_BACKUP_URL: "https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/key-visual-card.jpg",
   CARD_TEMPLATE_PROP_KEY: "FTEL_CARD_TEMPLATE_FILE_ID_V2",
 
-  // CẦU NỐI GỬI MAIL QUA GMAIL THẬT (MAIL RELAY):
-  // Khi chạy script dưới tài khoản @fpt.com, Google đóng dấu Sender là @fpt.com từ IP Google -> bị Microsoft Defender chặn Phish 100%.
-  // Gửi qua Relay (chạy dưới tài khoản @gmail.com có SPF/DKIM hợp lệ của Google) sẽ đi thẳng vào Hộp thư đến (Inbox) của Outlook!
-  MAIL_RELAY_ENABLED: true,
+  // Tắt chế độ gửi kép qua Relay cũ để chỉ gửi duy nhất 1 mẫu email chuẩn mới:
+  // - Người nhận: "[FTEL 20/11] Thiệp tri ân gửi tặng bạn từ đồng nghiệp"
+  // - Người gửi: "[FTEL 20/11] Xác nhận bạn đã gửi lời tri ân thành công"
+  MAIL_RELAY_ENABLED: false,
   MAIL_RELAY_URL: "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec",
 
   // Mã bí mật dành cho Admin thao tác khẩn cấp
@@ -373,9 +373,12 @@ function sendViaGmailRelay(params) {
   let recipientDelivered = false;
   let senderDelivered = false;
 
-  // 1. Gửi cho Người nhận qua Gmail Relay
+  // Gửi 1 lần duy nhất qua Gmail Relay:
+  // Bản thân Trạm Relay khi nhận lệnh này ĐÃ TỰ ĐỘNG gửi:
+  //   1) Thư "Bạn nhận được một ngọn lửa tri ân..." tới Người nhận (recipientEmail)
+  //   2) Thư "[FTEL 20/11] Xác nhận bạn đã gửi lời tri ân thành công" tới Người gửi (senderEmail)
   try {
-    const recPayload = {
+    const relayPayload = {
       action: "submit_gratitude",
       senderName: params.senderName,
       senderEmail: params.senderEmail,
@@ -391,52 +394,18 @@ function sendViaGmailRelay(params) {
     const res1 = UrlFetchApp.fetch(CONFIG.MAIL_RELAY_URL, {
       method: "post",
       contentType: "text/plain;charset=utf-8",
-      payload: JSON.stringify(recPayload),
+      payload: JSON.stringify(relayPayload),
       muteHttpExceptions: true
     });
     if (res1.getResponseCode() === 200) {
       const parsed1 = JSON.parse(res1.getContentText() || "{}");
       if (parsed1 && parsed1.success) {
         recipientDelivered = true;
+        senderDelivered = true;
       }
     }
   } catch (e1) {
-    Logger.log("Lỗi gửi Relay Người nhận: " + e1.toString());
-  }
-
-  // 2. Gửi bản sao xác nhận cho Người gửi qua Gmail Relay
-  try {
-    if (params.senderEmail && params.senderEmail !== params.recipientEmail) {
-      const senderCopyPayload = {
-        action: "submit_gratitude",
-        senderName: params.senderName + " (Đã gửi tới: " + params.recipientName + ")",
-        senderEmail: params.recipientEmail,
-        senderDept: params.senderDept,
-        recipientName: params.senderName + " (Bản lưu xác nhận Người gửi)",
-        recipientEmail: params.senderEmail,
-        recipientRole: params.recipientRole,
-        tag: "Xác Nhận Đã Thắp Lửa Tri Ân",
-        message: params.message,
-        driveFileUrl: params.driveFileUrl || "",
-        cardImageBase64: cardImageBase64
-      };
-      const res2 = UrlFetchApp.fetch(CONFIG.MAIL_RELAY_URL, {
-        method: "post",
-        contentType: "text/plain;charset=utf-8",
-        payload: JSON.stringify(senderCopyPayload),
-        muteHttpExceptions: true
-      });
-      if (res2.getResponseCode() === 200) {
-        const parsed2 = JSON.parse(res2.getContentText() || "{}");
-        if (parsed2 && parsed2.success) {
-          senderDelivered = true;
-        }
-      }
-    } else {
-      senderDelivered = recipientDelivered;
-    }
-  } catch (e2) {
-    Logger.log("Lỗi gửi Relay Người gửi: " + e2.toString());
+    Logger.log("Lỗi gửi qua Gmail Relay: " + e1.toString());
   }
 
   return {
