@@ -45,11 +45,10 @@ const CONFIG = {
   CARD_TEMPLATE_BACKUP_URL: "https://gui-loi-cam-on-thap-sang-tri-thuc.onrender.com/assets/key-visual-card.jpg",
   CARD_TEMPLATE_PROP_KEY: "FTEL_CARD_TEMPLATE_FILE_ID_V2",
 
-  // Tắt chế độ gửi kép qua Relay cũ để chỉ gửi duy nhất 1 mẫu email chuẩn mới:
-  // - Người nhận: "[FTEL 20/11] Thiệp tri ân gửi tặng bạn từ đồng nghiệp"
-  // - Người gửi: "[FTEL 20/11] Xác nhận bạn đã gửi lời tri ân thành công"
+  // Tắt cầu nối phụ để tránh gửi trùng thư "[FTEL 20/11] Bạn nhận được một ngọn lửa tri ân từ ... (Đã gửi tới: ...)"
+  // Chỉ giữ lại duy nhất thư chuẩn "[FTEL 20/11] Xác nhận bạn đã gửi lời tri ân thành công" cho Người gửi
   MAIL_RELAY_ENABLED: false,
-  MAIL_RELAY_URL: "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec",
+  MAIL_RELAY_URL: "",
 
   // Mã bí mật dành cho Admin thao tác khẩn cấp
   ADMIN_SECRET_KEY: "FTEL_TRI_AN_2026"
@@ -373,12 +372,9 @@ function sendViaGmailRelay(params) {
   let recipientDelivered = false;
   let senderDelivered = false;
 
-  // Gửi 1 lần duy nhất qua Gmail Relay:
-  // Bản thân Trạm Relay khi nhận lệnh này ĐÃ TỰ ĐỘNG gửi:
-  //   1) Thư "Bạn nhận được một ngọn lửa tri ân..." tới Người nhận (recipientEmail)
-  //   2) Thư "[FTEL 20/11] Xác nhận bạn đã gửi lời tri ân thành công" tới Người gửi (senderEmail)
+  // 1. Gửi cho Người nhận qua Gmail Relay
   try {
-    const relayPayload = {
+    const recPayload = {
       action: "submit_gratitude",
       senderName: params.senderName,
       senderEmail: params.senderEmail,
@@ -394,24 +390,23 @@ function sendViaGmailRelay(params) {
     const res1 = UrlFetchApp.fetch(CONFIG.MAIL_RELAY_URL, {
       method: "post",
       contentType: "text/plain;charset=utf-8",
-      payload: JSON.stringify(relayPayload),
+      payload: JSON.stringify(recPayload),
       muteHttpExceptions: true
     });
     if (res1.getResponseCode() === 200) {
       const parsed1 = JSON.parse(res1.getContentText() || "{}");
       if (parsed1 && parsed1.success) {
         recipientDelivered = true;
-        senderDelivered = true;
       }
     }
   } catch (e1) {
-    Logger.log("Lỗi gửi qua Gmail Relay: " + e1.toString());
+    Logger.log("Lỗi gửi Relay Người nhận: " + e1.toString());
   }
 
   return {
-    ok: recipientDelivered && senderDelivered,
+    ok: recipientDelivered,
     recipientSent: recipientDelivered,
-    senderSent: senderDelivered,
+    senderSent: false,
     via: "GmailRelay"
   };
 }
