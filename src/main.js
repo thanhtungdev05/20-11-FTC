@@ -33,13 +33,12 @@ class App {
     await this.dashboard.initInlineDashboard('live-campaign-dashboard');
     await this.updateHeaderCounter();
 
-    // 4. Đảm bảo phôi thiệp trống 1080x1440 & bộ font chữ đã sẵn sàng, sau đó kích hoạt Auto-Worker ngầm
+    // 4. Cập nhật số liệu Live Dashboard định kỳ (chỉ đọc dữ liệu GET, không gọi quét gửi mail ngầm)
     const startAutoWorker = () => {
-      this.runBackgroundGoogleFormSync();
-      // Tự động quét Google Sheet mỗi 15 giây để lọc chính tả, xuất thiệp 1080x1440 và bắn mail tự động
       setInterval(() => {
-        this.runBackgroundGoogleFormSync();
-      }, 15000);
+        this.dashboard.refreshData();
+        this.updateHeaderCounter();
+      }, 30000);
     };
 
     if (keyVisualImg && !keyVisualImg.complete) {

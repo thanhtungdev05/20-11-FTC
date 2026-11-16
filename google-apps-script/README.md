@@ -1,91 +1,69 @@
 # Hướng Dẫn Triển Khai Backend Google Apps Script & Tích Hợp Google Form 20/11
-**Chiến dịch: "Thắp Lửa Tri Ân – Thắp Sáng Tri Thức" (FTEL 20/11/2026)**
-*Trung tâm Đào tạo và Phát triển FPT Telecom (FTC) - Email: ftel.daotao@fpt.com*
+**Chiến dịch: "Tiếp Lửa Tri Ân – 30 Năm Tiếp Lửa Tri Thức" (FTEL 20/11/2026)**  
+*Đơn vị thực hiện: FPT Telecom & Trung tâm Đào tạo FTEL (FTC)*  
+*Hòm thư gửi thư chính thức: `ftel.daotao.no-reply@fpt.com`*  
+*Link Trình chỉnh sửa Apps Script dự án: [Apps Script Editor](https://script.google.com/u/4/home/projects/1D3YsLeq7Udpt37VvKphJnhN7xEiaC9VmM75OQ_dYdmtFvzQkSKLGZv4t/edit)*
 
 ---
 
-## 1. Luồng Xử Lý Hệ Thống Tối Ưu (Zero-Delay & Outlook Ready)
-1. **Người gửi điền Google Form chính thức hoặc gửi từ Web App**:
-   - Dữ liệu tự động đổ về Google Sheet tab câu trả lời (gid=1557167031).
+## 1. Luồng Xử Lý Hệ Thống Theo Đúng Yêu Cầu (File `Tiếp lửa tri ân.docx`)
+1. **Người gửi điền Google Form chính thức**:
+   - Link Google Form: [Form Gửi Lời Tri Ân](https://docs.google.com/forms/d/1ot14yO0FsBI0jVeySVhs1v4s_QX30e3iNiJg0WveJUI/viewform)
+   - Dữ liệu câu trả lời tự động đổ về Google Sheet (tab câu trả lời, `gid=1557167031`).
 2. **Hệ thống check trùng tự động 3 thông tin**:
-   - **Người gửi**, **Người nhận**, **Thông điệp đã chuẩn hóa**.
-   - **Phát hiện trùng**: Đánh dấu cột K là `TRÙNG LẶP` -> Tự động gửi email cảnh báo người gửi về việc trùng thông điệp -> Đánh dấu cột L là `ĐÃ BÁO TRÙNG LẶP`. Không cộng thêm ngọn lửa, không gửi mail làm phiền người nhận.
+   - Kiểm tra bộ 3: **Người gửi**, **Người nhận**, **Thông điệp**.
+   - **Phát hiện trùng**:
+     + Đánh dấu Cột K là `TRÙNG LẶP`.
+     + Đánh dấu Cột L là `ĐÃ BÁO TRÙNG LẶP`.
+     + Tự động gửi email thông báo từ `ftel.daotao.no-reply@fpt.com` đến người nhập form về việc gửi trùng (không làm phiền người nhận và không cộng thêm ngọn lửa).
    - **Hợp lệ**:
-     + Chuẩn hóa chính tả thông điệp (sửa lỗi telex, lỗi dấu, dịch từ viết tắt) ghi vào Cột J.
-     + Đánh dấu cột K là `HỢP LỆ`.
-     + Tạo mã định danh E-Card ID (Cột N) và link thiệp trên Google Drive (Cột M).
-3. **Tự động gửi email chuẩn giao diện Microsoft Outlook từ `ftel.daotao@fpt.com`**:
-   - Gửi ngay lập tức qua Trigger `onFormSubmitTrigger` (không có độ trễ).
-   - **To (Người nhận)**: Nhận lời tri ân trang trọng + liên kết tải thiệp chất lượng cao.
-   - **CC/To (Người gửi)**: Nhận thư xác nhận thắp lửa thành công để lưu giữ kỷ niệm và chống mạo danh.
-   - Định dạng HTML Table chuẩn hóa riêng cho Outlook máy tính và điện thoại.
-   - Cột L ghi nhận: `ĐÃ GỬI MAIL (TO & CC)`.
+     + **Tự động điền Họ tên & Đơn vị**: Tra cứu từ sheet `DS nhân sự` (`gid=1084168011`) để điền Họ tên Người gửi (Cột F), Đơn vị Người gửi (Cột G), Họ tên Người nhận (Cột H), Đơn vị Người nhận (Cột I).
+     + **Chuẩn hóa chính tả thông điệp**: Tự động sửa lỗi telex, khoảng trắng và dịch từ viết tắt, ghi vào Cột J.
+     + Đánh dấu Cột K là `HỢP LỆ`.
+     + **Kích hoạt xuất ảnh E-Card 1080x1440**: Dựa trên mẫu phôi thiệp chính thức `Thiệp trống.png` (không gạch ngang vàng, kèm chữ in hoa họ tên, vai trò, thông điệp cá nhân hóa).
+     + **Lưu trữ file thiệp dạng ảnh lên Google Drive**: Tạo liên kết công khai và gắn link Drive vào Cột M.
+     + **Tạo mã định danh E-Card ID** ghi vào Cột N.
+3. **Tự động gửi email kèm thiệp cho Người nhận, CC Người gửi từ `ftel.trungtamdaotao@fpt.com` (Tên hiển thị: `FTEL DAOTAO (NO-REPLY)`)**:
+   - Gửi ngay lập tức qua Trigger `onFormSubmitTrigger` (Dual Engine: MailApp + GmailApp Alias).
+   - **To**: Người nhận (nhận email trang trọng, nhúng thiệp inline và đính kèm PNG 1080x1440).
+   - **CC**: Người gửi (được CC trực tiếp theo đúng tài liệu Tiếp lửa tri ân để lưu giữ kỷ niệm và xác nhận).
+   - Đánh dấu Cột L: `ĐÃ GỬI MAIL (TO & CC)`.
 4. **Cập nhật Live Dashboard Real-time**:
-   - Mở sẵn API Web App (`doGet` / `doPost`) đồng bộ số liệu KPI, Top 30 Tiếp Lửa, Top 100 Sớm nhất và Lan tỏa Đơn vị.
+   - Cung cấp API Web App (`doGet` / `doPost`) đồng bộ tức thì số liệu KPI, Top 30 Tiếp Lửa, Top 100 Sớm nhất, Thống kê Đơn vị và Tra cứu Danh bạ Nhân sự.
 
 ---
 
-## 2. Các Bước Cài Đặt & Kích Hoạt Trên Google Sheet (3 Phút)
+## 2. Các Bước Triển Khai Vào Dự Án Apps Script (3 Phút)
 
-### Bước 1: Mở Google Sheet câu trả lời của chương trình
-1. Mở trang tính Google Sheet liên kết với Google Form:
-   `https://docs.google.com/spreadsheets/d/1MRmolCh50gHt5UMlSkIFSNtKdFSK0xhJ_f_4NpHUu9g/edit`
-2. Đảm bảo đã có tab `DS nhân sự` (gid=1084168011) chứa danh bạ CBNV (Email, Họ và tên, Đơn vị).
+### Bước 1: Mở Trình chỉnh sửa Apps Script dự án của bạn
+- Truy cập thẳng vào link dự án bạn đã tạo:  
+  👉 **[Untitled project - Trình chỉnh sửa dự án - Apps Script](https://script.google.com/u/4/home/projects/1D3YsLeq7Udpt37VvKphJnhN7xEiaC9VmM75OQ_dYdmtFvzQkSKLGZv4t/edit)**
 
-### Bước 2: Dán mã nguồn `Code.gs`
-1. Trên thanh menu Google Sheets, chọn **Tiện ích mở rộng (Extensions)** > **Apps Script**.
-2. Xóa toàn bộ nội dung cũ trong tệp `Code.gs`.
-3. Mở tệp `google-apps-script/Code.gs` trong dự án, copy toàn bộ nội dung và dán vào.
-4. Nhấn `Ctrl + S` để lưu lại.
+### Bước 2: Dán mã nguồn `Code.gs` và `appsscript.json`
+1. Tại tab tệp **`Code.gs`**: Xóa sạch code mặc định, copy toàn bộ nội dung trong file [`google-apps-script/Code.gs`](file:///google-apps-script/Code.gs) dán vào.
+2. (Tùy chọn) Bật hiển thị tệp kê khai `appsscript.json` (Vào Cài đặt dự án > Tích chọn *Hiển thị tệp kê khai "appsscript.json" trong trình chỉnh sửa*), copy nội dung từ file [`google-apps-script/appsscript.json`](file:///google-apps-script/appsscript.json) dán vào.
+3. Nhấn **`Ctrl + S`** (hoặc biểu tượng Lưu) để lưu dự án.
 
-### Bước 3: Chạy khởi tạo hệ thống (1 lần duy nhất)
-1. Trong trình soạn thảo Apps Script, tại thanh công cụ chọn hàm `setupSystemAndTriggers` và bấm **Chạy (Run)**.
-2. Trình duyệt sẽ yêu cầu cấp quyền: Chọn **Xem xét quyền (Review Permissions)** > Chọn tài khoản Google > **Nâng cao (Advanced)** > **Đi tới dự án (Go to ...)** > Bấm **Cho phép (Allow)**.
+### Bước 3: Cài đặt Hệ thống & Kích hoạt Trigger 1-Click
+1. Tại thanh công cụ của Apps Script, ở ô chọn hàm, chọn **`setupSystemAndTriggers`** và bấm **Chạy (Run)**.
+2. Google sẽ hiện hộp thoại yêu cầu cấp quyền:
+   - Bấm **Xem xét quyền (Review Permissions)**.
+   - Chọn tài khoản của bạn (đảm bảo tài khoản có quyền gửi mail từ `ftel.trungtamdaotao@fpt.com` hoặc có alias này).
+   - Bấm **Nâng cao (Advanced)** > Bấm **Đi tới Tiếp Lửa Tri Ân (không an toàn)** > Bấm **Cho phép (Allow)**.
 3. Hàm này sẽ tự động:
-   - Tạo đủ 14 cột mở rộng trên Sheet câu trả lời.
-   - Khởi tạo tab `Dashboard_BaoCao` đẹp mắt.
-   - Cài đặt Trigger `onFormSubmitTrigger` (khi người dùng nộp Google Form, script sẽ chạy ngay lập tức).
+   - Khởi tạo 14 cột mở rộng chuẩn hoá trên Google Sheet.
+   - Tạo thư mục Google Drive `FTEL_20_11_ECards_2026` để lưu trữ ảnh thiệp.
+   - Tự động gắn Trigger `onFormSubmit` (khi có người nộp Form, script xử lý ngay lập tức).
 
-### Bước 4: Triển khai Web App (Để Web Dashboard đồng bộ số liệu)
-1. Bấm nút **Triển khai (Deploy)** ở góc trên bên phải > **Tùy chọn triển khai mới (New deployment)**.
-2. Chọn loại: **Ứng dụng web (Web app)**.
-   - **Mô tả**: `FTEL 20/11 Tri An API v2`
+### Bước 4: Triển khai Ứng dụng Web (Web App Deployment)
+1. Ở góc trên bên phải màn hình Apps Script, bấm **Triển khai (Deploy)** > **Quản lý bản triển khai** hoặc **Tùy chọn triển khai mới (New deployment)**.
+2. Chọn loại: **Ứng dụng web (Web app)**:
+   - **Mô tả**: `FTEL 20/11 Live Dashboard API`
    - **Thực thi dưới dạng (Execute as)**: `Tôi (Me)`
    - **Ai có quyền truy cập (Who has access)**: `Bất kỳ ai (Anyone)`
 3. Bấm **Triển khai (Deploy)**.
-4. Copy đường dẫn **URL ứng dụng web (Web app URL)** và dán vào biến `APPS_SCRIPT_URL` trong tệp `src/api.js`.
+4. Copy đường link **URL ứng dụng web (Web app URL)** (dạng `https://script.google.com/macros/s/AKfycb.../exec`).
 
----
-
-## 3. Cấu Trúc Các Khu Vực Dashboard
-
-### Khu vực A – Header chương trình & Banner Hero
-- Logo FPT Telecom & FTC, Bộ đếm ngọn lửa real-time.
-- Nút CTA dẫn thẳng vào Google Form chính thức.
-
-### Khu vực B – Tổng quan chiến dịch (4 Thẻ KPI trực quan)
-- **Tổng số ngọn lửa**: Tổng số lời cảm ơn hợp lệ đã gửi.
-- **Người được tri ân**: Số cá nhân nhận được ít nhất một lời cảm ơn.
-- **Người tham gia gửi lời cảm ơn**: Số cá nhân đã gửi lời tri ân.
-- **Đơn vị lan tỏa**: Số đơn vị / phòng ban có nhân sự tham gia.
-
-### Khu vực C – Bảng xếp hạng
-1. **Bảng “30 NGƯỜI TIẾP LỬA TRI THỨC”**:
-   - Vinh danh 30 cá nhân được đồng nghiệp gửi gắm nhiều lời cảm ơn nhất.
-   - Top 3 (Hạng 1 Cúp Vàng, Hạng 2 Cúp Bạc, Hạng 3 Cúp Đồng) hiển thị nổi bật dạng bục vinh danh (Podium).
-   - Hạng 4 – 30 hiển thị dạng thẻ/bảng xếp hạng gọn gàng, hiển thị Thứ hạng, Họ tên, Đơn vị, Dấu ấn vai trò và Tổng số ngọn lửa.
-   - Sắp xếp: Theo tổng số ngọn lửa giảm dần.
-2. **Bảng “100 NGƯỜI TIẾP LỬA SỚM NHẤT”**:
-   - 100 CBNV gửi lời cảm ơn hợp lệ sớm nhất.
-   - Hiển thị: Thứ tự ghi nhận, Họ tên, Đơn vị, Người nhận và Thời gian gửi.
-   - Sắp xếp: Theo thời gian gửi hợp lệ tăng dần (sớm nhất lên đầu).
-   - Thiết kế dạng dòng thời gian (Timeline) ngọn lửa được thắp lên.
-
-### Khu vực D – Lan tỏa theo đơn vị
-- Biểu đồ thanh ngang xếp theo số lượt cảm ơn của từng đơn vị.
-- Thống kê chi tiết: Tổng số ngọn lửa, Số người gửi, Số người nhận, Tỷ lệ lan tỏa.
-- Bộ lọc theo đơn vị và tính năng xem danh sách chi tiết từng đơn vị.
-
-### Khu vực Tra cứu Danh bạ Nhân sự (Hỗ trợ 24.608+ CBNV)
-- Tích hợp tìm kiếm siêu tốc (<2ms) theo Họ tên (có dấu / không dấu) hoặc Email / Account FPT.
-- Nút copy email 1 chạm và nút dẫn ngay vào Google Form để tri ân đồng nghiệp.
+### Bước 5: Kết nối Live Dashboard với Web App URL
+- Bạn có thể dán URL Web App vừa copy vào ô cấu hình trong giao diện Dashboard (bấm nút ⚙️ trên thanh Header hoặc nhấn Quản trị), hoặc cập nhật trực tiếp biến `APPS_SCRIPT_URL` trong file [`src/api.js`](file:///src/api.js).
+- Dashboard sẽ tự động hiển thị số liệu trực tiếp 100% thời gian thực từ Google Sheet!

@@ -26,6 +26,8 @@ export class DashboardModule {
     this.expandedUnit = 'Trung tâm Đào tạo FTEL (FTC)'; // Mở sẵn đơn vị dẫn đầu để người dùng thấy ngay chi tiết, có thể đóng/mở bất kỳ đơn vị nào
     this.expandedUnitTab = 'overview_all'; // 'overview_all' | 'flames' | 'senders' | 'recipients' | 'members'
     this.unitMemberSearch = '';
+    this.unitDisplayLimit = 5; // Mặc định chỉ hiển thị 5 đơn vị đầu tiên
+    this.unitSearchQuery = ''; // Từ khóa tìm kiếm đơn vị
   }
 
   /**
@@ -400,22 +402,27 @@ export class DashboardModule {
       hrDirectory = []
     } = this.data;
 
-    // Lọc theo đơn vị và từ khóa tìm kiếm cho Khu vực C (hỗ trợ cả có dấu & không dấu, tên & email)
+    // Lọc theo đơn vị và từ khóa tìm kiếm cho Khu vực C (hỗ trợ cả có dấu & không dấu, tên & email, cả senderName/recipientName)
     const filterByUnitAndSearch = (list) => {
       return list.filter(item => {
-        const matchUnit = this.selectedUnitFilter === 'ALL' || item.dept === this.selectedUnitFilter;
+        const itemDept = item.dept || item.senderDept || '';
+        const matchUnit = this.selectedUnitFilter === 'ALL' || itemDept === this.selectedUnitFilter;
         if (!matchUnit) return false;
         if (!this.searchQuery || !this.searchQuery.trim()) return true;
         const rawQ = this.searchQuery.trim().toLowerCase();
         const normQ = this.normalizeText(rawQ);
-        const nameLower = String(item.name || '').toLowerCase();
+        const nameLower = String(item.name || item.senderName || '').toLowerCase();
         const nameNorm = this.normalizeText(nameLower);
-        const emailLower = String(item.email || '').toLowerCase();
-        const deptLower = String(item.dept || '').toLowerCase();
+        const recipientLower = String(item.recipientName || '').toLowerCase();
+        const recipientNorm = this.normalizeText(recipientLower);
+        const emailLower = String(item.email || item.senderEmail || '').toLowerCase();
+        const deptLower = String(itemDept).toLowerCase();
         const deptNorm = this.normalizeText(deptLower);
         return (
           nameLower.includes(rawQ) ||
           nameNorm.includes(normQ) ||
+          recipientLower.includes(rawQ) ||
+          recipientNorm.includes(normQ) ||
           emailLower.includes(rawQ) ||
           emailLower.includes(normQ) ||
           deptLower.includes(rawQ) ||
@@ -426,12 +433,24 @@ export class DashboardModule {
 
     const filteredTop30 = filterByUnitAndSearch(top30Recipients).slice(0, 30);
     const filteredEarly100 = filterByUnitAndSearch(early100Senders).slice(0, 100);
-    const filteredUnits = this.selectedUnitFilter === 'ALL'
-      ? unitSpread
-      : unitSpread.filter(u => u.unit === this.selectedUnitFilter);
+    // Lọc theo từ khóa tìm kiếm đơn vị và bộ lọc dropdown cho Khu vực D
+    const rawUnitQ = String(this.unitSearchQuery || '').trim().toLowerCase();
+    const normUnitQ = this.normalizeText(rawUnitQ);
 
-    // Tìm kiếm siêu tốc trên DS Nhân sự (24.608+ CBNV) đã được đánh chỉ mục RAM
-    const { displayedList: displayedHrList, totalMatched: totalHrMatched } = this.searchHrDirectoryFast(hrDirectory);
+    const allMatchedUnits = unitSpread.filter(u => {
+      const matchSelected = this.selectedUnitFilter === 'ALL' || u.unit === this.selectedUnitFilter;
+      if (!matchSelected) return false;
+      if (!rawUnitQ) return true;
+      const uLower = String(u.unit || '').toLowerCase();
+      const uNorm = this.normalizeText(uLower);
+      return uLower.includes(rawUnitQ) || uNorm.includes(normUnitQ);
+    });
+
+    const isSearchingUnits = Boolean(rawUnitQ);
+    // Nếu đang tìm kiếm: hiển thị toàn bộ đơn vị khớp tìm kiếm; nếu không: giới hạn unitDisplayLimit (mặc định 5)
+    const displayedUnits = isSearchingUnits 
+      ? allMatchedUnits 
+      : allMatchedUnits.slice(0, this.unitDisplayLimit);
 
     // Tách Top 3 và Hạng 4 - 30 cho Bảng "30 NGƯỜI TIẾP LỬA TRI THỨC"
     const top1 = filteredTop30[0] || null;
@@ -465,20 +484,7 @@ export class DashboardModule {
             </div>
 
             <!-- AdminLTE Card Tools -->
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-bold text-emerald-300">
-                <span>●</span>
-                <span>Auto-Sync Google Sheet</span>
-              </span>
-              <a 
-                href="${GOOGLE_FORM_URL}" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                class="btn-flame px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 shadow-lg cursor-pointer"
-              >
-                <span>📝 Điền Google Form Tri Ân</span>
-                <span>↗</span>
-              </a>
+            <div class="flex items-center gap-2">
               <button 
                 type="button" 
                 id="dash-refresh-btn" 
@@ -553,142 +559,6 @@ export class DashboardModule {
         </section>
 
         <!-- ======================================================================= -->
-        <!-- KHU VỰC TRA CỨU NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ (ADMINLTE CONTACTS BOX) -->
-        <!-- ======================================================================= -->
-        <section id="section-hr-search" class="lte-card lte-card-outline-gold scroll-mt-20">
-          <!-- AdminLTE Card Header -->
-          <div class="lte-card-header">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-lg shadow-md">
-                🔍
-              </div>
-              <div>
-                <div class="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-                  <span>Danh Bạ Nhân Sự FTEL • Đồng Bộ Sheet DS Nhân Sự (gid=1084168011)</span>
-                </div>
-                <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">TÌM KIẾM NHÂN SỰ TRONG DANH SÁCH NHÂN SỰ</h2>
-              </div>
-            </div>
-
-            <!-- AdminLTE Card Tools: Search + Unit Filter + Sync Button -->
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
-              <div class="relative flex-1 sm:flex-initial">
-                <input 
-                  type="text" 
-                  id="hr-directory-search-input" 
-                  value="${this.hrSearchQuery}"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="🔍 Nhập Họ tên (VD: Lê Hoàng Nhân) hoặc Email (Nhanlh10@fpt.com)..." 
-                  class="custom-input w-full sm:w-80 md:w-96 rounded-xl pl-4 pr-9 py-2 text-xs sm:text-sm border-amber-500/40"
-                />
-                <button
-                  type="button"
-                  id="hr-search-clear-btn"
-                  title="Xóa từ khóa tìm kiếm"
-                  class="${this.hrSearchQuery ? 'flex' : 'hidden'} absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/10 hover:bg-amber-500/30 text-slate-300 hover:text-white items-center justify-center text-[11px] font-bold transition-colors cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-              <select id="hr-directory-unit-select" class="custom-input rounded-xl px-3 py-2 text-xs sm:text-sm">
-                <option value="ALL" ${this.hrUnitFilter === 'ALL' ? 'selected' : ''}>Tất cả đơn vị (${allUnitsList.length})</option>
-                ${allUnitsList.map(u => `
-                  <option value="${u}" ${this.hrUnitFilter === u ? 'selected' : ''}>${u}</option>
-                `).join('')}
-              </select>
-              <button
-                type="button"
-                id="hr-toggle-sync-panel-btn"
-                class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
-                title="Đồng bộ hoặc Dán nhanh toàn bộ dữ liệu từ tab DS nhân sự (gid=1084168011)"
-              >
-                <span>📥 Đồng bộ DS Nhân sự</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- AdminLTE Card Body -->
-          <div class="lte-card-body">
-            ${this.showHrSyncPanel ? `
-              <div class="lte-callout lte-callout-warning mb-5 space-y-3">
-                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-                  <div>
-                    <h3 class="text-xs sm:text-sm font-extrabold text-amber-300">
-                      ⚡ NẠP SIÊU TỐC 24.608 NHÂN SỰ TỪ TAB "DS NHÂN SỰ" (GID=1084168011)
-                    </h3>
-                    <p class="text-[11px] text-slate-300 mt-0.5">
-                      Hỗ trợ quy mô lớn <strong>24.608+ nhân sự</strong> không bị lag trình duyệt (lưu vào bộ nhớ IndexedDB dung lượng lớn):
-                    </p>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    <input type="file" id="hr-csv-file-input" accept=".csv,.tsv,.txt" class="hidden" />
-                    <button
-                      type="button"
-                      id="hr-csv-file-btn"
-                      class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 text-xs font-extrabold cursor-pointer"
-                    >
-                      📂 Chọn file .CSV tải từ Sheet (24.608 người)
-                    </button>
-                    <button
-                      type="button"
-                      id="hr-clipboard-fast-paste-btn"
-                      class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-300 text-xs font-extrabold cursor-pointer"
-                    >
-                      ⚡ Dán 1 chạm từ Clipboard (Sau khi Ctrl+C)
-                    </button>
-                    <button
-                      type="button"
-                      id="hr-direct-gviz-sync-btn"
-                      class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 text-xs font-bold cursor-pointer"
-                    >
-                      🔄 Tải tự động từ Google Sheet
-                    </button>
-                    <a
-                      href="${GOOGLE_HR_SHEET_URL}"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-xs font-semibold"
-                    >
-                      ↗ Mở Sheet gid=1084168011
-                    </a>
-                  </div>
-                </div>
-
-                <textarea
-                  id="hr-paste-textarea"
-                  rows="3"
-                  placeholder="Cách nhanh nhất cho 24.608 dòng: Mở Sheet gid=1084168011 -> bấm Ctrl+A -> Ctrl+C, sau đó click vào ô này và bấm Ctrl+V (Hệ thống tự động nạp tức thì 24.608 nhân sự không gây đơ trình duyệt!)..."
-                  class="custom-input w-full rounded-xl p-3 text-xs font-mono"
-                ></textarea>
-
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <span id="hr-sync-feedback" class="text-xs font-semibold text-emerald-300">${this.hrSyncStatusMsg || ''}</span>
-                  <div class="flex items-center gap-2">
-                    <button
-                      type="button"
-                      id="hr-import-paste-btn"
-                      class="btn-flame px-4 py-2 rounded-xl text-xs font-extrabold cursor-pointer"
-                    >
-                      ✅ Nạp & Cập nhật DS Nhân sự ngay
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-
-            <div id="hr-search-results-container">
-              ${this.renderHrResultsGridHtml(displayedHrList, totalHrMatched)}
-            </div>
-          </div>
-
-          <!-- AdminLTE Card Footer -->
-          <div id="hr-search-footer-container" class="lte-card-footer flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400">
-            ${this.renderHrFooterHtml(displayedHrList.length, totalHrMatched, hrDirectory.length)}
-          </div>
-        </section>
-
-        <!-- ======================================================================= -->
         <!-- KHU VỰC C: BẢNG XẾP HẠNG VINH DANH (TOP 30 & TOP 100 SỚM NHẤT)          -->
         <!-- ======================================================================= -->
         <section id="section-leaderboard" class="lte-card lte-card-outline-orange scroll-mt-20">
@@ -738,31 +608,56 @@ export class DashboardModule {
           <!-- AdminLTE Card Body -->
           <div class="lte-card-body">
             <!-- NỘI DUNG BẢNG 1: 30 NGƯỜI TIẾP LỬA TRI THỨC -->
-            <div id="tab-panel-top30" class="${this.activeRankingTab === 'top30' ? 'block' : 'hidden'} space-y-6">
-              <!-- BỤC VINH DANH TOP 3 NỔI BẬT (ADMINLTE WIDGET USER STYLE) -->
+            <div id="tab-panel-top30" class="${this.activeRankingTab === 'top30' ? 'block' : 'hidden'} space-y-8">
+              <!-- BỤC VINH DANH OLYMPIC TOP 3 NỔI BẬT (3D PODIUM VÀNG - BẠC - ĐỒNG) -->
               ${top1 ? `
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-2">
-                <!-- HẠNG 2 (BẠC) -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 items-end pt-6 pb-2">
+                <!-- HẠNG 2 (Á QUÂN - BẠC - BÊN TRÁI) -->
                 ${top2 ? this.renderPodiumCard(top2, 2) : '<div></div>'}
-                <!-- HẠNG 1 (VÀNG - CAO NHẤT Ở GIỮA) -->
+                <!-- HẠNG 1 (QUÁN QUÂN - VÀNG - CAO NHẤT Ở GIỮA) -->
                 ${this.renderPodiumCard(top1, 1)}
-                <!-- HẠNG 3 (ĐỒNG) -->
+                <!-- HẠNG 3 (QUÝ QUÂN - ĐỒNG - BÊN PHẢI) -->
                 ${top3 ? this.renderPodiumCard(top3, 3) : '<div></div>'}
               </div>
               ` : `
-              <div class="py-10 text-center text-slate-400 text-sm">Chưa có dữ liệu phù hợp với bộ lọc.</div>
+              <div class="py-12 text-center text-slate-400 text-sm">Chưa có dữ liệu phù hợp với bộ lọc.</div>
               `}
 
-              <!-- DANH SÁCH HẠNG 4 – 30 (ADMINLTE PROGRESS LIST TABLE) -->
+              <!-- BẢNG XẾP HẠNG MỞ RỘNG (TỪ HẠNG 4 TRỞ XUỐNG DẠNG SCROLLABLE TABLE) -->
               ${rank4To30.length > 0 ? `
-              <div class="mt-6">
-                <div class="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                  <h3 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-2">
-                    <span>✦ Danh Sách Vinh Danh Hạng 4 – ${Math.min(30, filteredTop30.length)}</span>
-                  </h3>
-                  <span class="text-[11px] text-slate-400">Xếp theo tổng số ngọn lửa nhận được giảm dần</span>
+              <div class="mt-8 rounded-3xl bg-slate-950/85 border border-white/15 overflow-hidden shadow-2xl backdrop-blur-xl">
+                <!-- Header của Bảng Mở Rộng -->
+                <div class="p-4 sm:p-5 bg-gradient-to-r from-white/[0.04] to-transparent border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-base shadow-sm">
+                      📜
+                    </div>
+                    <div>
+                      <h4 class="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                        <span>BẢNG VINH DANH HẠNG 4 ĐẾN ${Math.min(30, filteredTop30.length)}</span>
+                        <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          ${rank4To30.length} Thầy Cô / Mentor
+                        </span>
+                      </h4>
+                      <p class="text-xs text-slate-400 mt-0.5">Danh sách sắp xếp theo tổng số ngọn lửa tri ân giảm dần</p>
+                    </div>
+                  </div>
+                  <div class="text-xs text-slate-400 flex items-center gap-1.5 self-end sm:self-center">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>Cuộn xem toàn bộ danh sách ⬇</span>
+                  </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
+
+                <!-- Tiêu đề các cột chuẩn Bảng dữ liệu (Table Column Headers) -->
+                <div class="hidden sm:grid grid-cols-12 gap-3 px-5 py-2.5 bg-black/40 border-b border-white/5 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                  <div class="col-span-1 text-center">STT</div>
+                  <div class="col-span-5">Giáo Viên / Người Được Tri Ân</div>
+                  <div class="col-span-3 text-right pr-4">Nhiệt Huyết Tri Ân</div>
+                  <div class="col-span-3 text-right">Tổng Lời Chúc</div>
+                </div>
+
+                <!-- Vùng cuộn danh sách (Scrollable Table Body) -->
+                <div class="max-h-[480px] overflow-y-auto divide-y divide-white/5 custom-scrollbar">
                   ${rank4To30.map(item => this.renderRankCard4To30(item, maxTop30Flames)).join('')}
                 </div>
               </div>
@@ -784,27 +679,36 @@ export class DashboardModule {
               </div>
 
               <div class="relative pl-5 sm:pl-7 border-l-2 border-amber-500/40 space-y-3 max-h-[560px] overflow-y-auto pr-2 custom-scrollbar">
-                ${filteredEarly100.map(item => `
-                  <div class="relative p-3.5 rounded-2xl bg-slate-950/80 border border-white/10 hover:border-amber-500/45 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-md">
+                ${filteredEarly100.map((item, idx) => {
+                  const orderNum = item.order != null ? item.order : (idx + 1);
+                  const senderName = item.name || item.senderName || 'Đồng nghiệp FTEL';
+                  const senderDept = item.dept || item.senderDept || 'FPT Telecom';
+                  const recipientName = item.recipientName || '';
+                  const initialLetter = (senderName.trim().charAt(0) || 'F').toUpperCase();
+                  return `
+                  <div class="relative p-3.5 rounded-2xl bg-slate-950/80 border border-white/10 hover:border-amber-500/45 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-md group">
                     <span class="absolute -left-[27px] sm:-left-[35px] top-4 w-4 h-4 rounded-full bg-gradient-to-tr from-orange-500 to-amber-300 border-2 border-slate-950 shadow-md shadow-orange-500/50"></span>
                     <div class="flex items-center gap-3 min-w-0">
-                      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/25 to-orange-500/10 border border-amber-400/40 text-amber-300 font-black text-xs flex items-center justify-center shrink-0">
-                        #${item.order}
+                      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/25 to-orange-500/10 border border-amber-400/40 text-amber-300 font-black text-xs flex items-center justify-center shrink-0 shadow-inner">
+                        #${String(orderNum).padStart(2, '0')}
+                      </div>
+                      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-white font-extrabold text-xs flex items-center justify-center shrink-0 border border-amber-300/40 shadow-sm">
+                        ${initialLetter}
                       </div>
                       <div class="min-w-0">
-                        <div class="font-extrabold text-white text-sm truncate">${item.name}</div>
+                        <div class="font-extrabold text-white text-sm truncate group-hover:text-amber-300 transition-colors">${senderName}</div>
                         <div class="text-xs text-slate-400 truncate mt-0.5">
-                          <span>🏢 ${item.dept || 'FPT Telecom'}</span>
-                          ${item.recipientName ? `<span class="text-amber-300 font-semibold"> ➔ Gửi tới: ${item.recipientName}</span>` : ''}
+                          <span>🏢 ${senderDept}</span>
+                          ${recipientName ? `<span class="text-amber-300 font-semibold"> ➔ Gửi tới: ${recipientName}</span>` : ''}
                         </div>
                       </div>
                     </div>
                     <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-xl shrink-0 self-start sm:self-center">
                       <span>🕒</span>
-                      <span>${item.timestamp}</span>
+                      <span>${item.timestamp || 'Mới cập nhật'}</span>
                     </div>
                   </div>
-                `).join('')}
+                `}).join('')}
               </div>
             </div>
           </div>
@@ -831,21 +735,58 @@ export class DashboardModule {
               </div>
             </div>
 
-            <!-- AdminLTE Card Tools: Bộ lọc đơn vị -->
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-slate-300 font-bold whitespace-nowrap">Lọc đơn vị:</label>
-              <select id="dash-unit-filter" class="custom-input rounded-xl px-3.5 py-2 text-xs sm:text-sm">
+            <!-- AdminLTE Card Tools: Tìm kiếm đơn vị + Dropdown Lọc đơn vị -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+              <!-- Ô tìm kiếm đơn vị -->
+              <div class="relative flex-1 sm:flex-initial">
+                <input 
+                  type="text" 
+                  id="dash-unit-search-input" 
+                  value="${this.unitSearchQuery}"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="🔍 Tìm tên đơn vị (VD: NOC, FTC, FPL, TIN, PNC...)..." 
+                  class="custom-input w-full sm:w-64 md:w-80 rounded-xl pl-3.5 pr-8 py-2 text-xs border-emerald-500/40 focus:border-emerald-400"
+                />
+                ${this.unitSearchQuery ? `
+                  <button
+                    type="button"
+                    id="dash-unit-search-clear"
+                    title="Xóa tìm kiếm đơn vị"
+                    class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/10 hover:bg-emerald-500/30 text-slate-300 hover:text-white flex items-center justify-center text-[10px] font-bold cursor-pointer transition-colors"
+                  >
+                    ✕
+                  </button>
+                ` : ''}
+              </div>
+
+              <!-- Dropdown lọc đơn vị -->
+              <select id="dash-unit-filter" class="custom-input rounded-xl px-3 py-2 text-xs">
                 <option value="ALL" ${this.selectedUnitFilter === 'ALL' ? 'selected' : ''}>Tất cả đơn vị (${allUnitsList.length})</option>
                 ${allUnitsList.map(u => `
                   <option value="${u}" ${this.selectedUnitFilter === u ? 'selected' : ''}>${u}</option>
                 `).join('')}
               </select>
+
+              <!-- Huy hiệu đếm số lượng -->
+              <span class="text-xs px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-extrabold whitespace-nowrap self-start sm:self-auto">
+                ${isSearchingUnits ? `Tìm thấy: ${displayedUnits.length} / ${unitSpread.length}` : `Hiển thị: ${displayedUnits.length} / ${unitSpread.length}`} đơn vị
+              </span>
             </div>
           </div>
 
           <!-- AdminLTE Card Body -->
           <div class="lte-card-body space-y-4">
-            ${filteredUnits.map((u, idx) => {
+            ${displayedUnits.length === 0 ? `
+              <div class="p-8 text-center text-slate-400 bg-slate-950/60 rounded-2xl border border-white/5 space-y-2">
+                <div class="text-3xl">🔍</div>
+                <div class="text-sm font-bold text-slate-200">Không tìm thấy đơn vị nào khớp với từ khóa "${this.unitSearchQuery}"</div>
+                <p class="text-xs text-slate-500">Hãy thử nhập từ viết tắt khác như: FTC, NOC, TIN, PNC, FTI, CS, FPL, Viễn thông...</p>
+                <button type="button" id="dash-unit-empty-clear-btn" class="mt-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 font-bold text-xs hover:bg-emerald-500/30 border border-emerald-500/40 cursor-pointer transition-all">
+                  ✕ Xóa từ khóa tìm kiếm
+                </button>
+              </div>
+            ` : displayedUnits.map((u, idx) => {
               const widthPct = Math.max(6, Math.round((u.totalFlames / maxUnitFlames) * 100));
               const isExpanded = this.expandedUnit === u.unit;
               return `
@@ -924,6 +865,46 @@ export class DashboardModule {
                 </div>
               `;
             }).join('')}
+
+            <!-- KHU VỰC ĐIỀU KHIỂN: XEM THÊM & THU GỌN (CHỈ HIỂN THỊ KHI KHÔNG TÌM KIẾM VÀ CÓ NHIỀU HƠN 5 ĐƠN VỊ) -->
+            ${!isSearchingUnits && allMatchedUnits.length > 5 ? `
+              <div class="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-slate-950/60 border border-white/10 shadow-lg">
+                <div class="text-xs text-slate-400 text-center sm:text-left">
+                  Đang hiển thị <strong class="text-emerald-300 font-bold">${displayedUnits.length}</strong> / <strong class="text-white font-bold">${allMatchedUnits.length}</strong> đơn vị
+                  ${this.unitDisplayLimit < allMatchedUnits.length ? `<span class="text-slate-500 ml-1">(Còn ${allMatchedUnits.length - this.unitDisplayLimit} đơn vị chưa hiển thị)</span>` : ''}
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  ${this.unitDisplayLimit < allMatchedUnits.length ? `
+                    <button
+                      type="button"
+                      id="dash-unit-load-more-btn"
+                      class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-500/20 hover:scale-[1.02]"
+                    >
+                      <span>▼ Xem thêm 10 đơn vị (+${Math.min(10, allMatchedUnits.length - this.unitDisplayLimit)})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      id="dash-unit-show-all-btn"
+                      class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                    >
+                      <span>Xem toàn bộ (${allMatchedUnits.length})</span>
+                    </button>
+                  ` : ''}
+
+                  ${this.unitDisplayLimit > 5 ? `
+                    <button
+                      type="button"
+                      id="dash-unit-collapse-btn"
+                      class="px-4 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 hover:text-orange-200 text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <span>▲ Thu gọn về Top 5</span>
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            ` : ''}
           </div>
 
           <!-- AdminLTE Card Footer: Điều hướng nhanh cuối trang -->
@@ -1175,151 +1156,6 @@ export class DashboardModule {
       refreshBtn.addEventListener('click', () => this.refreshData());
     }
 
-    // Sự kiện tìm kiếm Nhân sự siêu tốc (0ms lag, không vẽ lại toàn trang, không ngắt bộ gõ tiếng Việt Unikey)
-    const hrSearchInput = this.container.querySelector('#hr-directory-search-input');
-    if (hrSearchInput) {
-      hrSearchInput.addEventListener('input', (e) => {
-        this.hrSearchQuery = e.target.value;
-        if (this._hrSearchTimer) clearTimeout(this._hrSearchTimer);
-        this._hrSearchTimer = setTimeout(() => {
-          this.updateHrSearchOnly();
-        }, 40);
-      });
-    }
-
-    const hrClearBtn = this.container.querySelector('#hr-search-clear-btn');
-    if (hrClearBtn) {
-      hrClearBtn.addEventListener('click', () => {
-        this.hrSearchQuery = '';
-        if (hrSearchInput) {
-          hrSearchInput.value = '';
-          hrSearchInput.focus();
-        }
-        this.updateHrSearchOnly();
-      });
-    }
-
-    const hrUnitSelect = this.container.querySelector('#hr-directory-unit-select');
-    if (hrUnitSelect) {
-      hrUnitSelect.addEventListener('change', (e) => {
-        this.hrUnitFilter = e.target.value;
-        this.updateHrSearchOnly();
-      });
-    }
-
-    // Nút đóng/mở khung Đồng bộ / Dán nhanh DS Nhân sự (gid=1084168011)
-    const toggleSyncBtn = this.container.querySelector('#hr-toggle-sync-panel-btn');
-    if (toggleSyncBtn) {
-      toggleSyncBtn.addEventListener('click', () => {
-        this.showHrSyncPanel = !this.showHrSyncPanel;
-        this.renderInline();
-      });
-    }
-
-    const emptyOpenSyncBtn = this.container.querySelector('#hr-empty-open-sync-btn');
-    if (emptyOpenSyncBtn) {
-      emptyOpenSyncBtn.addEventListener('click', () => {
-        this.showHrSyncPanel = true;
-        this.renderInline();
-      });
-    }
-
-    // Nút tải tự động trực tiếp từ Google Sheet (gid=1084168011) qua GVIZ JSONP
-    const directGvizBtn = this.container.querySelector('#hr-direct-gviz-sync-btn');
-    if (directGvizBtn) {
-      directGvizBtn.addEventListener('click', async () => {
-        directGvizBtn.disabled = true;
-        directGvizBtn.textContent = '⏳ Đang kết nối Sheet gid=1084168011...';
-        const res = await ApiService.syncHrDirectoryFromGoogleSheet();
-        if (res.success && res.count > 0) {
-          this.hrSyncStatusMsg = `✅ Đã đồng bộ tự động ${res.count} nhân sự từ Google Sheet (gid=1084168011)!`;
-          await this.refreshData();
-        } else {
-          this.hrSyncStatusMsg = '⚠️ Sheet đang bật khóa Riêng tư (Restricted). Hãy mở quyền Xem hoặc Ctrl+A -> Ctrl+C từ Sheet dán vào ô bên dưới!';
-          this.renderInline();
-        }
-      });
-    }
-
-    // Nút Chọn file CSV/TSV (24.608 nhân sự)
-    const csvFileBtn = this.container.querySelector('#hr-csv-file-btn');
-    const csvFileInput = this.container.querySelector('#hr-csv-file-input');
-    if (csvFileBtn && csvFileInput) {
-      csvFileBtn.addEventListener('click', () => csvFileInput.click());
-      csvFileInput.addEventListener('change', async (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        const fb = this.container.querySelector('#hr-sync-feedback');
-        if (fb) fb.textContent = `⏳ Đang đọc và nạp file ${file.name}...`;
-        try {
-          const text = await file.text();
-          const res = await ApiService.importHrDirectoryFromText(text);
-          this.hrSyncStatusMsg = `✅ Đã nạp siêu tốc ${res.importedCount.toLocaleString('vi-VN')} nhân sự từ file ${file.name} (Tổng: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
-          await this.refreshData();
-        } catch (err) {
-          this.hrSyncStatusMsg = `⚠️ ${err.message}`;
-          if (fb) fb.textContent = this.hrSyncStatusMsg;
-        }
-      });
-    }
-
-    // Nút Dán 1 chạm từ Clipboard (không cần render vào textarea)
-    const fastPasteBtn = this.container.querySelector('#hr-clipboard-fast-paste-btn');
-    if (fastPasteBtn) {
-      fastPasteBtn.addEventListener('click', async () => {
-        const fb = this.container.querySelector('#hr-sync-feedback');
-        try {
-          if (fb) fb.textContent = '⏳ Đang đọc 24.608 dòng từ Clipboard...';
-          const clipText = await navigator.clipboard.readText();
-          const res = await ApiService.importHrDirectoryFromText(clipText);
-          this.hrSyncStatusMsg = `✅ Đã nạp siêu tốc ${res.importedCount.toLocaleString('vi-VN')} nhân sự từ Clipboard (Tổng: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
-          await this.refreshData();
-        } catch (err) {
-          this.hrSyncStatusMsg = '⚠️ Vui lòng click vào ô văn bản bên dưới và bấm Ctrl + V!';
-          if (fb) fb.textContent = this.hrSyncStatusMsg;
-        }
-      });
-    }
-
-    // Tự động bắt sự kiện Ctrl+V vào ô textarea để nạp thẳng vào RAM (tránh làm đơ trình duyệt khi dán 24.608 dòng)
-    const pasteTextarea = this.container.querySelector('#hr-paste-textarea');
-    if (pasteTextarea) {
-      pasteTextarea.addEventListener('paste', async (e) => {
-        const text = (e.clipboardData || window.clipboardData)?.getData('text/plain') || '';
-        if (text && text.length > 2000) {
-          e.preventDefault();
-          const fb = this.container.querySelector('#hr-sync-feedback');
-          if (fb) fb.textContent = '⏳ Đang xử lý dữ liệu lớn từ Clipboard...';
-          try {
-            const res = await ApiService.importHrDirectoryFromText(text);
-            this.hrSyncStatusMsg = `✅ Đã nạp siêu tốc ${res.importedCount.toLocaleString('vi-VN')} nhân sự (Tổng danh bạ: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
-            await this.refreshData();
-          } catch (err) {
-            this.hrSyncStatusMsg = `⚠️ ${err.message}`;
-            if (fb) fb.textContent = this.hrSyncStatusMsg;
-          }
-        }
-      });
-    }
-
-    // Nút Nạp nhanh dữ liệu Copy-Paste từ Sheet DS nhân sự
-    const importPasteBtn = this.container.querySelector('#hr-import-paste-btn');
-    if (importPasteBtn) {
-      importPasteBtn.addEventListener('click', async () => {
-        const textarea = this.container.querySelector('#hr-paste-textarea');
-        const rawText = textarea ? textarea.value : '';
-        try {
-          const res = await ApiService.importHrDirectoryFromText(rawText);
-          this.hrSyncStatusMsg = `✅ Đã nạp thành công ${res.importedCount.toLocaleString('vi-VN')} nhân sự (Tổng danh bạ: ${res.totalCount.toLocaleString('vi-VN')} CBNV)!`;
-          await this.refreshData();
-        } catch (err) {
-          this.hrSyncStatusMsg = `⚠️ ${err.message}`;
-          const fb = this.container.querySelector('#hr-sync-feedback');
-          if (fb) fb.textContent = this.hrSyncStatusMsg;
-        }
-      });
-    }
-
     // Nút Copy nhanh Email nhân sự
     this.container.querySelectorAll('[data-copy-email]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1366,6 +1202,67 @@ export class DashboardModule {
           this.expandedUnit = this.selectedUnitFilter;
         }
         this.renderInline();
+      });
+    }
+
+    // Tìm kiếm đơn vị trong Khu vực D
+    const unitSearchInput = this.container.querySelector('#dash-unit-search-input');
+    if (unitSearchInput) {
+      unitSearchInput.addEventListener('input', (e) => {
+        this.unitSearchQuery = e.target.value;
+        this.renderInline();
+        const newInput = this.container.querySelector('#dash-unit-search-input');
+        if (newInput) {
+          newInput.focus();
+          newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+        }
+      });
+    }
+
+    const unitSearchClear = this.container.querySelector('#dash-unit-search-clear');
+    if (unitSearchClear) {
+      unitSearchClear.addEventListener('click', () => {
+        this.unitSearchQuery = '';
+        this.renderInline();
+      });
+    }
+
+    const unitEmptyClearBtn = this.container.querySelector('#dash-unit-empty-clear-btn');
+    if (unitEmptyClearBtn) {
+      unitEmptyClearBtn.addEventListener('click', () => {
+        this.unitSearchQuery = '';
+        this.renderInline();
+      });
+    }
+
+    // Nút Xem thêm 10 đơn vị
+    const unitLoadMoreBtn = this.container.querySelector('#dash-unit-load-more-btn');
+    if (unitLoadMoreBtn) {
+      unitLoadMoreBtn.addEventListener('click', () => {
+        this.unitDisplayLimit += 10;
+        this.renderInline();
+      });
+    }
+
+    // Nút Xem toàn bộ đơn vị
+    const unitShowAllBtn = this.container.querySelector('#dash-unit-show-all-btn');
+    if (unitShowAllBtn) {
+      unitShowAllBtn.addEventListener('click', () => {
+        this.unitDisplayLimit = 9999;
+        this.renderInline();
+      });
+    }
+
+    // Nút Thu gọn về Top 5 đơn vị
+    const unitCollapseBtn = this.container.querySelector('#dash-unit-collapse-btn');
+    if (unitCollapseBtn) {
+      unitCollapseBtn.addEventListener('click', () => {
+        this.unitDisplayLimit = 5;
+        this.renderInline();
+        const sectionUnit = document.getElementById('section-unit-spread');
+        if (sectionUnit) {
+          sectionUnit.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       });
     }
 
@@ -1416,61 +1313,101 @@ export class DashboardModule {
   renderPodiumCard(item, rank) {
     const isTop1 = rank === 1;
     const isTop2 = rank === 2;
-    const borderClass = isTop1
-      ? 'border-amber-400/80 bg-gradient-to-b from-amber-500/25 via-orange-500/10 to-slate-950/95 shadow-2xl shadow-amber-500/25 md:-translate-y-3'
-      : isTop2
-      ? 'border-slate-300/55 bg-gradient-to-b from-slate-300/15 to-slate-950/90 shadow-xl'
-      : 'border-orange-500/55 bg-gradient-to-b from-orange-600/15 to-slate-950/90 shadow-xl';
+    const isTop3 = rank === 3;
+    const initials = this.getInitials(item.name);
 
-    const medal = isTop1 ? '👑 QUÁN QUÂN TRI THỨC' : isTop2 ? '🥈 Á QUÂN TRI THỨC' : '🥉 QUÝ QUÂN TRI THỨC';
-    const ribbonText = isTop1 ? 'TOP 1' : isTop2 ? 'TOP 2' : 'TOP 3';
-    const badgeBg = isTop1
-      ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950'
+    // Thứ tự hiển thị: Mobile hiển thị 1 -> 2 -> 3; Desktop hiển thị 2 (trái) -> 1 (giữa - cao vượt trội) -> 3 (phải)
+    const orderClass = isTop1 
+      ? 'order-1 md:order-2 md:-translate-y-6 lg:-translate-y-8 z-20' 
+      : isTop2 
+      ? 'order-2 md:order-1 z-10' 
+      : 'order-3 z-10';
+
+    // Màu sắc & Đường viền cao cấp
+    const borderClass = isTop1
+      ? 'border-2 border-amber-400/90 bg-gradient-to-b from-amber-500/25 via-slate-900/95 to-slate-950 shadow-[0_0_45px_rgba(245,158,11,0.32)] ring-1 ring-amber-400/30'
       : isTop2
-      ? 'bg-gradient-to-r from-slate-200 to-slate-400 text-slate-950'
-      : 'bg-gradient-to-r from-amber-600 to-orange-500 text-white';
+      ? 'border border-slate-300/55 bg-gradient-to-b from-slate-300/15 via-slate-900/90 to-slate-950 shadow-[0_0_30px_rgba(203,213,225,0.18)]'
+      : 'border border-amber-600/55 bg-gradient-to-b from-orange-600/15 via-slate-900/90 to-slate-950 shadow-[0_0_30px_rgba(217,119,6,0.18)]';
+
+    const medalTitle = isTop1 
+      ? '👑 TOP 1 • QUÁN QUÂN TRI THỨC' 
+      : isTop2 
+      ? '🥈 TOP 2 • Á QUÂN TRI THỨC' 
+      : '🥉 TOP 3 • QUÝ QUÂN TRI THỨC';
+
+    const badgeBg = isTop1
+      ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/30 animate-pulse-glow'
+      : isTop2
+      ? 'bg-gradient-to-r from-slate-200 via-slate-300 to-slate-400 text-slate-950 font-extrabold shadow-md'
+      : 'bg-gradient-to-r from-amber-600 via-orange-500 to-amber-700 text-white font-extrabold shadow-md';
+
+    const avatarRing = isTop1
+      ? 'w-24 h-24 sm:w-28 sm:h-28 p-1.5 bg-gradient-to-tr from-amber-400 via-yellow-200 to-orange-500 shadow-[0_0_35px_rgba(245,158,11,0.55)] ring-4 ring-amber-400/70 ring-offset-4 ring-offset-slate-950'
+      : isTop2
+      ? 'w-20 h-20 sm:w-24 sm:h-24 p-1 bg-gradient-to-tr from-slate-200 via-slate-400 to-slate-100 shadow-[0_0_25px_rgba(203,213,225,0.35)] ring-2 ring-slate-300/60 ring-offset-2 ring-offset-slate-950'
+      : 'w-20 h-20 sm:w-24 sm:h-24 p-1 bg-gradient-to-tr from-amber-600 via-orange-400 to-amber-500 shadow-[0_0_25px_rgba(217,119,6,0.35)] ring-2 ring-amber-500/60 ring-offset-2 ring-offset-slate-950';
+
+    const pedestalNumColor = isTop1 
+      ? 'text-amber-400 border-amber-500/40 bg-amber-500/15' 
+      : isTop2 
+      ? 'text-slate-300 border-slate-400/30 bg-slate-500/15' 
+      : 'text-orange-400 border-orange-500/30 bg-orange-500/15';
 
     return `
-      <div class="relative rounded-3xl overflow-hidden text-center border-2 ${borderClass} transition-all">
-        <!-- AdminLTE Corner Ribbon -->
-        <div class="lte-ribbon-wrapper">
-          <div class="lte-ribbon ${badgeBg}">${ribbonText}</div>
+      <div class="relative rounded-3xl ${orderClass} ${borderClass} p-5 sm:p-6 text-center backdrop-blur-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between">
+        <!-- Vương miện bồng bềnh hoàng gia cho Top 1 -->
+        ${isTop1 ? `
+          <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+            <span class="text-3xl sm:text-4xl filter drop-shadow-[0_4px_12px_rgba(245,158,11,0.7)] animate-crown">👑</span>
+          </div>
+        ` : ''}
+
+        <!-- Huy hiệu thứ hạng trên đầu thẻ -->
+        <div class="mb-4 pt-1">
+          <span class="inline-block px-3.5 py-1 rounded-full text-[10px] sm:text-[11px] uppercase tracking-wider ${badgeBg}">
+            ${medalTitle}
+          </span>
         </div>
 
-        <div class="p-5 pb-4">
-          <div class="inline-block px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider mb-3 ${badgeBg} shadow-md">
-            ${medal}
-          </div>
-
-          <!-- Ảnh đại diện (hoặc Avatar chữ cái sang trọng) -->
-          <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-3 p-0.5 bg-gradient-to-tr from-orange-500 to-amber-300 shadow-lg">
-            ${item.avatar ? `
-              <img src="${item.avatar}" alt="${item.name}" class="w-full h-full rounded-full object-cover bg-slate-900" />
-            ` : `
-              <div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-lg sm:text-xl font-black text-amber-300">
-                ${this.getInitials(item.name)}
-              </div>
-            `}
-          </div>
-
-          <h4 class="text-base sm:text-lg font-black text-white truncate">${item.name}</h4>
-          <p class="text-xs text-amber-300/95 font-bold truncate mt-0.5">🏢 ${item.dept || 'FPT Telecom'}</p>
-          <p class="text-[11px] text-slate-400 truncate mt-0.5">${item.role || 'Người truyền lửa'}</p>
+        <!-- Ảnh đại diện / Avatar chữ cái đa tầng phát sáng -->
+        <div class="${avatarRing} rounded-full mx-auto mb-4 flex items-center justify-center transition-transform duration-300 hover:scale-105">
+          ${item.avatar ? `
+            <img src="${item.avatar}" alt="${item.name}" class="w-full h-full rounded-full object-cover bg-slate-950" />
+          ` : `
+            <div class="w-full h-full rounded-full bg-slate-950 flex items-center justify-center font-black ${isTop1 ? 'text-2xl sm:text-3xl text-amber-300' : 'text-xl sm:text-2xl text-slate-200'}">
+              ${initials}
+            </div>
+          `}
         </div>
 
-        <!-- AdminLTE Widget User 3-Column Footer -->
-        <div class="grid grid-cols-3 divide-x divide-white/10 bg-black/45 border-t border-white/10 py-2.5 px-2 text-center">
-          <div>
-            <div class="text-[10px] uppercase text-slate-400 font-bold">Thứ hạng</div>
-            <div class="text-sm font-black text-white">#${rank}</div>
+        <!-- Thông tin Thầy/Cô / Người truyền lửa -->
+        <div class="space-y-1 mb-3">
+          <h4 class="font-black text-white ${isTop1 ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'} truncate tracking-tight">
+            ${item.name}
+          </h4>
+          <p class="text-xs sm:text-sm font-bold text-amber-300/90 truncate">
+            🏢 ${item.dept || 'FPT Telecom'}
+          </p>
+          <p class="text-[11px] text-slate-400 truncate">
+            🎓 ${item.role || 'Người trao truyền tri thức'}
+          </p>
+        </div>
+
+        <!-- Khối Huy hiệu Ngọn lửa khổng lồ -->
+        <div class="my-3">
+          <div class="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl ${isTop1 ? 'bg-gradient-to-r from-amber-500/25 to-orange-500/25 border-2 border-amber-400/70 shadow-lg shadow-amber-500/20' : 'bg-slate-800/80 border border-white/15'} text-amber-300 font-black">
+            <span class="${isTop1 ? 'text-xl sm:text-2xl' : 'text-lg'} animate-pulse">🔥</span>
+            <span class="${isTop1 ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg'} text-amber-400">${item.count}</span>
+            <span class="text-xs text-slate-300 font-bold uppercase tracking-wider">Lời Chúc</span>
           </div>
-          <div>
-            <div class="text-[10px] uppercase text-amber-300 font-bold">Ngọn lửa</div>
-            <div class="text-sm sm:text-base font-black text-amber-400">🔥 ${item.count}</div>
-          </div>
-          <div>
-            <div class="text-[10px] uppercase text-emerald-300 font-bold">Trạng thái</div>
-            <div class="text-xs font-extrabold text-emerald-400">Hợp lệ ✓</div>
+        </div>
+
+        <!-- Khối Bục Đế Vinh Quang Olympic -->
+        <div class="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
+          <span class="font-bold uppercase tracking-wider text-[10px]">Hạng Bục Vinh Quang</span>
+          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border ${pedestalNumColor} flex items-center justify-center font-black text-sm sm:text-base shadow-inner">
+            #${rank}
           </div>
         </div>
       </div>
@@ -1478,30 +1415,55 @@ export class DashboardModule {
   }
 
   renderRankCard4To30(item, maxCount = 50) {
-    const pct = Math.max(10, Math.round(((item.count || 1) / maxCount) * 100));
+    const pct = Math.max(8, Math.round(((item.count || 1) / maxCount) * 100));
+    const initials = this.getInitials(item.name);
+    const rankFormatted = item.rank < 10 ? '0' + item.rank : item.rank;
+
     return `
-      <div class="p-3.5 rounded-2xl bg-slate-950/80 border border-white/10 hover:border-amber-500/45 transition-all flex items-center justify-between gap-3 shadow-md">
-        <div class="flex items-center gap-3 min-w-0 flex-1">
-          <div class="w-9 h-9 rounded-xl bg-white/5 border border-white/15 text-amber-300 font-black text-xs flex items-center justify-center shrink-0">
-            #${item.rank}
-          </div>
-          <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500/30 to-amber-400/20 border border-amber-400/30 flex items-center justify-center text-xs font-bold text-amber-300 shrink-0 overflow-hidden">
-            ${item.avatar ? `<img src="${item.avatar}" alt="${item.name}" class="w-full h-full object-cover" />` : this.getInitials(item.name)}
+      <div class="p-3.5 sm:p-4 hover:bg-white/[0.04] transition-all flex items-center justify-between gap-3 group">
+        <!-- Cột 1 & 2: STT + Avatar + Họ tên & Bộ môn/Khoa -->
+        <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <span class="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 text-amber-300/90 font-black text-xs flex items-center justify-center shrink-0 shadow-sm group-hover:border-amber-400/50 group-hover:text-amber-300 transition-colors">
+            #${rankFormatted}
+          </span>
+          <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 bg-gradient-to-tr from-orange-500/40 via-amber-400/30 to-yellow-300/20 shadow-md shrink-0">
+            ${item.avatar ? `
+              <img src="${item.avatar}" alt="${item.name}" class="w-full h-full rounded-full object-cover" />
+            ` : `
+              <div class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-xs sm:text-sm font-extrabold text-amber-300">
+                ${initials}
+              </div>
+            `}
           </div>
           <div class="min-w-0 flex-1">
-            <div class="font-extrabold text-white text-sm truncate">${item.name}</div>
-            <div class="text-xs text-slate-400 truncate">🏢 ${item.dept || 'FPT Telecom'}</div>
-            <div class="w-full h-1.5 rounded-full bg-slate-900 mt-1.5 overflow-hidden">
-              <div class="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300" style="width: ${pct}%"></div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-extrabold text-white text-xs sm:text-sm group-hover:text-amber-300 transition-colors truncate">${item.name}</span>
+            </div>
+            <div class="text-[11px] sm:text-xs text-slate-400 truncate flex items-center gap-1.5 mt-0.5">
+              <span class="text-amber-300/90 font-medium">🏢 ${item.dept || 'FPT Telecom'}</span>
+              ${item.role ? `<span class="text-slate-500 hidden sm:inline">•</span><span class="text-slate-400 hidden sm:inline truncate">${item.role}</span>` : ''}
             </div>
           </div>
         </div>
-        <div class="text-right shrink-0 pl-2">
-          <div class="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-sm font-black text-amber-400 flex items-center gap-1 justify-end">
-            <span>🔥</span>
-            <span>${item.count}</span>
+
+        <!-- Cột 3: Mini Flame Progress Bar so với Top 1 -->
+        <div class="hidden md:flex flex-col items-end w-36 lg:w-44 shrink-0 px-2">
+          <div class="flex items-center justify-between w-full text-[10px] text-slate-400 mb-1 font-semibold">
+            <span>Nhiệt huyết</span>
+            <span class="text-amber-300 font-bold">${pct}%</span>
           </div>
-          <div class="text-[10px] text-slate-400 mt-0.5 font-semibold">ngọn lửa</div>
+          <div class="w-full h-2 rounded-full bg-slate-950 border border-white/10 overflow-hidden shadow-inner">
+            <div class="h-full rounded-full bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 transition-all duration-500" style="width: ${pct}%"></div>
+          </div>
+        </div>
+
+        <!-- Cột 4: Tổng số lời chúc (Huy hiệu ngọn lửa) -->
+        <div class="shrink-0 text-right pl-2">
+          <div class="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/35 text-amber-300 font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-sm group-hover:scale-105 group-hover:border-amber-400 transition-all">
+            <span class="text-sm">🔥</span>
+            <span>${item.count}</span>
+            <span class="text-[10px] text-slate-400 font-medium hidden sm:inline">lời chúc</span>
+          </div>
         </div>
       </div>
     `;

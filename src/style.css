@@ -410,6 +410,38 @@ header, main, footer, .glass-card, .glass-card-glow, button, a, input, select, t
   animation: pulseGlow 2.5s ease-in-out infinite;
 }
 
+@keyframes crownBounce {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(-3deg); }
+}
+
+.animate-crown {
+  animation: crownBounce 2.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Custom Gold Scrollbar for Leaderboard Table */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(4, 9, 22, 0.7);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.4);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.85);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+
 /* ==============================================================================
  * 12. ADMINLTE v4 INSPIRED ENTERPRISE DASHBOARD DESIGN SYSTEM (FTEL DARK GLASS)
  * ============================================================================== */
