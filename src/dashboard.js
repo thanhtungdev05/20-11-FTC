@@ -36,7 +36,28 @@ export class DashboardModule {
   async initInlineDashboard(containerId = 'live-campaign-dashboard') {
     this.container = document.getElementById(containerId);
     if (!this.container) return;
+
+    // 1. Nếu đã có dữ liệu thật lưu đệm từ lần tải trước -> hiển thị tức thì (0ms)
+    const cachedLive = ApiService.getFastCachedDashboardData();
+    if (cachedLive) {
+      this.data = cachedLive;
+      if (this.data?.unitSpread?.length > 0 && this.expandedUnit) {
+        const exists = this.data.unitSpread.some(u => u.unit === this.expandedUnit);
+        if (!exists) this.expandedUnit = this.data.unitSpread[0].unit;
+      }
+      this.renderInline();
+      this.syncHeaderCounter();
+    }
+
+    // 2. Gọi trực tiếp dữ liệu mới nhất từ Code.gs / Google Sheet và cập nhật
     await this.refreshData();
+  }
+
+  syncHeaderCounter() {
+    const counterEl = document.getElementById('nav-counter');
+    if (counterEl && this.data) {
+      counterEl.textContent = (this.data.totalFlames || this.data.overview?.totalFlames || 265) + '+';
+    }
   }
 
   async refreshData() {
@@ -50,6 +71,7 @@ export class DashboardModule {
         }
       }
       this.renderInline();
+      this.syncHeaderCounter();
     } catch (err) {
       console.error('Lỗi tải dữ liệu Dashboard:', err);
     }
@@ -475,10 +497,6 @@ export class DashboardModule {
                 📊
               </div>
               <div>
-                <div class="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span>Khu vực B • Tổng Quan Chiến Dịch (Real-time)</span>
-                </div>
                 <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">NHỊP ĐẬP LAN TỎA NGỌN LỬA TRI ÂN</h2>
               </div>
             </div>
@@ -522,7 +540,7 @@ export class DashboardModule {
                 </div>
                 <div class="lte-small-box-icon">🎓</div>
                 <a href="#section-leaderboard" class="lte-small-box-footer hover:bg-black/40 transition-colors text-amber-200">
-                  <span>Xem Top 30 Tiếp Lửa Tri Thức</span>
+                  <span>Xem Top 30 Giữ Lửa Tri Thức</span>
                   <span>➔</span>
                 </a>
               </div>
@@ -569,10 +587,7 @@ export class DashboardModule {
                 🏆
               </div>
               <div>
-                <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-                  Khu vực C • Bảng Xếp Hạng Vinh Danh
-                </div>
-                <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">BẢNG VÀNG TIẾP LỬA TRI THỨC FTEL</h2>
+                <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">BẢNG VÀNG GIỮ LỬA TRI THỨC FTEL</h2>
               </div>
             </div>
 
@@ -584,7 +599,7 @@ export class DashboardModule {
                   data-tab="top30" 
                   class="dash-tab-btn px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${this.activeRankingTab === 'top30' ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white'}"
                 >
-                  🏆 30 Người Tiếp Lửa Tri Thức
+                  🏆 30 Người Giữ Lửa Tri Thức
                 </button>
                 <button 
                   type="button" 
@@ -649,11 +664,15 @@ export class DashboardModule {
                 </div>
 
                 <!-- Tiêu đề các cột chuẩn Bảng dữ liệu (Table Column Headers) -->
-                <div class="hidden sm:grid grid-cols-12 gap-3 px-5 py-2.5 bg-black/40 border-b border-white/5 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                  <div class="col-span-1 text-center">STT</div>
-                  <div class="col-span-5">Giáo Viên / Người Được Tri Ân</div>
-                  <div class="col-span-3 text-right pr-4">Nhiệt Huyết Tri Ân</div>
-                  <div class="col-span-3 text-right">Tổng Lời Chúc</div>
+                <div class="hidden sm:flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 bg-black/40 border-b border-white/5 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                  <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                    <div class="w-8 text-center shrink-0">STT</div>
+                    <div class="min-w-0 flex-1">Giáo Viên / Người Được Tri Ân</div>
+                  </div>
+                  <div class="hidden md:flex items-center justify-between w-40 lg:w-48 shrink-0">
+                    <span>Nhiệt Huyết Tri Ân</span>
+                  </div>
+                  <div class="w-28 sm:w-32 shrink-0 text-right">Tổng Lời Chúc</div>
                 </div>
 
                 <!-- Vùng cuộn danh sách (Scrollable Table Body) -->
@@ -725,9 +744,6 @@ export class DashboardModule {
                 🏢
               </div>
               <div>
-                <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
-                  Khu vực D • Lan Tỏa Theo Đơn Vị (Đồng bộ Danh sách Nhân sự)
-                </div>
                 <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ / PHÒNG BAN</h2>
                 <p class="text-xs text-slate-400 mt-0.5">
                   👆 <strong>Bấm vào từng Đơn vị</strong> hoặc bấm vào <strong>🔥 Ngọn lửa</strong>, <strong>💌 Người gửi</strong>, <strong>🎓 Người nhận</strong> để xem danh sách các thành viên chi tiết
@@ -1331,10 +1347,10 @@ export class DashboardModule {
       : 'border border-amber-600/55 bg-gradient-to-b from-orange-600/15 via-slate-900/90 to-slate-950 shadow-[0_0_30px_rgba(217,119,6,0.18)]';
 
     const medalTitle = isTop1 
-      ? '👑 TOP 1 • QUÁN QUÂN TRI THỨC' 
+      ? '👑 QUÁN QUÂN GIỮ LỬA' 
       : isTop2 
-      ? '🥈 TOP 2 • Á QUÂN TRI THỨC' 
-      : '🥉 TOP 3 • QUÝ QUÂN TRI THỨC';
+      ? '🥈 Á QUÂN GIỮ LỬA' 
+      : '🥉 QUÝ QUÂN GIỮ LỬA';
 
     const badgeBg = isTop1
       ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/30 animate-pulse-glow'
@@ -1347,12 +1363,6 @@ export class DashboardModule {
       : isTop2
       ? 'w-20 h-20 sm:w-24 sm:h-24 p-1 bg-gradient-to-tr from-slate-200 via-slate-400 to-slate-100 shadow-[0_0_25px_rgba(203,213,225,0.35)] ring-2 ring-slate-300/60 ring-offset-2 ring-offset-slate-950'
       : 'w-20 h-20 sm:w-24 sm:h-24 p-1 bg-gradient-to-tr from-amber-600 via-orange-400 to-amber-500 shadow-[0_0_25px_rgba(217,119,6,0.35)] ring-2 ring-amber-500/60 ring-offset-2 ring-offset-slate-950';
-
-    const pedestalNumColor = isTop1 
-      ? 'text-amber-400 border-amber-500/40 bg-amber-500/15' 
-      : isTop2 
-      ? 'text-slate-300 border-slate-400/30 bg-slate-500/15' 
-      : 'text-orange-400 border-orange-500/30 bg-orange-500/15';
 
     return `
       <div class="relative rounded-3xl ${orderClass} ${borderClass} p-5 sm:p-6 text-center backdrop-blur-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between">
@@ -1395,19 +1405,11 @@ export class DashboardModule {
         </div>
 
         <!-- Khối Huy hiệu Ngọn lửa khổng lồ -->
-        <div class="my-3">
+        <div class="mt-2">
           <div class="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl ${isTop1 ? 'bg-gradient-to-r from-amber-500/25 to-orange-500/25 border-2 border-amber-400/70 shadow-lg shadow-amber-500/20' : 'bg-slate-800/80 border border-white/15'} text-amber-300 font-black">
             <span class="${isTop1 ? 'text-xl sm:text-2xl' : 'text-lg'} animate-pulse">🔥</span>
             <span class="${isTop1 ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg'} text-amber-400">${item.count}</span>
             <span class="text-xs text-slate-300 font-bold uppercase tracking-wider">Lời Chúc</span>
-          </div>
-        </div>
-
-        <!-- Khối Bục Đế Vinh Quang Olympic -->
-        <div class="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
-          <span class="font-bold uppercase tracking-wider text-[10px]">Hạng Bục Vinh Quang</span>
-          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border ${pedestalNumColor} flex items-center justify-center font-black text-sm sm:text-base shadow-inner">
-            #${rank}
           </div>
         </div>
       </div>
@@ -1420,7 +1422,7 @@ export class DashboardModule {
     const rankFormatted = item.rank < 10 ? '0' + item.rank : item.rank;
 
     return `
-      <div class="p-3.5 sm:p-4 hover:bg-white/[0.04] transition-all flex items-center justify-between gap-3 group">
+      <div class="px-4 sm:px-5 py-3.5 sm:py-4 hover:bg-white/[0.04] transition-all flex items-center justify-between gap-3 sm:gap-4 group">
         <!-- Cột 1 & 2: STT + Avatar + Họ tên & Bộ môn/Khoa -->
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <span class="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 text-amber-300/90 font-black text-xs flex items-center justify-center shrink-0 shadow-sm group-hover:border-amber-400/50 group-hover:text-amber-300 transition-colors">
@@ -1447,7 +1449,7 @@ export class DashboardModule {
         </div>
 
         <!-- Cột 3: Mini Flame Progress Bar so với Top 1 -->
-        <div class="hidden md:flex flex-col items-end w-36 lg:w-44 shrink-0 px-2">
+        <div class="hidden md:flex flex-col items-end w-40 lg:w-48 shrink-0">
           <div class="flex items-center justify-between w-full text-[10px] text-slate-400 mb-1 font-semibold">
             <span>Nhiệt huyết</span>
             <span class="text-amber-300 font-bold">${pct}%</span>
@@ -1458,7 +1460,7 @@ export class DashboardModule {
         </div>
 
         <!-- Cột 4: Tổng số lời chúc (Huy hiệu ngọn lửa) -->
-        <div class="shrink-0 text-right pl-2">
+        <div class="w-28 sm:w-32 shrink-0 flex justify-end">
           <div class="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-500/35 text-amber-300 font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-sm group-hover:scale-105 group-hover:border-amber-400 transition-all">
             <span class="text-sm">🔥</span>
             <span>${item.count}</span>

@@ -186,14 +186,14 @@ export function cleanAndCorrectVietnameseText(text) {
     [/\bchúc mưng\b/gi, "chúc mừng"],
     [/\bchuc mung\b/gi, "chúc mừng"],
 
-    // 2. Viết tắt và telex thông dụng
-    [/\bko\b/gi, "không"],
-    [/\bkhg\b/gi, "không"],
-    [/\bhok\b/gi, "không"],
-    [/\bk\b/gi, "không"],
-    [/\bdc\b/gi, "được"],
-    [/\bđc\b/gi, "được"],
-    [/\bđk\b/gi, "được"],
+    // 2. Viết tắt và telex thông dụng (Dùng khoảng trắng/dấu câu tường minh thay cho \b để tránh lỗi Unicode với các chữ có dấu như kết, kính, kỷ)
+    [/(?<=^|[\s.,!?;:()\[\]{}"'“”‘’])ko(?=[\s.,!?;:()\[\]{}"'“”‘’]|$)/gi, "không"],
+    [/(?<=^|[\s.,!?;:()\[\]{}"'“”‘’])khg(?=[\s.,!?;:()\[\]{}"'“”‘’]|$)/gi, "không"],
+    [/(?<=^|[\s.,!?;:()\[\]{}"'“”‘’])hok(?=[\s.,!?;:()\[\]{}"'“”‘’]|$)/gi, "không"],
+    [/(?<=^|[\s.,!?;:()\[\]{}"'“”‘’])k(?=[\s.,!?;:()\[\]{}"'“”‘’]|$)/gi, "không"],
+    [/(?<=^|[\s.,!?;:()\[\]{}"'“”‘’])dc(?=[\s.,!?;:()\[\]{}"'“”‘’]|$)/gi, "được"],
+    [/(?<=^|[\s.,!?;:()\[\]{}"'“”‘’])đc(?=[\s.,!?;:()\[\]{}"'“”‘’]|$)/gi, "được"],
+    [/(?<=^|[\s.,!?;:()\[\]{}"'“”‘’])đk(?=[\s.,!?;:()\[\]{}"'“”‘’]|$)/gi, "được"],
     [/\ba\/c\b/gi, "Anh/Chị"],
     [/\bac\b/gi, "Anh/Chị"],
     [/\bmn\b/gi, "mọi người"],

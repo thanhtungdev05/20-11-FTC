@@ -7,9 +7,11 @@
 export const fptLogoImg = new Image();
 fptLogoImg.src = '/assets/logoFPT.png';
 
-// Preload Official Key Visual 30 Năm Tiếp Lửa for E-Card (Template mới nhất 20/11)
+// Preload Official Key Visual 30 Năm Tiếp Lửa for E-Card (Trì hoãn nhẹ 1.2s sau khi trang đã lên hình xong để ưu tiên tốc độ mở web)
 export const keyVisualImg = new Image();
-keyVisualImg.src = '/assets/key-visual-card.jpg?v=3';
+setTimeout(() => {
+  keyVisualImg.src = '/assets/key-visual-card.jpg?v=3';
+}, 1200);
 
 export class CardGenerator {
   /**

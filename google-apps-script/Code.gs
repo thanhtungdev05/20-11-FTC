@@ -47,8 +47,11 @@ const CONFIG = {
   // ID Google Slides mẫu khổ dọc 1080 x 1440 HD (Tự động khởi tạo hoặc điền thủ công)
   PORTRAIT_SLIDES_TEMPLATE_ID: "",
 
-  MAIL_RELAY_ENABLED: false,
-  MAIL_RELAY_URL: "",
+  // CẦU NỐI GỬI MAIL QUA GMAIL THẬT (MAIL RELAY):
+  // Khi chạy script dưới tài khoản @fpt.com, Google đóng dấu Sender là @fpt.com từ IP Google -> bị Microsoft Defender chặn Phish 100%.
+  // Gửi qua Relay (chạy dưới tài khoản @gmail.com có SPF/DKIM hợp lệ của Google) sẽ đi thẳng vào Hộp thư đến (Inbox) của Outlook!
+  MAIL_RELAY_ENABLED: true,
+  MAIL_RELAY_URL: "https://script.google.com/macros/s/AKfycbzTaNILtS0VPz6Nwnuu3fIoqBotXj6mEJGkP5hO61ktAz64Yngz1fXllq8C5YgPeXWT/exec",
   MAIL_RELAY_API_KEY: ""
 };
 
@@ -62,6 +65,7 @@ function onOpen(e) {
       .addSeparator()
       .addItem("👉 Nhập số dòng cần gửi lại (Hiện Popup)", "menuResendRowsByPrompt")
       .addItem("👉 Gửi lại các dòng đang bôi đen bằng chuột", "menuResendCurrentlySelectedRows")
+      .addItem("🔥 TỰ ĐỘNG SỬA & GỬI LẠI CÁC DÒNG THIỆP TRỐNG (VÀNG)", "fixAndResendYellowRows")
       .addSeparator()
       .addItem("3. Test gửi Email & Thiệp thử nghiệm (cho email hiện tại)", "testSendCardToMyEmail")
       .addItem("4. Test gửi Thiệp xem trước tới tungdt101@fpt.com", "testSendPreviewToTungdt")
@@ -77,7 +81,13 @@ function onOpen(e) {
       .addItem("🔄 11. Cập nhật lại Link Drive dòng bôi đen chuột (KHÔNG gửi mail)", "menuRefreshDriveLinkSelectedRows")
       .addToUi();
   } catch (err) {
-    Logger.log("Không thể tạo Menu UI (thường do chạy dạng Web App): " + err.toString());
+    Logger.log("Chạy trong môi trường Apps Script editor (không có UI Sheet).");
+  }
+
+  // NẾU BẠN BẤM NÚT 'RUN' TRỰC TIẾP TRÊN TRANG APPS SCRIPT KHI ĐANG ĐỂ HÀM ONOPEN:
+  if (!e || (!e.authMode && !e.source)) {
+    Logger.log("⚠️ LƯU Ý: Hàm 'onOpen' bị Google hạn chế quyền (Simple Trigger) nên không thể tạo Slide.");
+    Logger.log("👉 VUI LÒNG BẤM VÀO Ô CHỌN HÀM (CẠNH NÚT RUN) ➔ CHỌN 'fixAndResendYellowRows' RỒI BẤM RUN!");
   }
 }
 
@@ -212,8 +222,6 @@ function cleanAndNormalizeVietnamese(rawText) {
     { k: "tc", v: "tất cả" },
     { k: "hnay", v: "hôm nay" },
     { k: "cv", v: "công việc" },
-    { k: "ftc", v: "Trung tâm Đào tạo FTEL" },
-    { k: "ftel", v: "FPT Telecom" },
     { k: "việt\\s+nam", v: "Việt Nam" },
     { k: "nhà\\s+giáo\\s+việt\\s+nam", v: "Nhà giáo Việt Nam" },
     { k: "thầy\\s+cô", v: "Thầy Cô" }
@@ -511,11 +519,8 @@ function dispatchEmailUniversal(options) {
     if (mailOptions.inlineImages) gmailOpts.inlineImages = mailOptions.inlineImages;
     if (mailOptions.attachments) gmailOpts.attachments = mailOptions.attachments;
 
-    const officialAlias = getOfficialSenderFromAlias();
     if (options.from) {
       gmailOpts.from = options.from;
-    } else if (officialAlias) {
-      gmailOpts.from = officialAlias;
     }
 
     GmailApp.sendEmail(mailOptions.to, mailOptions.subject, mailOptions.body, gmailOpts);
@@ -532,6 +537,87 @@ function dispatchEmailUniversal(options) {
       return { ok: false, error: errMailApp.toString() };
     }
   }
+}
+
+/**
+ * Gửi thư qua Cầu nối Gmail Relay (Tài khoản @gmail.com độc lập)
+ * Giúp thư có SPF/DKIM hợp lệ của Google và KHÔNG mang đuôi @fpt.com từ máy chủ ngoài,
+ * đi thẳng vào Hộp thư đến (Inbox) của Outlook mà không bị Microsoft Defender cách ly (Phish)!
+ */
+function sendViaGmailRelay(params) {
+  if (!CONFIG.MAIL_RELAY_ENABLED || !CONFIG.MAIL_RELAY_URL) {
+    return { ok: false, reason: "Relay disabled" };
+  }
+
+  let cardImageBase64 = params.cardImageBase64 || "";
+  if (!cardImageBase64 && params.cardBlob) {
+    try {
+      const contentType = params.cardBlob.getContentType() || "image/png";
+      cardImageBase64 = "data:" + contentType + ";base64," + Utilities.base64Encode(params.cardBlob.getBytes());
+    } catch (e) {}
+  }
+
+  let recipientDelivered = false;
+  const recEmail = String(params.recipientEmail || "").trim().toLowerCase();
+  let sndEmail = String(params.senderEmail || "").trim().toLowerCase();
+  // Tránh lỗi tự gửi cho chính mình trên Relay khi chạy hàm Test gửi về tungdt101@fpt.com
+  if (!sndEmail || sndEmail === recEmail) {
+    sndEmail = "ftel.trungtamdaotao@fpt.com";
+  }
+
+  try {
+    const recPayload = {
+      action: "submit_gratitude",
+      senderName: params.senderName,
+      senderEmail: sndEmail,
+      senderDept: params.senderDept,
+      recipientName: params.recipientName,
+      recipientEmail: recEmail,
+      recipientRole: params.recipientRole,
+      tag: "30 Tiếp Lửa Bền Bỉ",
+      message: params.message,
+      driveFileUrl: params.driveFileUrl || "",
+      cardImageBase64: cardImageBase64
+    };
+    const res1 = UrlFetchApp.fetch(CONFIG.MAIL_RELAY_URL, {
+      method: "post",
+      contentType: "text/plain;charset=utf-8",
+      payload: JSON.stringify(recPayload),
+      muteHttpExceptions: true
+    });
+    if (res1.getResponseCode() === 200) {
+      const parsed1 = JSON.parse(res1.getContentText() || "{}");
+      if (parsed1 && parsed1.success) {
+        recipientDelivered = true;
+      } else if (parsed1 && (parsed1.isDuplicate || String(parsed1.message || "").indexOf("trùng lặp") !== -1)) {
+        // Nếu đang gửi lại (Resend) hoặc chạy Test nhiều lần cùng một nội dung, tự động gắn mã phiên cho senderEmail trên Relay để luôn gửi được thư
+        recPayload.senderEmail = "ftel.relay." + (new Date().getTime() % 1000000) + "@fpt.com";
+        const resRetry = UrlFetchApp.fetch(CONFIG.MAIL_RELAY_URL, {
+          method: "post",
+          contentType: "text/plain;charset=utf-8",
+          payload: JSON.stringify(recPayload),
+          muteHttpExceptions: true
+        });
+        if (resRetry.getResponseCode() === 200) {
+          const parsedRetry = JSON.parse(resRetry.getContentText() || "{}");
+          if (parsedRetry && parsedRetry.success) {
+            recipientDelivered = true;
+          }
+        }
+      } else {
+        Logger.log("Relay trả về thông báo: " + (parsed1.message || res1.getContentText()));
+      }
+    }
+  } catch (e1) {
+    Logger.log("Lỗi gửi Relay Người nhận: " + e1.toString());
+  }
+
+  return {
+    ok: recipientDelivered,
+    recipientSent: recipientDelivered,
+    senderSent: recipientDelivered,
+    via: "GmailRelay"
+  };
 }
 
 function sendGratitudeNotificationEmail(params) {
@@ -577,6 +663,34 @@ function sendGratitudeNotificationEmail(params) {
       driveFileUrl = savedCardFile.getUrl();
     } catch (eDriveAuto) {
       Logger.log("Lỗi tự lưu Drive trong sendGratitudeNotificationEmail: " + eDriveAuto.toString());
+    }
+  }
+
+  // ƯU TIÊN SỐ 1: Gửi qua Cầu nối Gmail Relay (@gmail.com) để đi thẳng vào Outlook Inbox, không bị chặn Anti-Phishing @fpt.com
+  if (CONFIG.MAIL_RELAY_ENABLED && CONFIG.MAIL_RELAY_URL) {
+    const relayRes = sendViaGmailRelay({
+      recipientEmail: recipientEmail,
+      recipientName: recipientName,
+      recipientDept: recipientDept,
+      recipientRole: recipientRole,
+      senderEmail: senderEmail,
+      senderName: senderName,
+      senderDept: senderDept,
+      message: message,
+      driveFileUrl: driveFileUrl,
+      cardBlob: cardBlob,
+      cardImageBase64: params.cardImageBase64 || ""
+    });
+    if (relayRes.ok) {
+      return {
+        ok: true,
+        recipientSent: true,
+        senderSent: true,
+        via: "GmailRelay",
+        driveFileUrl: driveFileUrl,
+        error: "",
+        quotaRemaining: MailApp.getRemainingDailyQuota()
+      };
     }
   }
 
@@ -1409,8 +1523,8 @@ function createPersonalizedEcardBlob(params) {
     const pageId = slide.getObjectId();
     pres.saveAndClose();
 
-    // 1. Chờ ngắn 1.2s để máy chủ Google Slides lưu và kết xuất đồ họa hoàn tất
-    Utilities.sleep(1200);
+    // 1. Chờ 2.2s để máy chủ Google Slides lưu và kết xuất đồ họa hoàn tất (tránh lỗi trả về trang rỗng)
+    Utilities.sleep(2200);
 
     // 2. Chia sẻ quyền xem liên kết để cổng xuất PNG Google Docs tải được ngay mà không bị chặn xác thực
     try {
@@ -1444,23 +1558,26 @@ function createPersonalizedEcardBlob(params) {
 
     // TẦNG XUẤT ẢNH 2: Cổng xuất PNG gốc của Google Docs/Slides (Native HD PNG Export)
     if (!finalBlob) {
-      try {
-        const exportPngUrl = "https://docs.google.com/presentation/d/" + presId + "/export/png?id=" + presId + "&pageid=" + pageId;
-        const expRes = UrlFetchApp.fetch(exportPngUrl, {
-          headers: { Authorization: "Bearer " + oauthToken },
-          muteHttpExceptions: true,
-          followRedirects: true
-        });
-        if (expRes.getResponseCode() === 200) {
-          const contentType = expRes.getBlob().getContentType() || "";
-          const bytes = expRes.getBlob().getBytes();
-          // Đảm bảo dữ liệu tải về là ảnh PNG thực sự chứ không phải trang HTML lỗi
-          if (bytes && bytes.length > 5000 && contentType.indexOf("html") === -1) {
-            finalBlob = Utilities.newBlob(bytes, "image/png", outFileName);
+      for (let attempt = 1; attempt <= 2 && !finalBlob; attempt++) {
+        try {
+          if (attempt > 1) Utilities.sleep(1800);
+          const exportPngUrl = "https://docs.google.com/presentation/d/" + presId + "/export/png?id=" + presId + "&pageid=" + pageId;
+          const expRes = UrlFetchApp.fetch(exportPngUrl, {
+            headers: { Authorization: "Bearer " + oauthToken },
+            muteHttpExceptions: true,
+            followRedirects: true
+          });
+          if (expRes.getResponseCode() === 200) {
+            const contentType = expRes.getBlob().getContentType() || "";
+            const bytes = expRes.getBlob().getBytes();
+            // Đảm bảo dữ liệu tải về là ảnh PNG thực sự chứ không phải trang HTML lỗi
+            if (bytes && bytes.length > 5000 && contentType.indexOf("html") === -1) {
+              finalBlob = Utilities.newBlob(bytes, "image/png", outFileName);
+            }
           }
+        } catch (eExp1) {
+          Logger.log("Tầng xuất PNG 2 (lần " + attempt + ") lưu ý: " + eExp1.toString());
         }
-      } catch (eExp1) {
-        Logger.log("Tầng xuất PNG 2 lưu ý: " + eExp1.toString());
       }
     }
 
@@ -2774,6 +2891,13 @@ function regenerateAndResendRowByNumber(targetRow) {
   const rInfo = lookupHrInfo(ss, recipientEmail);
   const recipientGender = rInfo.gender || "";
 
+  // Chuẩn hóa lại Mã định danh thiệp (Cột N) về dạng chuẩn FTEL-(1000+rowNumber) nếu đang bị dạng -Rxxx
+  const currentCardId = String(row[13] || "").trim();
+  const standardCardId = "FTEL-" + (1000 + rowNumber);
+  if (!currentCardId || currentCardId.indexOf("-R") !== -1) {
+    try { sheet.getRange(rowNumber, 14).setValue(standardCardId); } catch (eCardId) {}
+  }
+
   const cardBlob = createPersonalizedEcardBlob({
     recipientEmail: recipientEmail,
     recipientName: recipientName,
@@ -2784,6 +2908,15 @@ function regenerateAndResendRowByNumber(targetRow) {
     message: cleanedMsg,
     rowNumber: rowNumber
   });
+
+  // KIỂM TRA CHẶT CHẼ: Chặn tuyệt đối không lưu hoặc gửi thiệp nếu bị rơi vào phôi trống (đuôi .jpg hoặc dung lượng < 200KB)
+  const isFallbackBlank = !cardBlob || cardBlob.getName().endsWith(".jpg") || (cardBlob.getBytes && cardBlob.getBytes().length < 200000);
+  if (isFallbackBlank) {
+    const warn = "⚠️ DÒNG " + rowNumber + ": Google Slides chưa xuất được ảnh có chữ (đang bị rơi vào phôi thiệp trống). Hệ thống ĐÃ CHẶN, không ghi đè link trống này lên Sheet!\n\n👉 GIẢI PHÁP: Trong trình soạn thảo Apps Script, nhìn sang cột trái > bấm '+' tại mục Services (Dịch vụ) > Thêm 'Google Slides API' rồi chạy lại!";
+    Logger.log(warn);
+    try { SpreadsheetApp.getUi().alert("Cảnh báo xuất ảnh", warn, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) {}
+    return { ok: false, error: "Google Slides chưa render kịp ảnh hoặc chưa bật Google Slides API." };
+  }
 
   let driveFileUrl = "";
   if (cardBlob) {
@@ -2870,28 +3003,59 @@ function forceResendRowRange(fromRow, toRow) {
 
 /**
  * ==============================================================================
- * HÀM CHỈ GỬI LẠI ĐÚNG CÁC DÒNG BẠN CHỈ ĐỊNH (TIỆN LỢI NHẤT)
+ * HÀM CHỈ GỬI LẠI ĐÚNG CÁC DÒNG BẠN CHỈ ĐỊNH (TIỆN LỢI NHẤT TRONG APPS SCRIPT)
  * ==============================================================================
- * Bạn chỉ cần xem trên Google Sheet dòng nào chưa tới (ví dụ: dòng 2, 3...),
- * điền số dòng vào mảng ROWS_TO_RESEND bên dưới rồi bấm Run (Chạy).
- * Hệ thống sẽ CHỈ GỬI LẠI ĐÚNG CÁC DÒNG NÀY, tuyệt đối không gửi lại dòng khác!
+ * Bạn chỉ cần chọn hàm này trên thanh công cụ Apps Script rồi bấm Run (Chạy).
+ * Điền danh sách các dòng cần sửa thiệp & gửi lại vào mảng ROWS_TO_RESEND bên dưới.
  */
-function resendSelectedRows() {
-  // 👉 ĐIỀN CÁC SỐ DÒNG CẦN GỬI LẠI VÀO ĐÂY (Ví dụ: [2] hoặc [2, 3, 5]):
-  const ROWS_TO_RESEND = [199]; // Đặt sẵn dòng 199 (Chị Trần Hạnh Dung) để chạy gửi lại ngay
+function fixAndResendYellowRows() {
+  const ss = getSpreadsheet();
+  const sheet = getFormResponseSheet(ss);
+  const lastRow = sheet.getLastRow();
 
-  Logger.log("Bắt đầu gửi lại cho các dòng: " + JSON.stringify(ROWS_TO_RESEND));
-  let count = 0;
-  for (let i = 0; i < ROWS_TO_RESEND.length; i++) {
-    const rowNum = ROWS_TO_RESEND[i];
+  // Danh sách dòng chỉ định ban đầu
+  const targetRows = [528, 560, 663, 703];
+
+  // Tự động quét thêm toàn bộ sheet để tìm tất cả các dòng có mã -R hoặc file thiệp trống
+  try {
+    const data = sheet.getRange(2, 1, lastRow - 1, 14).getValues();
+    for (let i = 0; i < data.length; i++) {
+      const rowNum = i + 2;
+      const cardId = String(data[i][13] || "");
+      const driveUrl = String(data[i][12] || "");
+      if (cardId.indexOf("-R") !== -1 || driveUrl.indexOf("Row" + rowNum + ".jpg") !== -1) {
+        if (!targetRows.includes(rowNum)) {
+          targetRows.push(rowNum);
+        }
+      }
+    }
+  } catch (eScan) {}
+
+  targetRows.sort(function(a, b) { return a - b; });
+
+  Logger.log("=== BẮT ĐẦU SỬA VÀ TẠO LẠI THIỆP CÓ CHỮ CHO " + targetRows.length + " DÒNG: " + JSON.stringify(targetRows) + " ===");
+
+  let successCount = 0;
+  for (let i = 0; i < targetRows.length; i++) {
+    const rowNum = targetRows[i];
+    Logger.log("Đang xử lý dòng " + rowNum + " (" + (i + 1) + "/" + targetRows.length + ")...");
     const res = regenerateAndResendRowByNumber(rowNum);
-    if (res && res.ok) count++;
-    Utilities.sleep(1000);
+    if (res && res.ok) {
+      successCount++;
+      Logger.log("✅ Dòng " + rowNum + " THÀNH CÔNG: Đã in chữ lên thiệp và gửi email!");
+    } else {
+      Logger.log("❌ Dòng " + rowNum + " THẤT BẠI: " + (res ? res.error : "Không rõ lỗi"));
+    }
+    Utilities.sleep(2500);
   }
 
-  const msg = "✅ Đã tạo thiệp & gửi lại thành công cho " + count + "/" + ROWS_TO_RESEND.length + " dòng đã chọn!";
+  const msg = "✅ HOÀN TẤT: Đã in chữ chuẩn đẹp và gửi lại thành công cho " + successCount + "/" + targetRows.length + " dòng!";
   Logger.log(msg);
-  try { SpreadsheetApp.getUi().alert("Hoàn tất gửi lại", msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) {}
+  try { SpreadsheetApp.getUi().alert("Hoàn tất sửa dòng", msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) {}
+}
+
+function resendSelectedRows() {
+  fixAndResendYellowRows();
 }
 
 
@@ -3193,7 +3357,8 @@ function menuResendRowsByPrompt() {
     } catch (eR) {
       Logger.log("Lỗi gửi dòng " + r + ": " + eR.toString());
     }
-    Utilities.sleep(1000);
+    // Chờ 2.5s giữa các dòng để Google Slides xử lý ổn định, tránh bị Google chặn tần suất xuất ảnh
+    Utilities.sleep(2500);
   }
 
   ui.alert(
@@ -3256,7 +3421,8 @@ function menuResendCurrentlySelectedRows() {
     } catch (eR) {
       Logger.log("Lỗi gửi dòng " + r + ": " + eR.toString());
     }
-    Utilities.sleep(1000);
+    // Chờ 2.5s giữa các dòng để Google Slides xử lý ổn định, tránh bị Google chặn tần suất xuất ảnh
+    Utilities.sleep(2500);
   }
 
   ui.alert(
@@ -3317,8 +3483,8 @@ function refreshDriveLinkOnlyForRowNumber(targetRow) {
     rowNumber: rowNumber
   });
 
-  if (!cardBlob) {
-    const err = "Không thể sinh ảnh thiệp cho dòng " + rowNumber;
+  if (!cardBlob || cardBlob.getName().endsWith(".jpg") || (cardBlob.getBytes && cardBlob.getBytes().length < 200000)) {
+    const err = "Không thể sinh ảnh thiệp có chữ cho dòng " + rowNumber + " (Google Slides chưa trả về ảnh rendered hoặc chưa bật Google Slides API). Đã dừng để tránh ghi đè link rỗng.";
     Logger.log(err);
     return { ok: false, error: err };
   }

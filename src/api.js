@@ -96,14 +96,14 @@ async function saveHrListToStorage(list) {
         tx.onerror = () => resolve(false);
       });
     }
-  } catch (e) {}
+  } catch (e) { }
   try {
     if (list.length <= 5000) {
       localStorage.setItem(STORAGE_KEY_CUSTOM_HR, JSON.stringify(list));
     } else {
       localStorage.setItem("ftel_custom_hr_count", String(list.length));
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 async function loadHrListFromStorage() {
@@ -125,7 +125,7 @@ async function loadHrListFromStorage() {
         return idbData;
       }
     }
-  } catch (e) {}
+  } catch (e) { }
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_HR) || "[]");
     if (Array.isArray(parsed) && parsed.length > 0) {
@@ -133,7 +133,7 @@ async function loadHrListFromStorage() {
       registerBulkEmployeesInMemory(parsed);
       return parsed;
     }
-  } catch (e) {}
+  } catch (e) { }
   return [];
 }
 
@@ -611,7 +611,7 @@ export class ApiService {
           if (parsed && typeof parsed.success !== 'undefined') {
             result = parsed;
           }
-        } catch (jsonErr) {}
+        } catch (jsonErr) { }
 
         if (!result.success) {
           throw new Error(result.message || "Không thể gửi dữ liệu lên Google Sheets.");
@@ -627,11 +627,11 @@ export class ApiService {
         }
         console.warn("Lỗi gửi tới Google Apps Script thực, chuyển sang lưu dự phòng:", err);
         const mockRes = await this.mockSubmit(payload);
-        return { 
-          ...mockRes, 
-          isCloudSaved: false, 
+        return {
+          ...mockRes,
+          isCloudSaved: false,
           cleanedMessage,
-          cloudError: err.message || "Không thể kết nối Google Apps Script" 
+          cloudError: err.message || "Không thể kết nối Google Apps Script"
         };
       }
     }
@@ -759,9 +759,9 @@ export class ApiService {
   /**
    * Đọc trực tiếp tab Câu trả lời Google Form (gid=1557167031) qua GVIZ JSONP và tổng hợp số liệu Real-time
    */
-  static async syncFormResponsesFromGoogleSheet(hrList = []) {
+  static async syncFormResponsesFromGoogleSheet(hrList = [], preloadedRows = null) {
     try {
-      const rows = await loadSheetViaGvizJsonp(GOOGLE_SHEET_ID, GOOGLE_SHEET_GID, 4500);
+      const rows = Array.isArray(preloadedRows) ? preloadedRows : await loadSheetViaGvizJsonp(GOOGLE_SHEET_ID, GOOGLE_SHEET_GID, 3500);
       if (!Array.isArray(rows) || rows.length <= 1) return null;
 
       // Tạo map tra cứu nhanh HR từ DS nhân sự (gid=1084168011)
@@ -1130,27 +1130,85 @@ export class ApiService {
   }
 
   /**
-   * Lấy toàn bộ dữ liệu Live Dashboard (Khu vực B - C - D) từ Google Sheet (hoặc Mock kết hợp Local)
+   * Trả về dữ liệu Dashboard THẬT đã lưu đệm từ lần tải thành công gần nhất (nếu có).
+   * Tuyệt đối KHÔNG trả về dữ liệu Mock giả lập để tránh hiển thị nhầm tên mẫu khi đang tải.
    */
-  static async getFullDashboardData() {
-    // 1. Thử đồng bộ trực tiếp tab DS Nhân sự (gid=1084168011) qua Google Visualization JSONP + IndexedDB
-    const gvizHrSync = await this.syncHrDirectoryFromGoogleSheet();
-    const customHrList = await this.getStoredCustomHrListAsync();
-    const activeHrList = gvizHrSync.list.length > 0 ? gvizHrSync.list : customHrList;
+  static getFastCachedDashboardData() {
+      if (this._lastFullDashboardData && this._lastFullDashboardData.isLiveSheet) {
+        return this._lastFullDashboardData;
+      }
+      try {
+        const rawCache = localStorage.getItem("ftel_20_11_live_dashboard_cache_v2");
+        if (rawCache) {
+          const parsed = JSON.parse(rawCache);
+            if (parsed && parsed.isLiveSheet && typeof parsed.totalFlames !== "undefined" && Array.isArray(parsed.top30Recipients)) {
+              return {
+                ...parsed,
+                hrDirectory: this.getStoredCustomHrList().length > 0 ? this.getStoredCustomHrList() : MOCK_HR_DIRECTORY
+              };
+            }
+          }
+        } catch (e) { }
+        return null;
+      }
 
-    // 2. Thử đọc trực tiếp cả tab Câu trả lời Google Form (gid=1557167031) qua GVIZ JSONP
-    const directFormSheetData = await this.syncFormResponsesFromGoogleSheet(activeHrList);
-    if (directFormSheetData) {
-      return this.mergeHrDirectoryIntoDashboard(directFormSheetData, [gvizHrSync.list, customHrList]);
+  static saveDashboardCache(data) {
+    if (!data || !data.isLiveSheet) return;
+    this._lastFullDashboardData = data;
+    try {
+        localStorage.removeItem("ftel_20_11_dashboard_cache_v1");
+        const compactUnits = (data.unitSpread || []).slice(0, 50).map(u => ({
+          unit: u.unit,
+          totalFlames: u.totalFlames,
+          senderCount: u.senderCount || u.sendersCount || (u.sendersList ? u.sendersList.length : 0),
+          recipientCount: u.recipientCount || u.recipientsCount || (u.recipientsList ? u.recipientsList.length : 0),
+          memberCount: u.memberCount || 0,
+          flamesList: (u.flamesList || []).slice(0, 30),
+          sendersList: (u.sendersList || []).slice(0, 30),
+          recipientsList: (u.recipientsList || []).slice(0, 30),
+          membersList: []
+        }));
+        const cachePayload = {
+          overview: data.overview,
+          totalFlames: data.totalFlames,
+          uniqueRecipients: data.uniqueRecipients,
+          uniqueSenders: data.uniqueSenders,
+          uniqueUnits: data.uniqueUnits,
+          top30Recipients: (data.top30Recipients || []).slice(0, 30),
+          early100Senders: (data.early100Senders || []).slice(0, 100),
+          unitSpread: compactUnits,
+          isLiveSheet: true,
+          cachedAt: Date.now()
+        };
+        localStorage.setItem("ftel_20_11_live_dashboard_cache_v2", JSON.stringify(cachePayload));
+      } catch (e) { }
     }
 
+  /**
+   * Lấy toàn bộ dữ liệu Live Dashboard (Khu vực B - C - D) từ Google Apps Script (Code.gs) & Google Sheet
+   * Đã tối ưu: Gọi thẳng API Web App Code.gs ngay lập tức (không chờ 11s timeout ở các link GVIZ bị chặn)
+   */
+  static async getFullDashboardData() {
+    if (this._inflightDashboardPromise) {
+      return this._inflightDashboardPromise;
+    }
+    this._inflightDashboardPromise = this._fetchFullDashboardDataInternal().finally(() => {
+      this._inflightDashboardPromise = null;
+    });
+    return this._inflightDashboardPromise;
+  }
+
+  static async _fetchFullDashboardDataInternal() {
+    const customHrList = await this.getStoredCustomHrListAsync();
+
+    // 1. ƯU TIÊN SỐ 1: Gọi trực tiếp Web App Google Apps Script (Code.gs -> action=get_dashboard)
     if (!this.isMockMode()) {
       try {
         const scriptUrl = getEffectiveScriptUrl();
         const delimiter = scriptUrl.includes('?') ? '&' : '?';
         let result = null;
         try {
-          const response = await fetchAppsScript(`${scriptUrl}${delimiter}action=get_dashboard`);
+          const response = await fetchAppsScript(`${scriptUrl}${delimiter}action=get_dashboard&_ts=${Date.now()}`);
           const text = await response.text();
           if (text && text.trim().startsWith("{")) {
             result = JSON.parse(text);
@@ -1160,12 +1218,12 @@ export class ApiService {
         }
 
         if (!result) {
-          result = await loadAppsScriptViaJsonp(scriptUrl, "get_dashboard", 5500);
+          result = await loadAppsScriptViaJsonp(scriptUrl, "get_dashboard", 8000);
         }
 
         if (result && result.success && result.data) {
           const d = result.data;
-          // Giải nén hrCompact (24.608+ nhân sự) nếu được trả về từ Code.gs mới
+          // Giải nén hrCompact (24.608+ nhân sự) được trả về từ Code.gs
           let unpackedHr = Array.isArray(d.hrDirectory) ? d.hrDirectory : [];
           if (Array.isArray(d.hrCompact) && d.hrCompact.length > 0) {
             unpackedHr = d.hrCompact.map(item => ({
@@ -1176,7 +1234,7 @@ export class ApiService {
               sentCount: Number(item[3] || 0),
               receivedCount: Number(item[4] || 0)
             }));
-            await saveHrListToStorage(unpackedHr);
+            saveHrListToStorage(unpackedHr);
           }
 
           if (typeof d.totalFlames !== 'undefined' && Array.isArray(d.top30Recipients)) {
@@ -1184,90 +1242,104 @@ export class ApiService {
             const uniqueRecipients = d.uniqueRecipients || 0;
             const uniqueSenders = d.uniqueSenders || 0;
             const uniqueUnits = d.uniqueUnits || 0;
-            const rawUnitSpread = Array.isArray(d.unitSpread) && d.unitSpread.length > 0 ? d.unitSpread : MOCK_UNIT_SPREAD;
-            const enrichedUnitSpread = rawUnitSpread.map(u => {
-              const fallbackMock = MOCK_UNIT_SPREAD.find(m => m.unit === u.unit) || {};
-              return {
-                ...fallbackMock,
-                ...u,
-                flamesList: Array.isArray(u.flamesList) && u.flamesList.length > 0 ? u.flamesList : (fallbackMock.flamesList || []),
-                sendersList: Array.isArray(u.sendersList) && u.sendersList.length > 0 ? u.sendersList : (fallbackMock.sendersList || []),
-                recipientsList: Array.isArray(u.recipientsList) && u.recipientsList.length > 0 ? u.recipientsList : (fallbackMock.recipientsList || []),
-                membersList: Array.isArray(u.membersList) && u.membersList.length > 0 ? u.membersList : (fallbackMock.membersList || [])
-              };
-            });
+            const rawUnitSpread = Array.isArray(d.unitSpread) && d.unitSpread.length > 0 ? d.unitSpread : [];
+            const enrichedUnitSpread = rawUnitSpread.map(u => ({
+              ...u,
+              senderCount: u.senderCount ?? u.sendersCount ?? (Array.isArray(u.sendersList) ? u.sendersList.length : 0),
+              recipientCount: u.recipientCount ?? u.recipientsCount ?? (Array.isArray(u.recipientsList) ? u.recipientsList.length : 0),
+              flamesList: Array.isArray(u.flamesList) ? u.flamesList : [],
+              sendersList: Array.isArray(u.sendersList) ? u.sendersList : [],
+              recipientsList: Array.isArray(u.recipientsList) ? u.recipientsList : [],
+              membersList: Array.isArray(u.membersList) ? u.membersList : []
+            }));
             const liveBase = {
               overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
               totalFlames,
               uniqueRecipients,
               uniqueSenders,
               uniqueUnits,
-              top30Recipients: d.top30Recipients.length > 0 ? d.top30Recipients : MOCK_LEADERBOARD,
-              early100Senders: (Array.isArray(d.early100Senders) && d.early100Senders.length > 0 ? d.early100Senders : MOCK_EARLY_100).map((item, idx) => ({
-                order: item.order != null ? item.order : (idx + 1),
-                name: item.name || item.senderName || "Đồng nghiệp FTEL",
-                senderName: item.senderName || item.name || "Đồng nghiệp FTEL",
-                email: item.email || item.senderEmail || "",
-                senderEmail: item.senderEmail || item.email || "",
-                dept: item.dept || item.senderDept || "FPT Telecom",
-                senderDept: item.senderDept || item.dept || "FPT Telecom",
-                recipientName: item.recipientName || "",
-                recipientDept: item.recipientDept || "",
-                timestamp: item.timestamp || "",
-                message: item.message || ""
-              })),
-              unitSpread: enrichedUnitSpread,
-              hrDirectory: unpackedHr.length > 0 ? unpackedHr : MOCK_HR_DIRECTORY,
-              pendingRender: d.pendingRender || [],
-              isLiveSheet: true,
-              hrSyncSource: gvizHrSync.success ? "google_sheet_gviz" : "apps_script"
-            };
-            return this.mergeHrDirectoryIntoDashboard(liveBase, [unpackedHr, gvizHrSync.list, customHrList]);
+                top30Recipients: d.top30Recipients,
+                early100Senders: (Array.isArray(d.early100Senders) ? d.early100Senders : []).map((item, idx) => ({
+                  order: item.order != null ? item.order : (idx + 1),
+                  name: item.name || item.senderName || "Đồng nghiệp FTEL",
+                  senderName: item.senderName || item.name || "Đồng nghiệp FTEL",
+                  email: item.email || item.senderEmail || "",
+                  senderEmail: item.senderEmail || item.email || "",
+                  dept: item.dept || item.senderDept || "FPT Telecom",
+                  senderDept: item.senderDept || item.dept || "FPT Telecom",
+                  recipientName: item.recipientName || "",
+                  recipientDept: item.recipientDept || "",
+                  timestamp: item.timestamp || "",
+                  message: item.message || ""
+                })),
+                unitSpread: enrichedUnitSpread,
+                hrDirectory: unpackedHr.length > 0 ? unpackedHr : (customHrList.length > 0 ? customHrList : MOCK_HR_DIRECTORY),
+                pendingRender: d.pendingRender || [],
+                isLiveSheet: true,
+              hrSyncSource: "apps_script"
+              };
+              const merged = this.mergeHrDirectoryIntoDashboard(liveBase, [unpackedHr, customHrList]);
+              this.saveDashboardCache(merged);
+              return merged;
+            }
           }
+        } catch (err) {
+          console.warn("Lỗi kết nối Apps Script, thử dự phòng qua GVIZ:", err);
         }
-      } catch (err) {
-        console.warn("Đang dùng dữ liệu Dashboard tổng hợp (Local/Demo):", err);
       }
+
+    // 2. Dự phòng: Đọc qua Google Visualization JSONP nếu Apps Script không phản hồi
+    const directFormSheetData = await this.syncFormResponsesFromGoogleSheet(customHrList);
+      if (directFormSheetData) {
+        const merged = this.mergeHrDirectoryIntoDashboard(directFormSheetData, [customHrList]);
+        this.saveDashboardCache(merged);
+        return merged;
+      }
+
+      // 3. Nếu đã có bản lưu đệm thật trước đó thì giữ nguyên dữ liệu thật thay vì rơi về dữ liệu mẫu
+      const cachedLive = this.getFastCachedDashboardData();
+      if (cachedLive) {
+        return cachedLive;
+      }
+
+      const submissions = JSON.parse(localStorage.getItem(STORAGE_KEY_SUBMISSIONS) || "[]");
+      const board = JSON.parse(localStorage.getItem("ftel_mock_board") || JSON.stringify(MOCK_LEADERBOARD));
+      const earlyList = [...MOCK_EARLY_100];
+
+      submissions.slice().reverse().forEach(sub => {
+        if (!earlyList.some(e => e.email === sub.senderEmail)) {
+          earlyList.push({
+            order: earlyList.length + 1,
+            name: sub.senderName || "Đồng nghiệp FTEL",
+            email: sub.senderEmail || "",
+            dept: sub.senderDept || "FPT Telecom",
+            recipientName: sub.recipientName || "",
+            timestamp: new Date(sub.timestamp || Date.now()).toLocaleString("vi-VN")
+          });
+        }
+      });
+
+      const totalFlames = 313 + submissions.length;
+      const uniqueRecipients = board.length;
+      const uniqueSenders = 227 + submissions.length;
+      const uniqueUnits = MOCK_UNIT_SPREAD.length;
+
+      const fallbackBase = {
+        overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
+        totalFlames,
+        uniqueRecipients,
+        uniqueSenders,
+        uniqueUnits,
+        top30Recipients: board.slice(0, 30),
+        early100Senders: earlyList.slice(0, 100),
+        unitSpread: MOCK_UNIT_SPREAD,
+        hrDirectory: MOCK_HR_DIRECTORY,
+        pendingRender: [],
+      isLiveSheet: false,
+        hrSyncSource: customHrList.length > 0 ? "custom_imported" : "baseline"
+      };
+      return this.mergeHrDirectoryIntoDashboard(fallbackBase, [customHrList]);
     }
-
-    const submissions = JSON.parse(localStorage.getItem(STORAGE_KEY_SUBMISSIONS) || "[]");
-    const board = JSON.parse(localStorage.getItem("ftel_mock_board") || JSON.stringify(MOCK_LEADERBOARD));
-    const earlyList = [...MOCK_EARLY_100];
-
-    submissions.slice().reverse().forEach(sub => {
-      if (!earlyList.some(e => e.email === sub.senderEmail)) {
-        earlyList.push({
-          order: earlyList.length + 1,
-          name: sub.senderName || "Đồng nghiệp FTEL",
-          email: sub.senderEmail || "",
-          dept: sub.senderDept || "FPT Telecom",
-          recipientName: sub.recipientName || "",
-          timestamp: new Date(sub.timestamp || Date.now()).toLocaleString("vi-VN")
-        });
-      }
-    });
-
-    const totalFlames = 313 + submissions.length;
-    const uniqueRecipients = board.length;
-    const uniqueSenders = 227 + submissions.length;
-    const uniqueUnits = MOCK_UNIT_SPREAD.length;
-
-    const fallbackBase = {
-      overview: { totalFlames, uniqueRecipients, uniqueSenders, uniqueUnits },
-      totalFlames,
-      uniqueRecipients,
-      uniqueSenders,
-      uniqueUnits,
-      top30Recipients: board.slice(0, 30),
-      early100Senders: earlyList.slice(0, 100),
-      unitSpread: MOCK_UNIT_SPREAD,
-      hrDirectory: MOCK_HR_DIRECTORY,
-      pendingRender: [],
-      isLiveSheet: gvizHrSync.success,
-      hrSyncSource: gvizHrSync.success ? "google_sheet_gviz" : (customHrList.length > 0 ? "custom_imported" : "baseline")
-    };
-    return this.mergeHrDirectoryIntoDashboard(fallbackBase, [gvizHrSync.list, customHrList]);
-  }
 
   /**
    * Tự động quét các dòng mới từ Google Form trên Google Sheet, lọc chính tả,
@@ -1458,7 +1530,7 @@ export class ApiService {
           data: sessionData
         };
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const scriptUrl = getEffectiveScriptUrl();
     const response = await fetch(scriptUrl, {
@@ -1687,7 +1759,7 @@ export class ApiService {
           if (Array.isArray(verifiedList) && verifiedList.length > 0) {
             fallbackEmail = String(verifiedList[verifiedList.length - 1] || '').trim().toLowerCase();
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       if (!fallbackEmail && typeof document !== 'undefined' && document.cookie) {
@@ -1709,7 +1781,7 @@ export class ApiService {
               }
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       if (fallbackEmail && (fallbackEmail.endsWith('@fpt.com') || fallbackEmail.endsWith('@fpt.net'))) {
@@ -1783,9 +1855,9 @@ export class ApiService {
     try {
       const user = this.getUserSession();
       if (user && (user.isAdmin || this.isSuperAdminEmail(user.email))) {
-        return { 
-          isAdmin: true, 
-          secretKey: 'FTEL_TRI_AN_2026', 
+        return {
+          isAdmin: true,
+          secretKey: 'FTEL_TRI_AN_2026',
           email: user.email,
           role: 'Super Admin'
         };

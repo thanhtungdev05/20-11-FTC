@@ -17,35 +17,25 @@ class App {
   }
 
   async init() {
-    // 1. Initialize 3D WebGL Background Scene (Ngọn lửa 3D trung tâm)
-    const container = document.getElementById('webgl-canvas-container');
-    if (container) {
-      this.scene3d = new Scene3D(container);
-    }
-
-    // 2. Setup Config & Admin Portal Modals
+    // 1. Setup Modals, Navigation & Render Live Dashboard tức thì (0ms First Paint)
     this.setupModals();
     this.setupAdminPortal();
     this.setupBackToTopButton();
-
-    // 3. Setup Campaign Action Bar & Initialize Live Dashboard (Khu vực A - B - C - D)
     this.setupCampaignActionBar();
-    await this.dashboard.initInlineDashboard('live-campaign-dashboard');
-    await this.updateHeaderCounter();
+    this.dashboard.initInlineDashboard('live-campaign-dashboard');
 
-    // 4. Cập nhật số liệu Live Dashboard định kỳ (chỉ đọc dữ liệu GET, không gọi quét gửi mail ngầm)
-    const startAutoWorker = () => {
-      setInterval(() => {
-        this.dashboard.refreshData();
-        this.updateHeaderCounter();
-      }, 30000);
-    };
-
-    if (keyVisualImg && !keyVisualImg.complete) {
-      keyVisualImg.onload = () => startAutoWorker();
-    } else {
-      startAutoWorker();
+    // 2. Khởi tạo 3D WebGL Background Scene ngay sau nhịp vẽ giao diện đầu tiên để không chặn hiển thị bảng
+    const container = document.getElementById('webgl-canvas-container');
+    if (container) {
+      requestAnimationFrame(() => {
+        this.scene3d = new Scene3D(container);
+      });
     }
+
+    // 3. Cập nhật số liệu Live Dashboard định kỳ (mỗi 30 giây, dùng chung 1 request duy nhất)
+    setInterval(() => {
+      this.dashboard.refreshData();
+    }, 30000);
   }
 
   setupCampaignActionBar() {
