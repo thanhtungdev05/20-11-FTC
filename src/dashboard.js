@@ -654,7 +654,6 @@ export class DashboardModule {
                           ${rank4To30.length} Thầy Cô / Mentor
                         </span>
                       </h4>
-                      <p class="text-xs text-slate-400 mt-0.5">Danh sách sắp xếp theo tổng số ngọn lửa tri ân giảm dần</p>
                     </div>
                   </div>
                   <div class="text-xs text-slate-400 flex items-center gap-1.5 self-end sm:self-center">
@@ -745,9 +744,6 @@ export class DashboardModule {
               </div>
               <div>
                 <h2 class="text-lg sm:text-2xl font-black text-white tracking-tight">THỐNG KÊ NGỌN LỬA THEO ĐƠN VỊ / PHÒNG BAN</h2>
-                <p class="text-xs text-slate-400 mt-0.5">
-                  👆 <strong>Bấm vào từng Đơn vị</strong> hoặc bấm vào <strong>🔥 Ngọn lửa</strong>, <strong>💌 Người gửi</strong>, <strong>🎓 Người nhận</strong> để xem danh sách các thành viên chi tiết
-                </p>
               </div>
             </div>
 

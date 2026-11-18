@@ -2,6 +2,7 @@ import { Scene3D } from './scene3d.js';
 import { CardGenerator, fptLogoImg, keyVisualImg } from './cardGenerator.js';
 import { ApiService, APPS_SCRIPT_URL } from './api.js';
 import { DashboardModule } from './dashboard.js';
+import * as XLSX from 'xlsx';
 import {
   lookupEmployeeName,
   cleanAndCorrectVietnameseText
@@ -291,7 +292,10 @@ class App {
       this.loadAdminList();
     });
     if (tabConfig) tabConfig.addEventListener('click', () => selectTab(tabConfig, viewConfig));
-    if (tabExport) tabExport.addEventListener('click', () => selectTab(tabExport, viewExport));
+    if (tabExport) tabExport.addEventListener('click', () => {
+      selectTab(tabExport, viewExport);
+      this.ensureExportDataset(false);
+    });
 
     if (refreshSubmissionsBtn) {
       refreshSubmissionsBtn.addEventListener('click', () => this.loadSubmissionsList());
@@ -343,24 +347,150 @@ class App {
       });
     }
 
-    if (exportCsvBtn) {
-      exportCsvBtn.addEventListener('click', async () => {
-        try {
-          exportCsvBtn.disabled = true;
-          exportCsvBtn.textContent = 'Đang trích xuất dữ liệu...';
-          const res = await ApiService.adminGetAllSubmissions();
-          if (res.success && Array.isArray(res.data)) {
-            this.downloadSubmissionsCsv(res.data);
-          } else {
-            alert('⚠️ ' + (res.message || 'Không thể tải dữ liệu.'));
+    const exportTop30Btn = document.getElementById('admin-export-top30-btn');
+    const exportTop30WishesBtn = document.getElementById('admin-export-top30-wishes-btn');
+    const exportTop100EarlyBtn = document.getElementById('admin-export-top100-early-btn');
+    const exportTop100RecBtn = document.getElementById('admin-export-top100-recipients-btn');
+    const exportPersonBtn = document.getElementById('admin-export-person-btn');
+    const exportPersonSearch = document.getElementById('admin-export-person-search');
+    const exportPersonSelect = document.getElementById('admin-export-person-select');
+    const exportReloadBtn = document.getElementById('admin-export-reload-btn');
+    const exportUploadBtn = document.getElementById('admin-export-csv-upload-btn');
+    const exportUploadInput = document.getElementById('admin-export-csv-upload-input');
+
+    const runExportAction = async (btn, loadingText, defaultText, handler) => {
+      try {
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = loadingText;
+        }
+        const dataset = await this.ensureExportDataset(false);
+        if (!dataset) {
+          alert('⚠️ Chưa tải được dữ liệu để xuất. Vui lòng thử bấm Làm mới hoặc nạp file CSV từ Google Sheet.');
+          return;
+        }
+        handler(dataset);
+      } catch (e) {
+        alert('Lỗi xuất dữ liệu: ' + e.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = defaultText;
+        }
+      }
+    };
+
+    if (exportReloadBtn) {
+      exportReloadBtn.addEventListener('click', () => this.ensureExportDataset(true));
+    }
+
+    if (exportUploadBtn && exportUploadInput) {
+      exportUploadBtn.addEventListener('click', () => exportUploadInput.click());
+      exportUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            let parsed;
+            if (isExcel) {
+              const wb = XLSX.read(ev.target.result, { type: 'array' });
+              const firstSheet = wb.Sheets[wb.SheetNames[0]];
+              const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' });
+              parsed = ApiService.buildExportDatasetFromRawRows(rows, `csv_upload:${file.name}`);
+              if (!parsed || parsed.submissions.length === 0) {
+                throw new Error('File Excel không có dữ liệu lời tri ân hợp lệ.');
+              }
+            } else {
+              const text = String(ev.target?.result || '');
+              parsed = ApiService.parseUploadedCsvForExport(text, file.name);
+            }
+            this.exportDataset = parsed;
+            this.renderExportDatasetStatus();
+            this.populateExportPersonOptions(exportPersonSearch ? exportPersonSearch.value : '');
+            alert(`✅ Đã nạp thành công ${parsed.totalSubmissions} lời tri ân hợp lệ từ file "${file.name}" (đầy đủ 100% nội dung lời chúc)!`);
+          } catch (err) {
+            alert('⚠️ Không thể đọc file: ' + err.message);
+          } finally {
+            exportUploadInput.value = '';
           }
-        } catch (e) {
-          alert('Lỗi xuất dữ liệu: ' + e.message);
-        } finally {
-          exportCsvBtn.disabled = false;
-          exportCsvBtn.textContent = '📥 Tải File CSV / Excel Ngay';
+        };
+        reader.onerror = () => {
+          alert('⚠️ Lỗi đọc file từ máy tính.');
+          exportUploadInput.value = '';
+        };
+        if (isExcel) {
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.readAsText(file, 'UTF-8');
         }
       });
+    }
+
+    if (exportPersonSearch) {
+      exportPersonSearch.addEventListener('input', (e) => {
+        this.populateExportPersonOptions(e.target.value);
+      });
+    }
+
+    if (exportPersonSelect) {
+      exportPersonSelect.addEventListener('change', () => {
+        this.updateExportPersonSummary();
+      });
+    }
+
+    if (exportCsvBtn) {
+      exportCsvBtn.addEventListener('click', () =>
+        runExportAction(exportCsvBtn, 'Đang xuất file Excel...', '📥 Tải Toàn Bộ Danh Sách (Excel .xlsx)', (ds) => {
+          this.downloadSubmissionsCsv(ds.submissions);
+        })
+      );
+    }
+
+    if (exportTop30Btn) {
+      exportTop30Btn.addEventListener('click', () =>
+        runExportAction(exportTop30Btn, 'Đang xuất Top 30...', '🏆 Xuất Bảng Xếp Hạng TOP 30 (Excel .xlsx)', (ds) => {
+          this.downloadTopRecipientsCsv(ds.topRecipients.slice(0, 30), 30);
+        })
+      );
+    }
+
+    if (exportTop30WishesBtn) {
+      exportTop30WishesBtn.addEventListener('click', () =>
+        runExportAction(exportTop30WishesBtn, 'Đang tổng hợp lời chúc Top 30...', '💌 Xuất Tất Cả Lời Chúc Gửi Tới TOP 30 (.xlsx)', (ds) => {
+          this.downloadTop30WishesCsv(ds);
+        })
+      );
+    }
+
+    if (exportTop100EarlyBtn) {
+      exportTop100EarlyBtn.addEventListener('click', () =>
+        runExportAction(exportTop100EarlyBtn, 'Đang xuất Top 100...', '⚡ Xuất TOP 100 Gửi Sớm Nhất (Excel .xlsx)', (ds) => {
+          this.downloadTop100EarlySendersCsv(ds.early100Senders);
+        })
+      );
+    }
+
+    if (exportTop100RecBtn) {
+      exportTop100RecBtn.addEventListener('click', () =>
+        runExportAction(exportTop100RecBtn, 'Đang xuất Top 100...', '🔥 Xuất TOP 100 Người Nhận (Excel .xlsx)', (ds) => {
+          this.downloadTopRecipientsCsv(ds.topRecipients.slice(0, 100), 100);
+        })
+      );
+    }
+
+    if (exportPersonBtn) {
+      exportPersonBtn.addEventListener('click', () =>
+        runExportAction(exportPersonBtn, 'Đang xuất file Excel...', '📥 Xuất Lời Chúc Của Người Này (Excel .xlsx)', (ds) => {
+          const selectedEmail = exportPersonSelect ? exportPersonSelect.value.trim().toLowerCase() : '';
+          if (!selectedEmail) {
+            alert('⚠️ Vui lòng chọn một người nhận trong danh sách trước khi xuất!');
+            return;
+          }
+          this.downloadPersonWishesCsv(ds, selectedEmail);
+        })
+      );
     }
   }
 
@@ -592,43 +722,310 @@ class App {
     }
   }
 
+  async ensureExportDataset(forceReload = false) {
+    if (!forceReload && this.exportDataset) {
+      this.renderExportDatasetStatus();
+      return this.exportDataset;
+    }
+
+    const badgeEl = document.getElementById('admin-export-source-badge');
+    const textEl = document.getElementById('admin-export-status-text');
+    const selectEl = document.getElementById('admin-export-person-select');
+    if (badgeEl) badgeEl.textContent = '⏳ Đang tải dữ liệu...';
+    if (selectEl && !this.exportDataset) {
+      selectEl.innerHTML = '<option value="">-- Đang tải danh sách người nhận... --</option>';
+    }
+
+    try {
+      const preloadedDash = this.dashboard?.data || null;
+      const ds = await ApiService.fetchExportDataset(preloadedDash);
+      this.exportDataset = ds;
+      this.renderExportDatasetStatus();
+      const searchEl = document.getElementById('admin-export-person-search');
+      this.populateExportPersonOptions(searchEl ? searchEl.value : '');
+      return ds;
+    } catch (err) {
+      if (badgeEl) badgeEl.textContent = '⚠️ Lỗi tải dữ liệu';
+      if (textEl) textEl.textContent = 'Không thể tải dữ liệu tự động: ' + err.message + '. Bạn có thể dùng nút "📂 Nạp CSV từ Sheet".';
+      return null;
+    }
+  }
+
+  renderExportDatasetStatus() {
+    const ds = this.exportDataset;
+    const badgeEl = document.getElementById('admin-export-source-badge');
+    const textEl = document.getElementById('admin-export-status-text');
+    if (!ds || !badgeEl || !textEl) return;
+
+    const totalSub = ds.totalSubmissions || ds.submissions.length || 0;
+    const totalRec = ds.topRecipients ? ds.topRecipients.length : 0;
+
+    if (ds.source && ds.source.startsWith('csv_upload:')) {
+      const fname = ds.source.replace('csv_upload:', '');
+      badgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35';
+      badgeEl.textContent = `✅ File CSV: ${totalSub} lượt (Đủ 100% lời chúc)`;
+      textEl.textContent = `Đang sử dụng dữ liệu đầy đủ từ file "${fname}" (${totalRec} người nhận). Tất cả các nút xuất đều có đủ 100% nội dung lời chúc.`;
+    } else if (ds.source === 'google_sheet_live' || ds.hasFullMessages) {
+      badgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35';
+      badgeEl.textContent = `✅ Google Sheet Live: ${totalSub} lượt (Đủ 100% lời chúc)`;
+      textEl.textContent = `Đã đồng bộ trực tiếp toàn bộ ${totalSub} lượt hợp lệ (${totalRec} người nhận) kèm đầy đủ nội dung lời chúc & link Drive.`;
+    } else {
+      badgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/35';
+      badgeEl.textContent = `⚡ API Trực Tuyến: ${totalSub} lượt • ${totalRec} người nhận`;
+      textEl.innerHTML = `Sẵn sàng xuất tức thì <strong>Top 30</strong>, <strong>Top 100</strong> và danh sách <strong>${totalSub} lượt gửi</strong>. Nếu cần xuất đủ 100% văn bản lời chúc cũ của từng người, hãy bấm <strong>📂 Nạp CSV từ Sheet</strong>.`;
+    }
+  }
+
+  populateExportPersonOptions(query = '') {
+    const ds = this.exportDataset;
+    const selectEl = document.getElementById('admin-export-person-select');
+    if (!ds || !selectEl) return;
+
+    const normalize = (s) => String(s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/gi, 'd')
+      .toLowerCase()
+      .trim();
+
+    const qNorm = normalize(query);
+    const list = (ds.topRecipients || []).filter(rec => {
+      if (!qNorm) return true;
+      return (
+        normalize(rec.name).includes(qNorm) ||
+        normalize(rec.email).includes(qNorm) ||
+        normalize(rec.dept).includes(qNorm)
+      );
+    });
+
+    const prevVal = selectEl.value;
+    if (list.length === 0) {
+      selectEl.innerHTML = '<option value="">-- Không tìm thấy người nhận phù hợp --</option>';
+      this.updateExportPersonSummary();
+      return;
+    }
+
+    selectEl.innerHTML = list.map(rec => {
+      const label = `#${rec.rank} ${rec.name} (${rec.email}) — ${rec.dept} • ${rec.count} ngọn lửa`;
+      return `<option value="${rec.email.replace(/"/g, '&quot;')}">${label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</option>`;
+    }).join('');
+
+    if (prevVal && list.some(r => r.email === prevVal)) {
+      selectEl.value = prevVal;
+    } else {
+      selectEl.selectedIndex = 0;
+    }
+    this.updateExportPersonSummary();
+  }
+
+  updateExportPersonSummary() {
+    const ds = this.exportDataset;
+    const selectEl = document.getElementById('admin-export-person-select');
+    const pillEl = document.getElementById('admin-export-person-count-pill');
+    const summaryEl = document.getElementById('admin-export-person-summary');
+    if (!ds || !selectEl) return;
+
+    const email = (selectEl.value || '').trim().toLowerCase();
+    const person = (ds.topRecipients || []).find(r => r.email === email);
+    if (!person) {
+      if (pillEl) pillEl.textContent = 'Chưa chọn người nhận';
+      return;
+    }
+
+    const matchedRows = (ds.submissions || []).filter(s => (s.recipientEmail || '').trim().toLowerCase() === email);
+    const msgCount = matchedRows.filter(s => s.message && s.message.trim().length > 0).length;
+
+    if (pillEl) {
+      pillEl.textContent = `Hạng #${person.rank} • ${matchedRows.length || person.count} ngọn lửa`;
+    }
+    if (summaryEl) {
+      if (ds.hasFullMessages || msgCount >= matchedRows.length) {
+        summaryEl.innerHTML = `Đã chọn: <strong class="text-white">${person.name}</strong> (${person.dept}) — <strong class="text-emerald-300">${matchedRows.length} lời chúc đầy đủ nội dung</strong> sẵn sàng xuất CSV.`;
+      } else {
+        summaryEl.innerHTML = `Đã chọn: <strong class="text-white">${person.name}</strong> (${person.dept}) — <strong class="text-amber-300">${matchedRows.length} lượt gửi</strong> (${msgCount} lượt có sẵn lời chúc từ API). Bấm <strong>📂 Nạp CSV từ Sheet</strong> nếu cần đủ 100% nội dung văn bản.`;
+      }
+    }
+  }
+
+  triggerExcelDownload(headers, dataRows, filename, sheetName = 'DanhSach') {
+    const aoa = [headers, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Tự động căn độ rộng từng cột vừa vặn, mở Excel ra nhìn đẹp ngay
+    ws['!cols'] = headers.map((h, colIdx) => {
+      let maxLen = String(h || '').length;
+      for (let i = 0; i < dataRows.length; i++) {
+        const cellVal = dataRows[i][colIdx];
+        const cellStr = String(cellVal == null ? '' : cellVal);
+        const longestLine = cellStr.split(/\r?\n/).reduce((m, l) => Math.max(m, l.length), 0);
+        if (longestLine > maxLen) maxLen = longestLine;
+      }
+      return { wch: Math.min(Math.max(maxLen + 4, 12), 60) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const safeSheetName = String(sheetName || 'DanhSach').replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'DanhSach';
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+    const finalName = filename.endsWith('.xlsx') ? filename : filename.replace(/\.csv$/i, '') + '.xlsx';
+    XLSX.writeFile(wb, finalName);
+  }
+
   downloadSubmissionsCsv(rows) {
     if (!rows || rows.length === 0) {
       alert('Chưa có lời tri ân nào được gửi!');
       return;
     }
     const headers = [
-      'Mã Lượt Gửi', 'Thời Gian Gửi', 'Người Gửi', 'Email Người Gửi', 'Đơn Vị Người Gửi',
+      'STT', 'Mã Lượt Gửi', 'Thời Gian Gửi', 'Người Gửi', 'Email Người Gửi', 'Đơn Vị Người Gửi',
       'Người Nhận', 'Email Người Nhận', 'Đơn Vị Người Nhận', 'Dấu Ấn Người Nhận', 'Lời Cảm Ơn Đã Chuẩn Hóa',
       'Trạng Thái Kiểm Tra', 'Trạng Thái Mail', 'Link Thiệp Google Drive'
     ];
-    let csvContent = '\uFEFF' + headers.join(',') + '\n';
-    rows.forEach(r => {
-      const line = [
-        r.submissionId || '',
-        r.timestamp || '',
-        '"' + (r.senderName || '').replace(/"/g, '""') + '"',
-        r.senderEmail || '',
-        '"' + (r.senderDept || '').replace(/"/g, '""') + '"',
-        '"' + (r.recipientName || '').replace(/"/g, '""') + '"',
-        r.recipientEmail || '',
-        '"' + (r.recipientDept || '').replace(/"/g, '""') + '"',
-        '"' + (r.recipientRole || r.tag || '').replace(/"/g, '""') + '"',
-        '"' + (r.message || '').replace(/"/g, '""') + '"',
-        r.checkStatus || 'HỢP LỆ',
-        r.emailSentStatus || '',
-        r.driveCardUrl || ''
-      ];
-      csvContent += line.join(',') + '\n';
-    });
+    const dataRows = rows.map((r, idx) => [
+      idx + 1,
+      r.submissionId || '',
+      r.timestamp || '',
+      r.senderName || '',
+      r.senderEmail || '',
+      r.senderDept || '',
+      r.recipientName || '',
+      r.recipientEmail || '',
+      r.recipientDept || '',
+      r.recipientRole || r.tag || '',
+      r.message || '',
+      r.checkStatus || 'HỢP LỆ',
+      r.emailSentStatus || '',
+      r.driveCardUrl || r.driveUrl || ''
+    ]);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    this.triggerExcelDownload(headers, dataRows, `FTEL_20_11_ToanBoLoiTriAn_${dateStr}.xlsx`, 'Toan Bo Loi Tri An');
+  }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'FTEL_20_11_DanhSachTriAn_' + new Date().toISOString().slice(0, 10) + '.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+  downloadTopRecipientsCsv(topList, topN = 30) {
+    if (!topList || topList.length === 0) {
+      alert(`Chưa có dữ liệu Top ${topN} để xuất!`);
+      return;
+    }
+    const headers = [
+      'Thứ hạng', 'Họ và tên', 'Đơn vị / Phòng ban', 'Email', 'Dấu ấn / Vai trò', 'Số ngọn lửa'
+    ];
+    const dataRows = topList.map((item, idx) => [
+      Number(item.rank || (idx + 1)),
+      item.name || '',
+      item.dept || 'FPT Telecom',
+      item.email || '',
+      item.role || '',
+      Number(item.count || 0)
+    ]);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    this.triggerExcelDownload(headers, dataRows, `FTEL_20_11_Top${topN}_NguoiNhanNhieuLua_${dateStr}.xlsx`, `Top ${topN} Nguoi Nhan`);
+  }
+
+  downloadTop30WishesCsv(ds) {
+    const top30 = (ds.topRecipients || []).slice(0, 30);
+    if (top30.length === 0) {
+      alert('Chưa có dữ liệu Top 30!');
+      return;
+    }
+    const rankMap = new Map();
+    top30.forEach((item, idx) => rankMap.set(item.email.toLowerCase(), { rank: item.rank || (idx + 1), totalCount: item.count }));
+
+    const matched = (ds.submissions || [])
+      .filter(s => rankMap.has((s.recipientEmail || '').trim().toLowerCase()))
+      .sort((a, b) => {
+        const ra = rankMap.get((a.recipientEmail || '').trim().toLowerCase())?.rank || 999;
+        const rb = rankMap.get((b.recipientEmail || '').trim().toLowerCase())?.rank || 999;
+        return ra - rb;
+      });
+
+    if (matched.length === 0) {
+      alert('Chưa tìm thấy danh sách lời chúc chi tiết của Top 30!');
+      return;
+    }
+
+    const headers = [
+      'Hạng Top 30', 'Tổng Ngọn Lửa Người Nhận', 'Người Nhận', 'Email Người Nhận', 'Đơn Vị Nhận',
+      'Thời Gian Gửi', 'Người Gửi', 'Email Người Gửi', 'Đơn Vị Gửi', 'Dấu Ấn', 'Lời Chúc Tri Ân', 'Link Thiệp Drive'
+    ];
+    const dataRows = matched.map(s => {
+      const info = rankMap.get((s.recipientEmail || '').trim().toLowerCase()) || {};
+      return [
+        Number(info.rank || 0),
+        Number(info.totalCount || 0),
+        s.recipientName || '',
+        s.recipientEmail || '',
+        s.recipientDept || '',
+        s.timestamp || '',
+        s.senderName || '',
+        s.senderEmail || '',
+        s.senderDept || '',
+        s.recipientRole || '',
+        s.message || '',
+        s.driveCardUrl || s.driveUrl || ''
+      ];
+    });
+    const dateStr = new Date().toISOString().slice(0, 10);
+    this.triggerExcelDownload(headers, dataRows, `FTEL_20_11_Top30_TatCaLoiChuc_${dateStr}.xlsx`, 'Loi Chuc Top 30');
+  }
+
+  downloadTop100EarlySendersCsv(earlyList) {
+    if (!earlyList || earlyList.length === 0) {
+      alert('Chưa có dữ liệu Top 100 người gửi sớm nhất!');
+      return;
+    }
+    const headers = [
+      'STT', 'Thời Gian Gửi', 'Họ Tên Người Gửi', 'Email Người Gửi', 'Đơn Vị Người Gửi',
+      'Gửi Tới Người Nhận', 'Đơn Vị Người Nhận', 'Lời Cảm Ơn'
+    ];
+    const dataRows = earlyList.slice(0, 100).map((item, idx) => [
+      Number(item.order || (idx + 1)),
+      item.timestamp || '',
+      item.name || item.senderName || '',
+      item.email || item.senderEmail || '',
+      item.dept || item.senderDept || 'FPT Telecom',
+      item.recipientName || '',
+      item.recipientDept || '',
+      item.message || ''
+    ]);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    this.triggerExcelDownload(headers, dataRows, `FTEL_20_11_Top100_NguoiGuiSomNhat_${dateStr}.xlsx`, 'Top 100 Gui Som');
+  }
+
+  downloadPersonWishesCsv(ds, recipientEmail) {
+    const cleanEmail = String(recipientEmail || '').trim().toLowerCase();
+    const person = (ds.topRecipients || []).find(r => r.email === cleanEmail);
+    const matched = (ds.submissions || []).filter(s => (s.recipientEmail || '').trim().toLowerCase() === cleanEmail);
+
+    if (matched.length === 0) {
+      alert('Không tìm thấy lời chúc nào gửi tới người nhận này!');
+      return;
+    }
+
+    const headers = [
+      'STT', 'Thời Gian Gửi', 'Họ Tên Người Gửi', 'Email Người Gửi', 'Đơn Vị Người Gửi',
+      'Người Nhận', 'Email Người Nhận', 'Đơn Vị Người Nhận', 'Dấu Ấn / Vai Trò', 'Nội Dung Lời Chúc', 'Link Thiệp Google Drive'
+    ];
+    const dataRows = matched.map((s, idx) => [
+      idx + 1,
+      s.timestamp || '',
+      s.senderName || '',
+      s.senderEmail || '',
+      s.senderDept || '',
+      s.recipientName || person?.name || '',
+      s.recipientEmail || cleanEmail,
+      s.recipientDept || person?.dept || '',
+      s.recipientRole || person?.role || '',
+      s.message || '',
+      s.driveCardUrl || s.driveUrl || ''
+    ]);
+
+    const safePersonName = String(person?.name || cleanEmail.split('@')[0])
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/gi, 'd')
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'NguoiNhan';
+    const dateStr = new Date().toISOString().slice(0, 10);
+    this.triggerExcelDownload(headers, dataRows, `FTEL_20_11_LoiChuc_${safePersonName}_${dateStr}.xlsx`, `Loi Chuc ${safePersonName}`);
   }
 }
 

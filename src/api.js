@@ -1944,4 +1944,393 @@ export class ApiService {
     });
     return response.json();
   }
+
+  /**
+   * Bộ phân tích CSV chuẩn RFC 4180 (hỗ trợ đầy đủ tiếng Việt UTF-8, xuống dòng trong ngoặc kép & dấu phẩy)
+   */
+  static parseCsvText(csvText) {
+    const cleanText = String(csvText || '').replace(/^\uFEFF/, '');
+    const rows = [];
+    let currentRow = [];
+    let currentField = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < cleanText.length; i++) {
+      const ch = cleanText[i];
+      const next = cleanText[i + 1];
+
+      if (inQuotes) {
+        if (ch === '"' && next === '"') {
+          currentField += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          currentField += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          currentRow.push(currentField);
+          currentField = '';
+        } else if (ch === '\r' && next === '\n') {
+          currentRow.push(currentField);
+          rows.push(currentRow);
+          currentRow = [];
+          currentField = '';
+          i++;
+        } else if (ch === '\n' || ch === '\r') {
+          currentRow.push(currentField);
+          rows.push(currentRow);
+          currentRow = [];
+          currentField = '';
+        } else {
+          currentField += ch;
+        }
+      }
+    }
+
+    if (currentField.length > 0 || currentRow.length > 0) {
+      currentRow.push(currentField);
+      rows.push(currentRow);
+    }
+
+    return rows.filter(r => r.some(cell => String(cell || '').trim() !== ''));
+  }
+
+  /**
+   * Chuẩn hóa mảng 2 chiều (từ Google Sheet GVIZ hoặc file CSV tải từ Google Sheet)
+   * thành bộ dữ liệu xuất báo cáo đầy đủ (Full + Top 30 + Top 100 + Theo từng người nhận)
+   */
+  static buildExportDatasetFromRawRows(rows, sourceLabel = 'google_sheet_live') {
+    if (!Array.isArray(rows) || rows.length <= 1) {
+      return null;
+    }
+
+    const headerStr = rows[0].map(h => String(h || '').trim().toLowerCase()).join('|');
+    const isWebAppExportFormat = headerStr.includes('mã lượt gửi') && headerStr.includes('email người gửi');
+
+    const submissions = [];
+    const recipientMap = new Map();
+    const early100Senders = [];
+    const seenEarlySenders = new Set();
+    const seenTriplets = new Set();
+
+    const normalizeStatus = (s) => String(s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/gi, 'd')
+      .toUpperCase()
+      .trim();
+
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!Array.isArray(r) || r.length < 3) continue;
+
+      let timestamp, senderEmail, recipientEmail, recipientRole, rawMsg, cleanedMsg;
+      let senderName, senderDept, recipientName, recipientDept;
+      let checkStatus, emailSentStatus, driveCardUrl, submissionId;
+
+      if (isWebAppExportFormat) {
+        submissionId = String(r[0] || '').trim();
+        timestamp = String(r[1] || '').trim();
+        senderName = String(r[2] || '').trim();
+        senderEmail = String(r[3] || '').trim().toLowerCase();
+        senderDept = String(r[4] || '').trim();
+        recipientName = String(r[5] || '').trim();
+        recipientEmail = String(r[6] || '').trim().toLowerCase();
+        recipientDept = String(r[7] || '').trim();
+        recipientRole = String(r[8] || 'Người dẫn dắt – Người truyền cảm hứng').trim();
+        cleanedMsg = String(r[9] || '').trim();
+        rawMsg = cleanedMsg;
+        checkStatus = String(r[10] || 'HỢP LỆ').trim();
+        emailSentStatus = String(r[11] || '').trim();
+        driveCardUrl = String(r[12] || '').trim();
+      } else {
+        // Chuẩn cấu trúc Google Sheet câu trả lời Google Form (Cột A -> N)
+        timestamp = String(r[0] || '').trim();
+        senderEmail = String(r[1] || '').trim().toLowerCase();
+        recipientEmail = String(r[2] || '').trim().toLowerCase();
+        recipientRole = String(r[3] || 'Người dẫn dắt – Người truyền cảm hứng').trim();
+        rawMsg = String(r[4] || '').trim();
+        senderName = String(r[5] || '').trim();
+        senderDept = String(r[6] || '').trim();
+        recipientName = String(r[7] || '').trim();
+        recipientDept = String(r[8] || '').trim();
+        cleanedMsg = String(r[9] || rawMsg).trim();
+        checkStatus = String(r[10] || '').trim();
+        emailSentStatus = String(r[11] || '').trim();
+        driveCardUrl = String(r[12] || '').trim();
+        submissionId = String(r[13] || `FTEL-${1000 + i + 1}`).trim();
+      }
+
+      if (!senderEmail || !recipientEmail) continue;
+      const statusNorm = normalizeStatus(checkStatus);
+      if (statusNorm.includes('TRUNG LAP') || statusNorm.includes('KHONG HOP LE')) continue;
+
+      const finalMsg = cleanAndCorrectVietnameseText(cleanedMsg || rawMsg || '');
+      const dupKey = `${senderEmail}|||${recipientEmail}|||${finalMsg.toLowerCase().replace(/\s+/g, ' ')}`;
+      if (finalMsg && seenTriplets.has(dupKey)) continue;
+      if (finalMsg) seenTriplets.add(dupKey);
+
+      const sHr = lookupEmployeeInfo(senderEmail);
+      const rHr = lookupEmployeeInfo(recipientEmail);
+      const finalSenderName = senderName || sHr.name || senderEmail.split('@')[0].toUpperCase();
+      const finalSenderDept = senderDept || sHr.dept || 'FPT Telecom';
+      const finalRecName = recipientName || rHr.name || recipientEmail.split('@')[0].toUpperCase();
+      const finalRecDept = recipientDept || rHr.dept || 'FPT Telecom';
+
+      const item = {
+        rowNumber: i + 1,
+        submissionId: submissionId || `FTEL-${1000 + i + 1}`,
+        timestamp,
+        senderName: finalSenderName,
+        senderEmail,
+        senderDept: finalSenderDept,
+        recipientName: finalRecName,
+        recipientEmail,
+        recipientDept: finalRecDept,
+        recipientRole,
+        message: finalMsg,
+        checkStatus: checkStatus || 'HỢP LỆ',
+        emailSentStatus,
+        driveCardUrl
+      };
+      submissions.push(item);
+
+      if (!recipientMap.has(recipientEmail)) {
+        recipientMap.set(recipientEmail, {
+          name: finalRecName,
+          email: recipientEmail,
+          dept: finalRecDept,
+          role: recipientRole,
+          count: 0,
+          latestMessage: finalMsg
+        });
+      }
+      const recEntry = recipientMap.get(recipientEmail);
+      recEntry.count++;
+      if (finalMsg) recEntry.latestMessage = finalMsg;
+      if (recipientRole) recEntry.role = recipientRole;
+
+      if (!seenEarlySenders.has(senderEmail) && early100Senders.length < 100) {
+        seenEarlySenders.add(senderEmail);
+        early100Senders.push({
+          order: early100Senders.length + 1,
+          name: finalSenderName,
+          email: senderEmail,
+          dept: finalSenderDept,
+          recipientName: finalRecName,
+          recipientEmail,
+          recipientDept: finalRecDept,
+          timestamp,
+          message: finalMsg
+        });
+      }
+    }
+
+    const topRecipients = Array.from(recipientMap.values())
+      .sort((a, b) => b.count - a.count)
+      .map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+        badge: idx === 0 ? 'Vàng' : idx === 1 ? 'Bạc' : idx === 2 ? 'Đồng' : (idx < 30 ? 'Top 30' : (idx < 100 ? 'Top 100' : ''))
+      }));
+
+    return {
+      source: sourceLabel,
+      hasFullMessages: true,
+      totalSubmissions: submissions.length,
+      submissions,
+      topRecipients,
+      early100Senders
+    };
+  }
+
+  /**
+   * Phân tích file CSV tải trực tiếp từ Google Sheet (Không đụng Code.gs, có đủ 100% nội dung lời chúc)
+   */
+  static parseUploadedCsvForExport(csvText, fileName = 'GoogleSheet.csv') {
+    const rows = this.parseCsvText(csvText);
+    const dataset = this.buildExportDatasetFromRawRows(rows, `csv_upload:${fileName}`);
+    if (!dataset || dataset.submissions.length === 0) {
+      throw new Error('File CSV không có dữ liệu lời tri ân hợp lệ hoặc sai định dạng cột Google Sheet.');
+    }
+    return dataset;
+  }
+
+  /**
+   * Tự động lấy dữ liệu xuất báo cáo (Không đụng Code.gs):
+   * - Lớp 1: Thử đọc trực tiếp toàn bộ Google Sheet qua GVIZ (đủ 100% nội dung lời chúc nếu trình duyệt có quyền xem Sheet)
+   * - Lớp 2: Dự phòng tức thì từ Live Apps Script API (get_dashboard + recentTributes) — đủ 100% Top 30, Top 100 & danh sách 781+ lượt gửi
+   */
+  static async fetchExportDataset(preloadedDashboard = null) {
+    // 1. Thử đọc trực tiếp toàn bộ Google Sheet qua GVIZ (có đủ 100% cột E/J lời chúc & cột M link Drive)
+    try {
+      const sheetRows = await loadSheetViaGvizJsonp(GOOGLE_SHEET_ID, GOOGLE_SHEET_GID, 4500);
+      if (Array.isArray(sheetRows) && sheetRows.length > 1) {
+        const fullDataset = this.buildExportDatasetFromRawRows(sheetRows, 'google_sheet_live');
+        if (fullDataset && fullDataset.submissions.length > 0) {
+          return fullDataset;
+        }
+      }
+    } catch (eGviz) {
+      console.info('Không đọc trực tiếp GVIZ Sheet (chuyển sang API trực tuyến):', eGviz?.message || eGviz);
+    }
+
+    // 2. Lấy toàn bộ số liệu trực tiếp từ Live Apps Script API (get_dashboard + recentTributes)
+    let dashboard = preloadedDashboard;
+    if (!dashboard || !Array.isArray(dashboard.unitSpread) || dashboard.unitSpread.length === 0) {
+      dashboard = await this.getDashboardStats();
+    }
+
+    // Lấy thêm 20 bản ghi gần nhất có đầy đủ nội dung lời chúc + link Drive
+    let recentWithMsg = [];
+    try {
+      const recentRes = await this.adminGetAllSubmissions();
+      if (recentRes && recentRes.success && Array.isArray(recentRes.data)) {
+        recentWithMsg = recentRes.data;
+      }
+    } catch (eRec) {}
+
+    const msgLookup = new Map();
+    const recentEmailPairMap = new Map();
+    recentWithMsg.forEach(item => {
+      const sEm = String(item.senderEmail || '').trim().toLowerCase();
+      const rEm = String(item.recipientEmail || '').trim().toLowerCase();
+      const ts = String(item.timestamp || '').trim();
+      const entry = {
+        message: cleanAndCorrectVietnameseText(item.message || ''),
+        driveCardUrl: item.driveUrl || item.driveCardUrl || '',
+        submissionId: item.submissionId || (item.rowNumber ? `FTEL-${1000 + Number(item.rowNumber)}` : '')
+      };
+      if (sEm && rEm && ts) msgLookup.set(`${sEm}|${rEm}|${ts}`, entry);
+      if (sEm && rEm) recentEmailPairMap.set(`${sEm}|${rEm}`, entry);
+    });
+
+    const top30MsgMap = new Map();
+    (dashboard?.top30Recipients || []).forEach(t => {
+      const rEm = String(t.email || '').trim().toLowerCase();
+      if (rEm && t.latestMessage) {
+        top30MsgMap.set(rEm, cleanAndCorrectVietnameseText(t.latestMessage));
+      }
+    });
+
+    // Gom toàn bộ lượt gửi từ unitSpread.flamesList (chứa đủ 100% 781+ lượt hợp lệ)
+    const submissions = [];
+    const seenFlameKey = new Set();
+    const recipientMap = new Map();
+
+    (dashboard?.unitSpread || []).forEach(u => {
+      (u.flamesList || []).forEach((f, idx) => {
+        const sEm = String(f.senderEmail || '').trim().toLowerCase();
+        const rEm = String(f.recipientEmail || '').trim().toLowerCase();
+        const ts = String(f.timestamp || '').trim();
+        const uniqueKey = `${sEm}|${rEm}|${ts}|${f.role || ''}`;
+        if (seenFlameKey.has(uniqueKey)) return;
+        seenFlameKey.add(uniqueKey);
+
+        const matched = msgLookup.get(`${sEm}|${rEm}|${ts}`) || recentEmailPairMap.get(`${sEm}|${rEm}`) || null;
+        const msg = cleanAndCorrectVietnameseText(f.message || matched?.message || '');
+
+        submissions.push({
+          rowNumber: submissions.length + 2,
+          submissionId: matched?.submissionId || `FTEL-${1002 + submissions.length}`,
+          timestamp: ts,
+          senderName: f.senderName || lookupEmployeeInfo(sEm).name || sEm,
+          senderEmail: sEm,
+          senderDept: f.senderDept || 'FPT Telecom',
+          recipientName: f.recipientName || lookupEmployeeInfo(rEm).name || rEm,
+          recipientEmail: rEm,
+          recipientDept: f.recipientDept || u.unit || 'FPT Telecom',
+          recipientRole: f.role || f.recipientRole || 'Người dẫn dắt – Người truyền cảm hứng',
+          message: msg,
+          checkStatus: 'HỢP LỆ',
+          emailSentStatus: 'ĐÃ GỬI MAIL',
+          driveCardUrl: matched?.driveCardUrl || ''
+        });
+
+        if (rEm) {
+          if (!recipientMap.has(rEm)) {
+            recipientMap.set(rEm, {
+              name: f.recipientName || lookupEmployeeInfo(rEm).name || rEm,
+              email: rEm,
+              dept: f.recipientDept || u.unit || 'FPT Telecom',
+              role: f.role || 'Người dẫn dắt – Người truyền cảm hứng',
+              count: 0,
+              latestMessage: top30MsgMap.get(rEm) || msg
+            });
+          }
+          const recObj = recipientMap.get(rEm);
+          recObj.count++;
+          if (msg && !recObj.latestMessage) recObj.latestMessage = msg;
+        }
+      });
+
+      // Đồng bộ bổ sung từ recipientsList phòng trường hợp có chênh lệch
+      (u.recipientsList || []).forEach(rec => {
+        const rEm = String(rec.email || '').trim().toLowerCase();
+        if (!rEm) return;
+        if (!recipientMap.has(rEm)) {
+          recipientMap.set(rEm, {
+            name: rec.name || rEm,
+            email: rEm,
+            dept: rec.dept || u.unit || 'FPT Telecom',
+            role: rec.role || 'Người dẫn dắt – Người truyền cảm hứng',
+            count: Number(rec.count || 1),
+            latestMessage: top30MsgMap.get(rEm) || ''
+          });
+        } else if (Number(rec.count || 0) > recipientMap.get(rEm).count) {
+          recipientMap.get(rEm).count = Number(rec.count);
+        }
+      });
+    });
+
+    // Ưu tiên danh sách chuẩn Top 30 từ server để khớp 100% số đếm Dashboard
+    (dashboard?.top30Recipients || []).forEach(t => {
+      const rEm = String(t.email || '').trim().toLowerCase();
+      if (!rEm) return;
+      recipientMap.set(rEm, {
+        name: t.name || recipientMap.get(rEm)?.name || rEm,
+        email: rEm,
+        dept: t.dept || recipientMap.get(rEm)?.dept || 'FPT Telecom',
+        role: t.role || recipientMap.get(rEm)?.role || 'Người dẫn dắt – Người truyền cảm hứng',
+        count: Number(t.count || recipientMap.get(rEm)?.count || 0),
+        latestMessage: cleanAndCorrectVietnameseText(t.latestMessage || recipientMap.get(rEm)?.latestMessage || '')
+      });
+    });
+
+    const topRecipients = Array.from(recipientMap.values())
+      .sort((a, b) => b.count - a.count)
+      .map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+        badge: idx === 0 ? 'Vàng' : idx === 1 ? 'Bạc' : idx === 2 ? 'Đồng' : (idx < 30 ? 'Top 30' : (idx < 100 ? 'Top 100' : ''))
+      }));
+
+    const early100Senders = (dashboard?.early100Senders || []).slice(0, 100).map((item, idx) => ({
+      order: item.order != null ? item.order : (idx + 1),
+      name: item.name || item.senderName || 'Đồng nghiệp FTEL',
+      email: item.email || item.senderEmail || '',
+      dept: item.dept || item.senderDept || 'FPT Telecom',
+      recipientName: item.recipientName || '',
+      recipientEmail: item.recipientEmail || '',
+      recipientDept: item.recipientDept || '',
+      timestamp: item.timestamp || '',
+      message: cleanAndCorrectVietnameseText(item.message || '')
+    }));
+
+    const withMsgCount = submissions.filter(s => s.message && s.message.trim().length > 0).length;
+
+    return {
+      source: 'apps_script_api',
+      hasFullMessages: submissions.length > 0 && withMsgCount >= submissions.length * 0.9,
+      withMessageCount: withMsgCount,
+      totalSubmissions: submissions.length || (dashboard?.totalFlames || 0),
+      submissions: submissions.length > 0 ? submissions : recentWithMsg,
+      topRecipients,
+      early100Senders
+    };
+  }
 }

@@ -105,56 +105,60 @@
       <!-- Main Body Container (100% Chuyên Trang Live Dashboard) -->
       <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 flex flex-col justify-center">
         <!-- KHU VỰC A: HERO BANNER & NÚT ĐIỀN GOOGLE FORM CHÍNH THỨC -->
-        <div class="text-center max-w-5xl w-full mx-auto mb-5 sm:mb-7 px-1 pt-1">
-          <!-- Bộ chữ tiêu đề Key Visual chính thức: Happy TRAINER'S DAY - 30 năm tiếp lửa -->
-          <h1 class="sr-only">Happy Trainer's Day - 30 Năm Tiếp Lửa</h1>
-          <div class="flex flex-col items-center justify-center mb-3 sm:mb-4 select-none pointer-events-none">
-            <img
-              src="/assets/kv/2_Happy_trim.png"
-              alt="Happy"
-              class="h-10 sm:h-16 md:h-20 lg:h-24 w-auto object-contain -mb-1.5 sm:-mb-2.5 relative z-10 drop-shadow-[0_4px_18px_rgba(243,112,33,0.45)]"
-            />
-            <div class="flex items-center justify-center gap-2 sm:gap-3.5 md:gap-4 relative z-0">
+        <div class="text-center max-w-4xl w-full mx-auto mb-5 sm:mb-7 px-1 pt-1">
+          <!-- Lớp màn kính mờ (Glassmorphism) tách biệt khối tiêu đề với ngọn lửa 3D phía sau -->
+          <div class="relative overflow-hidden rounded-3xl px-4 sm:px-8 md:px-10 py-5 sm:py-7 bg-[#020d2b]/60 backdrop-blur-md border border-amber-400/25 shadow-[0_20px_55px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,215,0,0.2)]">
+            <!-- Viền sáng vàng kim mảnh phía trên & hào quang nhẹ -->
+            <div class="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/75 to-transparent"></div>
+            <div class="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-80 sm:w-[28rem] h-44 rounded-full bg-amber-500/10 blur-3xl"></div>
+
+            <!-- Bộ chữ tiêu đề Key Visual chính thức: Happy TRAINER'S DAY - 30 năm tiếp lửa -->
+            <h1 class="sr-only">Happy Trainer's Day - 30 Năm Tiếp Lửa</h1>
+            <div class="relative z-10 flex flex-col items-center justify-center mb-3 sm:mb-4 select-none pointer-events-none">
               <img
-                src="/assets/kv/3_Trainers_trim.png"
-                alt="TRAINER'S"
-                class="h-7 sm:h-11 md:h-14 lg:h-16 w-auto object-contain drop-shadow-[0_4px_20px_rgba(245,158,11,0.4)]"
+                src="/assets/kv/2_Happy_trim.png"
+                alt="Happy"
+                class="h-10 sm:h-16 md:h-20 lg:h-24 w-auto object-contain -mb-1.5 sm:-mb-2.5 relative z-10 drop-shadow-[0_4px_18px_rgba(243,112,33,0.5)]"
               />
+              <div class="flex items-center justify-center gap-2 sm:gap-3.5 md:gap-4 relative z-0">
+                <img
+                  src="/assets/kv/3_Trainers_trim.png"
+                  alt="TRAINER'S"
+                  class="h-7 sm:h-11 md:h-14 lg:h-16 w-auto object-contain drop-shadow-[0_4px_20px_rgba(245,158,11,0.45)]"
+                />
+                <img
+                  src="/assets/kv/4_Day_trim.png"
+                  alt="DAY"
+                  class="h-7 sm:h-11 md:h-14 lg:h-16 w-auto object-contain drop-shadow-[0_4px_20px_rgba(245,158,11,0.45)]"
+                />
+              </div>
+              <div class="w-56 sm:w-96 md:w-[32rem] h-[2px] bg-gradient-to-r from-transparent via-amber-400/90 to-transparent shadow-[0_0_14px_rgba(251,191,36,0.9)] my-0.5"></div>
               <img
-                src="/assets/kv/4_Day_trim.png"
-                alt="DAY"
-                class="h-7 sm:h-11 md:h-14 lg:h-16 w-auto object-contain drop-shadow-[0_4px_20px_rgba(245,158,11,0.4)]"
+                src="/assets/kv/5_30_nam_tiep_lua_trim.png"
+                alt="30 năm tiếp lửa"
+                class="h-9 sm:h-14 md:h-16 lg:h-20 w-auto object-contain mt-0.5 sm:mt-1 drop-shadow-[0_4px_18px_rgba(243,112,33,0.55)]"
               />
             </div>
-            <div class="w-56 sm:w-96 md:w-[32rem] h-[2px] bg-gradient-to-r from-transparent via-amber-400/90 to-transparent shadow-[0_0_14px_rgba(251,191,36,0.9)] my-0.5"></div>
-            <img
-              src="/assets/kv/5_30_nam_tiep_lua_trim.png"
-              alt="30 năm tiếp lửa"
-              class="h-9 sm:h-14 md:h-16 lg:h-20 w-auto object-contain mt-0.5 sm:mt-1 drop-shadow-[0_4px_18px_rgba(243,112,33,0.5)]"
-            />
-          </div>
 
-          <div>
-            <p class="inline-block text-xs sm:text-base text-slate-100 font-medium leading-relaxed max-w-2xl mx-auto px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-slate-950/75 border border-white/10 shadow-xl backdrop-blur-md drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+            <p class="relative z-10 text-xs sm:text-base text-slate-100/95 font-medium leading-relaxed max-w-2xl mx-auto px-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.85)]">
               Mỗi dòng chia sẻ chân thành của bạn là một tia sáng thắp lên ngọn lửa tôn vinh những người Thầy, Mentor, Coach và người dẫn đường thầm lặng tại FPT Telecom.
             </p>
-          </div>
 
-
-          <!-- Thanh điều hướng nhanh chuẩn AdminLTE Content Header Breadcrumb -->
-          <div class="mt-4 inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-white/10 backdrop-blur-xl shadow-lg">
-            <a href="#section-kpi" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-orange-500/20 border border-transparent hover:border-orange-500/40 text-[11px] sm:text-xs font-bold text-slate-200 hover:text-amber-300 transition-all flex items-center gap-1.5">
-              <span>📊</span>
-              <span>Tổng Quan Chiến Dịch</span>
-            </a>
-            <a href="#section-leaderboard" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-orange-500/20 border border-transparent hover:border-orange-500/40 text-[11px] sm:text-xs font-bold text-slate-200 hover:text-amber-300 transition-all flex items-center gap-1.5">
-              <span>🏆</span>
-              <span>Bảng Vàng Top 30 & 100</span>
-            </a>
-            <a href="#section-unit-spread" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-emerald-500/20 border border-transparent hover:border-emerald-500/40 text-[11px] sm:text-xs font-bold text-slate-200 hover:text-emerald-300 transition-all flex items-center gap-1.5">
-              <span>🏢</span>
-              <span>Thống Kê Theo Đơn Vị</span>
-            </a>
+            <!-- Thanh điều hướng nhanh chuẩn AdminLTE Content Header Breadcrumb -->
+            <div class="relative z-10 mt-4 sm:mt-5 inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-slate-950/65 border border-white/15 shadow-lg">
+              <a href="#section-kpi" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-orange-500/20 border border-transparent hover:border-orange-500/40 text-[11px] sm:text-xs font-bold text-slate-100 hover:text-amber-300 transition-all flex items-center gap-1.5">
+                <span>📊</span>
+                <span>Tổng Quan Chiến Dịch</span>
+              </a>
+              <a href="#section-leaderboard" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-orange-500/20 border border-transparent hover:border-orange-500/40 text-[11px] sm:text-xs font-bold text-slate-100 hover:text-amber-300 transition-all flex items-center gap-1.5">
+                <span>🏆</span>
+                <span>Bảng Vàng Top 30 & 100</span>
+              </a>
+              <a href="#section-unit-spread" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-emerald-500/20 border border-transparent hover:border-emerald-500/40 text-[11px] sm:text-xs font-bold text-slate-100 hover:text-emerald-300 transition-all flex items-center gap-1.5">
+                <span>🏢</span>
+                <span>Thống Kê Theo Đơn Vị</span>
+              </a>
+            </div>
           </div>
 
           <!-- Status Banner cho tiến trình Đồng bộ Google Form -->
@@ -378,17 +382,156 @@
         </div>
 
         <!-- TAB CONTENT 3: Xuất Dữ Liệu -->
-        <div id="admin-view-export" class="hidden space-y-4 overflow-y-auto flex-1 text-center py-6 custom-scrollbar">
-          <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto mb-3">
-            📊
+        <div id="admin-view-export" class="hidden space-y-4 overflow-y-auto flex-1 p-1 custom-scrollbar">
+          <!-- Thanh trạng thái nguồn dữ liệu & Nạp file từ Sheet -->
+          <div class="p-3.5 rounded-2xl bg-black/40 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="text-left space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-bold text-white uppercase tracking-wide">📊 Trung Tâm Xuất Báo Cáo Excel (.xlsx)</span>
+                <span id="admin-export-source-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">Đang chuẩn bị dữ liệu...</span>
+              </div>
+              <p id="admin-export-status-text" class="text-[11px] text-slate-400">
+                Xuất trực tiếp file Microsoft Excel (.xlsx) tự căn cột, hiển thị chuẩn tiếng Việt không bị dồn cột.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+              <input id="admin-export-csv-upload-input" type="file" accept=".xlsx,.xls,.csv,text/csv" class="hidden" />
+              <button
+                id="admin-export-csv-upload-btn"
+                type="button"
+                class="px-3 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Nạp file Excel (.xlsx) hoặc CSV tải từ Google Sheet (Tệp > Tải xuống) để có đủ 100% nội dung lời chúc cũ mà không cần sửa Code.gs"
+              >
+                <span>📂</span>
+                <span>Nạp Excel/CSV từ Sheet</span>
+              </button>
+              <button
+                id="admin-export-reload-btn"
+                type="button"
+                class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span>🔄</span>
+                <span>Làm mới</span>
+              </button>
+            </div>
           </div>
-          <h4 class="text-base font-bold text-white mb-1">Tải Toàn Bộ Danh Sách Lời Tri Ân</h4>
-          <p class="text-xs text-slate-400 max-w-md mx-auto mb-5">
-            Dữ liệu được tải trực tiếp từ Google Sheet, định dạng CSV chuẩn tiếng Việt UTF-8 tương thích 100% với Excel.
-          </p>
-          <button id="admin-export-csv-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 hover:brightness-110 cursor-pointer">
-            📥 Tải File CSV / Excel Ngay
-          </button>
+
+          <!-- 4 Khối Xuất Nhanh -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+            <!-- 1. Toàn bộ danh sách -->
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border border-emerald-500/25 flex flex-col justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-lg">📥</span>
+                  <h4 class="text-sm font-bold text-white">Toàn Bộ Danh Sách Lời Tri Ân</h4>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Xuất toàn bộ các lượt tri ân hợp lệ trên hệ thống (đầy đủ Người gửi, Người nhận, Đơn vị, Thời gian, Lời chúc).
+                </p>
+              </div>
+              <button id="admin-export-csv-btn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 hover:brightness-110 cursor-pointer transition-all">
+                📥 Tải Toàn Bộ Danh Sách (Excel .xlsx)
+              </button>
+            </div>
+
+            <!-- 2. Top 30 người nhận nhiều lửa nhất -->
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/25 flex flex-col justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-lg">🏆</span>
+                  <h4 class="text-sm font-bold text-amber-300">Bảng Vinh Danh TOP 30</h4>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Top 30 Thầy Cô / Mentor nhận nhiều ngọn lửa nhất (6 cột chuẩn: Thứ hạng, Họ tên, Đơn vị, Email, Vai trò, Số ngọn lửa).
+                </p>
+              </div>
+              <div class="flex flex-col gap-2">
+                <button id="admin-export-top30-btn" type="button" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-bold text-xs hover:brightness-110 cursor-pointer transition-all">
+                  🏆 Xuất Bảng Xếp Hạng TOP 30 (Excel .xlsx)
+                </button>
+                <button id="admin-export-top30-wishes-btn" type="button" class="w-full py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/35 text-amber-200 font-semibold text-[11px] cursor-pointer transition-all">
+                  💌 Xuất Tất Cả Lời Chúc Gửi Tới TOP 30 (.xlsx)
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. Top 100 người gửi sớm nhất -->
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-sky-500/10 to-indigo-500/5 border border-sky-500/25 flex flex-col justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-lg">⚡</span>
+                  <h4 class="text-sm font-bold text-sky-300">TOP 100 Người Gửi Sớm Nhất</h4>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Danh sách 100 CBNV tiên phong thắp lửa tri ân đầu tiên (khớp 100% mục Top 100 trên Dashboard).
+                </p>
+              </div>
+              <button id="admin-export-top100-early-btn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-400 to-indigo-500 text-slate-950 font-bold text-xs hover:brightness-110 cursor-pointer transition-all">
+                ⚡ Xuất TOP 100 Gửi Sớm Nhất (Excel .xlsx)
+              </button>
+            </div>
+
+            <!-- 4. Top 100 người nhận nhiều lửa nhất -->
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-rose-500/10 to-orange-500/5 border border-rose-500/25 flex flex-col justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-lg">🔥</span>
+                  <h4 class="text-sm font-bold text-rose-300">TOP 100 Người Nhận Nhiều Lửa Nhất</h4>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Mở rộng bảng xếp hạng lên 100 cá nhân (6 cột chuẩn: Thứ hạng, Họ tên, Đơn vị, Email, Vai trò, Số ngọn lửa).
+                </p>
+              </div>
+              <button id="admin-export-top100-recipients-btn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-400 to-orange-500 text-slate-950 font-bold text-xs hover:brightness-110 cursor-pointer transition-all">
+                🔥 Xuất TOP 100 Người Nhận (Excel .xlsx)
+              </button>
+            </div>
+          </div>
+
+          <!-- 5. Xuất các lời chúc gửi tới 1 người cụ thể -->
+          <div class="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/5 border border-purple-500/30 text-left space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">🎯</span>
+                <h4 class="text-sm font-bold text-purple-200">Xuất Toàn Bộ Lời Chúc Gửi Tới Một Người Cụ Thể</h4>
+              </div>
+              <span id="admin-export-person-count-pill" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-400/30">
+                Chọn người nhận bên dưới
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+              <div class="sm:col-span-5">
+                <input
+                  id="admin-export-person-search"
+                  type="text"
+                  placeholder="🔍 Gõ tên hoặc email để lọc nhanh..."
+                  class="custom-input w-full rounded-xl px-3.5 py-2 text-xs placeholder-slate-400"
+                />
+              </div>
+              <div class="sm:col-span-7">
+                <select
+                  id="admin-export-person-select"
+                  class="custom-input w-full rounded-xl px-3 py-2 text-xs bg-slate-900 text-white border border-white/15 cursor-pointer"
+                >
+                  <option value="">-- Đang tải danh sách người nhận --</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+              <p id="admin-export-person-summary" class="text-[11px] text-slate-300">
+                Gợi ý: Nếu cần đầy đủ 100% văn bản lời chúc cũ (hơn 20 dòng gần nhất), bấm nút <strong>📂 Nạp Excel/CSV từ Sheet</strong> ở góc trên trước khi xuất.
+              </p>
+              <button
+                id="admin-export-person-btn"
+                type="button"
+                class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-400 to-fuchsia-500 text-slate-950 font-bold text-xs shadow-lg shadow-purple-500/20 hover:brightness-110 cursor-pointer transition-all whitespace-nowrap"
+              >
+                📥 Xuất Lời Chúc Của Người Này (Excel .xlsx)
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
